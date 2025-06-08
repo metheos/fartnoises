@@ -1,36 +1,158 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fartnoises Game 🎵💨
+
+A hilarious sound-based party game for 3-8 players! Players take turns as judge, selecting weird prompts while others create funny sound combinations to match them.
+
+## Game Overview
+
+**Fartnoises** is a quirky multiplayer party game that combines:
+
+- **Main Screen Interface** - Displayed on TV/shared display for all players to see
+- **Player Device Controllers** - Phone/tablet/computer interfaces for individual interactions
+- **Real-time Multiplayer** - Synchronized gameplay using Socket.IO
+
+### How to Play
+
+1. **Setup**: One device displays the main screen, players join on their phones/devices
+2. **Join**: Players enter a 4-letter room code to join the game
+3. **Judge Selection**: One player becomes judge per round
+4. **Prompt Phase**: Judge selects from 3 weird prompts
+5. **Sound Selection**: Other players choose 2 sound effects to match the prompt
+6. **Playback**: All sound combos are played back anonymously
+7. **Judging**: Judge picks the best/funniest combo
+8. **Scoring**: Winner gets a point, repeat with new judge
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ installed
+- Modern web browser
+- Multiple devices for multiplayer testing
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone [repository-url]
+cd fartnoises
+
+# Install dependencies
+npm install
+
+# Start the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Running the Game
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Start the server**:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   npm run dev
+   ```
 
-## Learn More
+2. **Open Main Screen** (TV/Display):
 
-To learn more about Next.js, take a look at the following resources:
+   - Navigate to `http://localhost:3001`
+   - Click "Main Screen Mode"
+   - This shows the shared game display
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **Join as Players** (Phones/Devices):
+   - Navigate to `http://localhost:3001` on each player device
+   - Enter player name
+   - Either "Create Room" (first player) or "Join Room" with 4-letter code
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Testing Multiplayer
 
-## Deploy on Vercel
+To test locally:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Open the main screen in one browser window
+2. Open multiple incognito/private windows as different players
+3. Create a room with one player, join with others using the room code
+4. Start playing!
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Technical Stack
+
+- **Framework**: Next.js 15 with TypeScript and App Router
+- **Styling**: Tailwind CSS for modern, colorful UI
+- **Real-time Communication**: Socket.IO for multiplayer functionality
+- **Audio**: Web Audio API for sound effects and playback
+
+## Game Features
+
+- ✅ Room creation with 4-letter codes
+- ✅ Real-time multiplayer synchronization
+- ✅ Judge rotation system
+- ✅ Sound effect library (25+ sounds)
+- ✅ Prompt database (25+ weird prompts)
+- ✅ Responsive design for mobile and TV interfaces
+- ✅ Player avatar system with colors
+- ✅ Scoring and winner announcements
+
+## Development
+
+### Project Structure
+
+```
+src/
+  app/              # Next.js App Router pages
+    page.tsx        # Landing page
+    game/           # Player device interface
+    main-screen/    # TV display interface
+  data/
+    gameData.ts     # Sound effects and prompts
+  types/
+    game.ts         # TypeScript interfaces
+  pages/api/
+    socket.ts       # Socket.IO server
+  utils/
+    audioSystem.ts  # Audio playback utilities
+```
+
+### Adding Sound Effects
+
+1. Add MP3 files to `public/sounds/`
+2. Update the `SOUND_EFFECTS` array in `src/data/gameData.ts`
+3. Follow the naming convention: `{category}_{name}.mp3`
+
+### Customization
+
+- **Prompts**: Edit `GAME_PROMPTS` in `src/data/gameData.ts`
+- **Game Settings**: Modify `GAME_CONFIG` for rounds, timers, etc.
+- **Colors**: Update `PLAYER_COLORS` for avatar colors
+- **Sounds**: Add new sound effects to the library
+
+## Deployment
+
+### Vercel (Recommended)
+
+```bash
+# Deploy to Vercel
+npm run build
+vercel deploy
+```
+
+### Other Platforms
+
+The app can be deployed to any platform supporting Node.js:
+
+- Netlify
+- Railway
+- Heroku
+- Digital Ocean
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test multiplayer functionality
+5. Submit a pull request
+
+## License
+
+MIT License - feel free to use this for your own party games!
+
+## Credits
+
+Created with ❤️ for hilarious party game nights!
