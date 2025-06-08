@@ -15,13 +15,13 @@ export const SOUND_EFFECTS: SoundEffect[] = [
     fileName: "fart2.mp3",
     category: "bodily",
   },
-  { 
-    id: "burp", 
-    name: "Loud Burp", 
-    fileName: "burp.mp3", 
-    category: "bodily" 
+  {
+    id: "burp",
+    name: "Loud Burp",
+    fileName: "burp.mp3",
+    category: "bodily",
   },
-  
+
   // Animal sounds
   {
     id: "goat",
@@ -29,11 +29,11 @@ export const SOUND_EFFECTS: SoundEffect[] = [
     fileName: "goat.mp3",
     category: "animals",
   },
-  { 
-    id: "duck", 
-    name: "Angry Duck", 
-    fileName: "duck.mp3", 
-    category: "animals" 
+  {
+    id: "duck",
+    name: "Angry Duck",
+    fileName: "duck.mp3",
+    category: "animals",
   },
 
   // Mechanical/Tech sounds
@@ -43,11 +43,11 @@ export const SOUND_EFFECTS: SoundEffect[] = [
     fileName: "laser.mp3",
     category: "tech",
   },
-  { 
-    id: "robot", 
-    name: "Robot Voice", 
-    fileName: "robot.mp3", 
-    category: "tech" 
+  {
+    id: "robot",
+    name: "Robot Voice",
+    fileName: "robot.mp3",
+    category: "tech",
   },
 ];
 

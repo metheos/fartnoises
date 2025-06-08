@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:multiplayer": "ts-node --project tsconfig.scripts.json scripts/test-multiplayer.ts",
+    "test:multiplayer:complete": "ts-node --project tsconfig.scripts.json scripts/test-multiplayer-complete.ts"
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",
@@ -27,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.3",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

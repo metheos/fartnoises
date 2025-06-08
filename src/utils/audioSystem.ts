@@ -11,14 +11,16 @@ export class AudioSystem {
     }
     return AudioSystem.instance;
   }
-  async initialize(): Promise<void> {    if (!this.audioContext) {
+  async initialize(): Promise<void> {
+    if (!this.audioContext) {
       // Create proper type definition for webkit prefix
       const WindowWithWebkit = window as Window & {
         webkitAudioContext?: typeof AudioContext;
       };
-      
+
       this.audioContext = new (window.AudioContext ||
-        WindowWithWebkit.webkitAudioContext || AudioContext)();
+        WindowWithWebkit.webkitAudioContext ||
+        AudioContext)();
     }
 
     if (this.audioContext.state === "suspended") {

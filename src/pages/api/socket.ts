@@ -88,8 +88,9 @@ export default function SocketHandler(
     res.socket.server.io = io;
 
     io.on("connection", (socket) => {
-      console.log(`Client connected: ${socket.id}`);      socket.on("createRoom", (playerName, callback) => {
-        console.log('createRoom event received with playerName:', playerName);
+      console.log(`Client connected: ${socket.id}`);
+      socket.on("createRoom", (playerName, callback) => {
+        console.log("createRoom event received with playerName:", playerName);
         try {
           let roomCode: string;
           do {
@@ -114,14 +115,16 @@ export default function SocketHandler(
             maxRounds: GAME_CONFIG.DEFAULT_MAX_ROUNDS,
             submissions: [],
             winner: null,
-          };          rooms.set(roomCode, room);
+          };
+          rooms.set(roomCode, room);
           playerRooms.set(socket.id, roomCode);
           socket.join(roomCode);
 
-          console.log('Calling callback with roomCode:', roomCode);
+          console.log("Calling callback with roomCode:", roomCode);
           callback(roomCode);
-          console.log('Emitting roomCreated event with room and player');
-          socket.emit("roomCreated", { room, player });        } catch (error) {
+          console.log("Emitting roomCreated event with room and player");
+          socket.emit("roomCreated", { room, player });
+        } catch (error) {
           console.error("Error creating room:", error);
           socket.emit("error", { message: "Failed to create room" });
         }
@@ -153,7 +156,8 @@ export default function SocketHandler(
             color: getRandomColor(usedColors),
             score: 0,
             isVIP: false,
-          };          room.players.push(player);
+          };
+          room.players.push(player);
           playerRooms.set(socket.id, roomCode);
           socket.join(roomCode);
 
@@ -194,9 +198,7 @@ export default function SocketHandler(
           io.to(roomCode).emit("judgeSelected", room.currentJudge);
           io.to(roomCode).emit("gameStateChanged", GameState.JUDGE_SELECTION, {
             judgeId: room.currentJudge,
-          });
-
-          // Auto-transition to prompt selection after a delay
+          }); // Auto-transition to prompt selection after a delay
           setTimeout(() => {
             if (room.gameState === GameState.JUDGE_SELECTION) {
               room.gameState = GameState.PROMPT_SELECTION;
@@ -204,7 +206,7 @@ export default function SocketHandler(
               io.to(roomCode).emit(
                 "gameStateChanged",
                 GameState.PROMPT_SELECTION,
-                { prompts }
+                { prompts, judgeId: room.currentJudge }
               );
             }
           }, 3000);
@@ -284,6 +286,7 @@ export default function SocketHandler(
                 room.gameState = GameState.JUDGING;
                 io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
                   submissions: room.submissions,
+                  judgeId: room.currentJudge,
                 });
               }
             }, room.submissions.length * 3000 + 2000); // Time for all sounds to play
@@ -359,7 +362,7 @@ export default function SocketHandler(
                   io.to(roomCode).emit(
                     "gameStateChanged",
                     GameState.PROMPT_SELECTION,
-                    { prompts }
+                    { prompts, judgeId: room.currentJudge }
                   );
                 }
               }, 3000);
