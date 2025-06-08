@@ -31,8 +31,14 @@ function GamePageContent() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState<number>(30);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugLog(prev => [...prev.slice(-10), `[${timestamp}] ${message}`]);
+  };
   
   const mode = searchParams?.get('mode');
   const playerName = searchParams?.get('name');
@@ -57,29 +63,54 @@ function GamePageContent() {
       }
     };
 
-    initAudio();
-
-    // Initialize socket connection
+    initAudio();    // Initialize socket connection
     socket = io({
       path: '/api/socket',
-    });
-
-    socket.on('connect', () => {
+      transports: ['polling', 'websocket'],
+    });    socket.on('connect', () => {
+      console.log('Socket connected successfully!', socket.id);
+      addDebugLog(`Socket connected: ${socket.id}`);
       setIsConnected(true);
       
       if (mode === 'create') {
-        socket.emit('createRoom', { playerName });
+        console.log('Emitting createRoom with playerName:', playerName);
+        addDebugLog(`Emitting createRoom with player: ${playerName}`);
+        socket.emit('createRoom', playerName, (roomCode: string) => {
+          // Room created successfully with the returned room code
+          console.log('Room created callback received:', roomCode);
+          addDebugLog(`CreateRoom callback received: ${roomCode}`);
+        });
       } else if (mode === 'join' && roomCode) {
-        socket.emit('joinRoom', { roomCode, playerName });
+        console.log('Emitting joinRoom with roomCode:', roomCode, 'playerName:', playerName);
+        addDebugLog(`Emitting joinRoom: ${roomCode}, player: ${playerName}`);
+        socket.emit('joinRoom', roomCode, playerName, (success: boolean) => {
+          if (!success) {
+            setError('Failed to join room. Room may be full or not exist.');
+            addDebugLog('JoinRoom failed');
+          } else {
+            addDebugLog('JoinRoom successful');
+          }
+        });
       }
     });
 
-    socket.on('roomCreated', ({ room, player }) => {
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setError(`Connection failed: ${error.message}`);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('Socket disconnected:', reason);
+      setIsConnected(false);
+    });    socket.on('roomCreated', ({ room, player }) => {
+      console.log('roomCreated event received:', { room, player });
+      addDebugLog(`roomCreated event received for room: ${room?.code}`);
       setRoom(room);
       setPlayer(player);
     });
 
     socket.on('roomJoined', ({ room, player }) => {
+      console.log('roomJoined event received:', { room, player });
       setRoom(room);
       setPlayer(player);
     });
@@ -94,9 +125,8 @@ function GamePageContent() {
 
     socket.on('gameStateChanged', ({ room }) => {
       setRoom(room);
-    });
-
-    socket.on('error', ({ message }) => {
+    });    socket.on('error', ({ message }) => {
+      addDebugLog(`Error event: ${message}`);
       setError(message);
     });
 
@@ -173,14 +203,28 @@ function GamePageContent() {
         </div>
       </div>
     );
-  }
-
-  if (!room || !player) {
+  }  if (!room || !player) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
-        <div className="bg-white rounded-3xl p-8 text-center">
+        <div className="bg-white rounded-3xl p-8 text-center max-w-lg w-full">
           <div className="animate-pulse w-16 h-16 bg-purple-200 rounded-full mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Setting up your game...</p>
+          <div className="mt-4 text-sm text-left">
+            <p>Socket Connected: {isConnected ? '✅' : '❌'}</p>
+            <p>Mode: {mode}</p>
+            <p>Player Name: {playerName}</p>
+            <p>Room: {room ? 'Found' : 'None'}</p>
+            <p>Player: {player ? 'Found' : 'None'}</p>
+            {error && <p className="text-red-500">Error: {error}</p>}
+            {debugLog.length > 0 && (
+              <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
+                <p className="font-bold mb-2">Debug Log:</p>
+                {debugLog.map((log, index) => (
+                  <p key={index} className="text-gray-600">{log}</p>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );

@@ -88,9 +88,8 @@ export default function SocketHandler(
     res.socket.server.io = io;
 
     io.on("connection", (socket) => {
-      console.log(`Client connected: ${socket.id}`);
-
-      socket.on("createRoom", (playerName, callback) => {
+      console.log(`Client connected: ${socket.id}`);      socket.on("createRoom", (playerName, callback) => {
+        console.log('createRoom event received with playerName:', playerName);
         try {
           let roomCode: string;
           do {
@@ -115,17 +114,16 @@ export default function SocketHandler(
             maxRounds: GAME_CONFIG.DEFAULT_MAX_ROUNDS,
             submissions: [],
             winner: null,
-          };
-
-          rooms.set(roomCode, room);
+          };          rooms.set(roomCode, room);
           playerRooms.set(socket.id, roomCode);
           socket.join(roomCode);
 
+          console.log('Calling callback with roomCode:', roomCode);
           callback(roomCode);
-          socket.emit("roomJoined", room);
-        } catch (error) {
+          console.log('Emitting roomCreated event with room and player');
+          socket.emit("roomCreated", { room, player });        } catch (error) {
           console.error("Error creating room:", error);
-          socket.emit("error", "Failed to create room");
+          socket.emit("error", { message: "Failed to create room" });
         }
       });
 
@@ -155,15 +153,14 @@ export default function SocketHandler(
             color: getRandomColor(usedColors),
             score: 0,
             isVIP: false,
-          };
-
-          room.players.push(player);
+          };          room.players.push(player);
           playerRooms.set(socket.id, roomCode);
           socket.join(roomCode);
 
-          callback(true, room);
+          callback(true);
+          socket.emit("roomJoined", { room, player });
           io.to(roomCode).emit("roomUpdated", room);
-          io.to(roomCode).emit("playerJoined", player);
+          io.to(roomCode).emit("playerJoined", { room });
         } catch (error) {
           console.error("Error joining room:", error);
           callback(false);

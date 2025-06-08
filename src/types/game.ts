@@ -51,17 +51,19 @@ export interface GamePrompt {
 
 // Socket event types
 export interface ServerToClientEvents {
-  roomJoined: (room: Room) => void;
+  roomCreated: (data: { room: Room; player: Player }) => void;
+  roomJoined: (data: { room: Room; player: Player }) => void;
   roomUpdated: (room: Room) => void;
   gameStateChanged: (state: GameState, data?: Record<string, unknown>) => void;
-  playerJoined: (player: Player) => void;
+  playerJoined: (data: { room: Room }) => void;
   playerLeft: (playerId: string) => void;
-  error: (message: string) => void;
+  error: (data: { message: string }) => void;
   soundSubmitted: (submission: SoundSubmission) => void;
   judgeSelected: (judgeId: string) => void;
   promptSelected: (prompt: string) => void;
   roundComplete: (winnerId: string, winnerName: string) => void;
   gameComplete: (winnerId: string, winnerName: string) => void;
+  timeUpdate: (data: { timeLeft: number }) => void;
 }
 
 export interface ClientToServerEvents {

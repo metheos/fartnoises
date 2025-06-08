@@ -11,11 +11,14 @@ export class AudioSystem {
     }
     return AudioSystem.instance;
   }
-  async initialize(): Promise<void> {
-    if (!this.audioContext) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async initialize(): Promise<void> {    if (!this.audioContext) {
+      // Create proper type definition for webkit prefix
+      const WindowWithWebkit = window as Window & {
+        webkitAudioContext?: typeof AudioContext;
+      };
+      
       this.audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+        WindowWithWebkit.webkitAudioContext || AudioContext)();
     }
 
     if (this.audioContext.state === "suspended") {

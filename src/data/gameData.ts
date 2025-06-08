@@ -2,7 +2,7 @@
 import { SoundEffect, GamePrompt } from "@/types/game";
 
 export const SOUND_EFFECTS: SoundEffect[] = [
-  // Funny/Quirky sounds
+  // Bodily sounds
   {
     id: "fart1",
     name: "Classic Fart",
@@ -15,8 +15,13 @@ export const SOUND_EFFECTS: SoundEffect[] = [
     fileName: "fart2.mp3",
     category: "bodily",
   },
-  { id: "burp", name: "Loud Burp", fileName: "burp.mp3", category: "bodily" },
-
+  { 
+    id: "burp", 
+    name: "Loud Burp", 
+    fileName: "burp.mp3", 
+    category: "bodily" 
+  },
+  
   // Animal sounds
   {
     id: "goat",
@@ -24,19 +29,11 @@ export const SOUND_EFFECTS: SoundEffect[] = [
     fileName: "goat.mp3",
     category: "animals",
   },
-  { id: "duck", name: "Angry Duck", fileName: "duck.mp3", category: "animals" },
-  {
-    id: "elephant",
-    name: "Elephant Trumpet",
-    fileName: "elephant.mp3",
-    category: "animals",
-  },
-  { id: "cat", name: "Angry Cat", fileName: "cat.mp3", category: "animals" },
-  {
-    id: "dog",
-    name: "Tiny Dog Bark",
-    fileName: "dog.mp3",
-    category: "animals",
+  { 
+    id: "duck", 
+    name: "Angry Duck", 
+    fileName: "duck.mp3", 
+    category: "animals" 
   },
 
   // Mechanical/Tech sounds
@@ -46,112 +43,11 @@ export const SOUND_EFFECTS: SoundEffect[] = [
     fileName: "laser.mp3",
     category: "tech",
   },
-  { id: "robot", name: "Robot Voice", fileName: "robot.mp3", category: "tech" },
-  { id: "beep", name: "Error Beep", fileName: "beep.mp3", category: "tech" },
-  {
-    id: "dial-up",
-    name: "Dial-up Internet",
-    fileName: "dialup.mp3",
-    category: "tech",
-  },
-
-  // Musical/Sound effects
-  {
-    id: "trombone",
-    name: "Sad Trombone",
-    fileName: "trombone.mp3",
-    category: "musical",
-  },
-  {
-    id: "applause",
-    name: "Applause",
-    fileName: "applause.mp3",
-    category: "musical",
-  },
-  {
-    id: "boo",
-    name: "Disappointed Crowd",
-    fileName: "boo.mp3",
-    category: "musical",
-  },
-  {
-    id: "airhorn",
-    name: "Air Horn",
-    fileName: "airhorn.mp3",
-    category: "musical",
-  },
-
-  // Everyday sounds
-  {
-    id: "sizzle",
-    name: "Sizzling Bacon",
-    fileName: "sizzle.mp3",
-    category: "food",
-  },
-  {
-    id: "crunch",
-    name: "Loud Crunch",
-    fileName: "crunch.mp3",
-    category: "food",
-  },
-  { id: "slurp", name: "Loud Slurp", fileName: "slurp.mp3", category: "food" },
-  {
-    id: "microwave",
-    name: "Microwave Ding",
-    fileName: "microwave.mp3",
-    category: "food",
-  },
-
-  // Explosive/Dramatic
-  {
-    id: "explosion",
-    name: "Giant Explosion",
-    fileName: "explosion.mp3",
-    category: "dramatic",
-  },
-  {
-    id: "scream",
-    name: "Wilhelm Scream",
-    fileName: "scream.mp3",
-    category: "dramatic",
-  },
-  {
-    id: "crash",
-    name: "Car Crash",
-    fileName: "crash.mp3",
-    category: "dramatic",
-  },
-  {
-    id: "thunder",
-    name: "Thunder Clap",
-    fileName: "thunder.mp3",
-    category: "dramatic",
-  },
-
-  // Weird/Random
-  {
-    id: "squeaky-toy",
-    name: "Squeaky Toy",
-    fileName: "squeaky.mp3",
-    category: "weird",
-  },
-  {
-    id: "boing",
-    name: "Cartoon Boing",
-    fileName: "boing.mp3",
-    category: "weird",
-  },
-  {
-    id: "whoosh",
-    name: "Magic Whoosh",
-    fileName: "whoosh.mp3",
-    category: "weird",
-  },
-  {
-    id: "record-scratch",
-    name: "Record Scratch",
-    fileName: "scratch.mp3",
-    category: "weird",
+  { 
+    id: "robot", 
+    name: "Robot Voice", 
+    fileName: "robot.mp3", 
+    category: "tech" 
   },
 ];
 
