@@ -36,6 +36,32 @@ This is a **fartnoises** game - a quirky, sound-based party game for 3-8 players
 - Implement proper error handling for network disconnections
 - Add loading states and smooth transitions between game phases
 
+## Command Line & Terminal Instructions
+
+**IMPORTANT**: This project runs on Windows with PowerShell as the default shell. When generating any terminal commands or scripts:
+
+- Always use PowerShell syntax (not bash/zsh)
+- Use Windows-style file paths with backslashes (`\`) or forward slashes (`/`)
+- Use PowerShell-compatible commands:
+  - `Get-ChildItem` or `ls` (not `ls -la`)
+  - `Copy-Item` or `cp` (not `cp -r`)
+  - `Remove-Item` or `rm` (not `rm -rf`)
+  - `New-Item -ItemType Directory` or `mkdir` for creating directories
+  - Use `.ps1` extension for PowerShell scripts
+- Package manager commands should use `npm`, `yarn`, or `pnpm` as appropriate
+- When running multiple commands, use `;` or `&&` appropriately for PowerShell
+- File operations should account for Windows file system conventions
+
+Example acceptable commands:
+
+```powershell
+npm install
+npm run dev
+mkdir components
+Copy-Item .\src\* .\backup\ -Recurse
+Get-ChildItem -Path .\src -Recurse -Filter "*.ts"
+```
+
 ## Sound Effects
 
 - Use a curated list of funny/quirky sound effects
