@@ -31,7 +31,13 @@ function GamePageContent() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState<number>(30);
-  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [roundWinner, setRoundWinner] = useState<{
+    winnerId: string;
+    winnerName: string;
+    winningSubmission: any;
+    submissionIndex: number;
+  } | null>(null);  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [renderCounter, setRenderCounter] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -41,8 +47,8 @@ function GamePageContent() {
   };
   
   const mode = searchParams?.get('mode');
-  const playerName = searchParams?.get('name');
-  const roomCode = searchParams?.get('room');  useEffect(() => {
+  const playerName = searchParams?.get('playerName') || searchParams?.get('name');
+  const roomCode = searchParams?.get('roomCode') || searchParams?.get('room');useEffect(() => {
     if (!playerName) {
       router.push('/');
       return;
@@ -71,8 +77,7 @@ function GamePageContent() {
       console.log('Socket connected successfully!', socket.id);
       addDebugLog(`Socket connected: ${socket.id}`);
       setIsConnected(true);
-      
-      if (mode === 'create') {
+        if (mode === 'create' || mode === 'host') {
         console.log('Emitting createRoom with playerName:', playerName);
         addDebugLog(`Emitting createRoom with player: ${playerName}`);
         socket.emit('createRoom', playerName, (roomCode: string) => {
@@ -105,27 +110,182 @@ function GamePageContent() {
     });    socket.on('roomCreated', ({ room, player }) => {
       console.log('roomCreated event received:', { room, player });
       addDebugLog(`roomCreated event received for room: ${room?.code}`);
-      setRoom(room);
-      setPlayer(player);
+      
+      // Use functional state updates to ensure React re-renders
+      setRoom(() => {
+        const newRoom = room ? { ...room } : null;
+        console.log('Setting room state (functional update):', newRoom);
+        return newRoom;
+      });
+      
+      setPlayer(() => {
+        const newPlayer = player ? { ...player } : null;
+        console.log('Setting player state (functional update):', newPlayer);
+        return newPlayer;
+      });
+      
+      // Force re-render
+      setRenderCounter(prev => prev + 1);
     });
 
     socket.on('roomJoined', ({ room, player }) => {
       console.log('roomJoined event received:', { room, player });
-      setRoom(room);
-      setPlayer(player);
-    });
-
-    socket.on('roomUpdated', (updatedRoom) => {
-      setRoom(updatedRoom);
+      addDebugLog(`roomJoined event received for room: ${room?.code}`);
+      
+      // Use functional state updates to ensure React re-renders
+      setRoom(() => {
+        const newRoom = room ? { ...room } : null;
+        console.log('Setting room state (functional update):', newRoom);
+        return newRoom;
+      });
+      
+      setPlayer(() => {
+        const newPlayer = player ? { ...player } : null;
+        console.log('Setting player state (functional update):', newPlayer);
+        return newPlayer;
+      });
+      
+      // Force re-render
+      setRenderCounter(prev => prev + 1);
+    });    socket.on('roomUpdated', (updatedRoom) => {
+      console.log('roomUpdated event received:', updatedRoom);
+      addDebugLog(`roomUpdated: ${updatedRoom?.code} with ${updatedRoom?.players?.length} players`);
+      
+      // Only update room state if we receive valid room data
+      if (updatedRoom && updatedRoom.code) {
+        setRoom(() => {
+          const newRoom = { ...updatedRoom };
+          console.log('Setting room state (functional update):', newRoom);
+          return newRoom;
+        });
+        
+        // Force re-render
+        setRenderCounter(prev => prev + 1);
+      } else {
+        console.warn('roomUpdated: Received invalid room data, keeping current room state');
+        addDebugLog('roomUpdated: Invalid room data - keeping current state');
+      }
     });
 
     socket.on('playerJoined', ({ room }) => {
-      setRoom(room);
+      console.log('playerJoined event received:', room);
+      addDebugLog(`playerJoined: ${room?.code} with ${room?.players?.length} players`);
+      
+      // Only update room state if we receive valid room data
+      if (room && room.code) {
+        setRoom(() => {
+          const newRoom = { ...room };
+          console.log('Setting room state (functional update):', newRoom);
+          return newRoom;
+        });
+        
+        // Force re-render
+        setRenderCounter(prev => prev + 1);
+      } else {
+        console.warn('playerJoined: Received invalid room data, keeping current room state');
+        addDebugLog('playerJoined: Invalid room data - keeping current state');
+      }
+    });    socket.on('gameStateChanged', (state, data) => {
+      console.log('gameStateChanged event received:', state, data);
+      addDebugLog(`gameStateChanged: new state: ${state}`);
+      
+      // Clear round winner when starting a new round (judge selection)
+      if (state === GameState.JUDGE_SELECTION) {
+        setRoundWinner(null);
+      }
+      
+      // Update the room's game state
+      setRoom((currentRoom) => {
+        if (currentRoom) {
+          const newRoom = { 
+            ...currentRoom, 
+            gameState: state,
+            // Update other properties based on the data
+            ...(data?.prompts && { availablePrompts: data.prompts }),
+            ...(data?.prompt && { currentPrompt: data.prompt }),
+            ...(data?.judgeId && { currentJudge: data.judgeId })
+          };
+          console.log('Setting room state (gameStateChanged):', newRoom);
+          return newRoom;
+        } else {
+          console.warn('gameStateChanged: No current room to update');
+          addDebugLog('gameStateChanged: No current room to update');
+          return currentRoom;
+        }
+      });
+      
+      // Force re-render
+      setRenderCounter(prev => prev + 1);
     });
 
-    socket.on('gameStateChanged', ({ room }) => {
-      setRoom(room);
-    });    socket.on('error', ({ message }) => {
+    socket.on('promptSelected', (prompt) => {
+      console.log('promptSelected event received:', prompt);
+      addDebugLog(`promptSelected: ${prompt}`);
+      
+      setRoom((currentRoom) => {
+        if (currentRoom) {
+          const newRoom = { ...currentRoom, currentPrompt: prompt };
+          console.log('Setting room state (promptSelected):', newRoom);
+          return newRoom;
+        }
+        return currentRoom;
+      });
+      
+      // Force re-render
+      setRenderCounter(prev => prev + 1);
+    });
+
+    socket.on('judgeSelected', (judgeId) => {
+      console.log('judgeSelected event received:', judgeId);
+      addDebugLog(`judgeSelected: ${judgeId}`);
+      
+      setRoom((currentRoom) => {
+        if (currentRoom) {
+          const newRoom = { ...currentRoom, currentJudge: judgeId };
+          console.log('Setting room state (judgeSelected):', newRoom);
+          return newRoom;
+        }
+        return currentRoom;
+      });
+      
+      // Force re-render
+      setRenderCounter(prev => prev + 1);
+    });
+
+    socket.on('soundSubmitted', (submission) => {
+      console.log('soundSubmitted event received:', submission);
+      addDebugLog(`soundSubmitted: ${submission.playerName}`);
+      
+      setRoom((currentRoom) => {
+        if (currentRoom) {
+          const newRoom = { 
+            ...currentRoom, 
+            submissions: [...currentRoom.submissions, submission] 
+          };
+          console.log('Setting room state (soundSubmitted):', newRoom);
+          return newRoom;
+        }
+        return currentRoom;
+      });
+      
+      // Force re-render
+      setRenderCounter(prev => prev + 1);
+    });    socket.on('roundComplete', (winnerData) => {
+      console.log('roundComplete event received:', winnerData);
+      if (typeof winnerData === 'object' && winnerData.winnerId) {
+        // New format with full winner data
+        setRoundWinner(winnerData);
+        addDebugLog(`roundComplete: ${winnerData.winnerName} won with submission ${winnerData.submissionIndex}!`);
+      } else {
+        // Legacy format for backward compatibility
+        const winnerId = arguments[0];
+        const winnerName = arguments[1];
+        addDebugLog(`roundComplete (legacy): ${winnerName} won!`);
+      }
+      // The room state will be updated via roomUpdated event
+    });
+
+    socket.on('error', ({ message }) => {
       addDebugLog(`Error event: ${message}`);
       setError(message);
     });
@@ -138,42 +298,49 @@ function GamePageContent() {
       socket.disconnect();
     };
   }, [mode, playerName, roomCode, router]);
-
+  
+  // Monitor room state changes
+  useEffect(() => {
+    console.log('Room state changed:', room);
+    addDebugLog(`Room state changed: ${room ? `${room.code} with ${room.players?.length} players` : 'null'}`);
+  }, [room]);
+  
+  // Monitor player state changes
+  useEffect(() => {
+    console.log('Player state changed:', player);
+    addDebugLog(`Player state changed: ${player ? player.name : 'null'}`);
+  }, [player]);
   const startGame = () => {
     if (socket && room) {
-      socket.emit('startGame', { roomCode: room.code });
+      console.log('Emitting startGame');
+      addDebugLog('Emitting startGame');
+      socket.emit('startGame');
     }
   };
 
   const selectSounds = (sound1: string, sound2: string) => {
     setSelectedSounds([sound1, sound2]);
   };
-
   const submitSounds = () => {
     if (socket && room && selectedSounds) {
-      socket.emit('submitSounds', {
-        roomCode: room.code,
-        sounds: selectedSounds
-      });
+      console.log('Emitting submitSounds with sounds:', selectedSounds);
+      addDebugLog(`Emitting submitSounds: ${selectedSounds.join(', ')}`);
+      socket.emit('submitSounds', selectedSounds);
       setSelectedSounds(null);
     }
   };
-
   const selectPrompt = (promptId: string) => {
     if (socket && room) {
-      socket.emit('selectPrompt', {
-        roomCode: room.code,
-        promptId
-      });
+      console.log('Emitting selectPrompt with promptId:', promptId);
+      addDebugLog(`Emitting selectPrompt: ${promptId}`);
+      socket.emit('selectPrompt', promptId);
     }
   };
-
   const judgeSubmission = (submissionIndex: number) => {
     if (socket && room) {
-      socket.emit('judgeSubmission', {
-        roomCode: room.code,
-        winnerIndex: submissionIndex
-      });
+      console.log('Emitting selectWinner with submissionIndex:', submissionIndex);
+      addDebugLog(`Emitting selectWinner: ${submissionIndex}`);
+      socket.emit('selectWinner', submissionIndex.toString());
     }
   };
 
@@ -204,6 +371,20 @@ function GamePageContent() {
       </div>
     );
   }  if (!room || !player) {
+    // Add detailed debugging information
+    const debugInfo = {
+      hasRoom: !!room,
+      hasPlayer: !!player,
+      roomCode: room?.code,
+      playerName: player?.name,
+      renderCounter,
+      mode,
+      urlPlayerName: playerName,
+      urlRoomCode: roomCode
+    };
+    
+    console.log('Loading screen - Debug Info:', debugInfo);
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
         <div className="bg-white rounded-3xl p-8 text-center max-w-lg w-full">
@@ -213,8 +394,9 @@ function GamePageContent() {
             <p>Socket Connected: {isConnected ? '✅' : '❌'}</p>
             <p>Mode: {mode}</p>
             <p>Player Name: {playerName}</p>
-            <p>Room: {room ? 'Found' : 'None'}</p>
-            <p>Player: {player ? 'Found' : 'None'}</p>
+            <p>Room: {room ? `Found (${room.code})` : 'None'}</p>
+            <p>Player: {player ? `Found (${player.name})` : 'None'}</p>
+            <p>Render Counter: {renderCounter}</p>
             {error && <p className="text-red-500">Error: {error}</p>}
             {debugLog.length > 0 && (
               <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
@@ -245,15 +427,28 @@ function GamePageContent() {
               <p className="text-lg font-bold text-purple-600">{player.name}</p>
               <p className="text-sm text-gray-600">Score: {player.score}</p>
             </div>
-          </div>
-        </div>
+          </div>        </div>
 
-        {/* Game State Components */}
+        {/* Debug Info */}
+        <div className="bg-white rounded-xl p-4 mb-4 text-sm">
+          <p><strong>Current Game State:</strong> {room.gameState}</p>
+          <p><strong>Players:</strong> {room.players.length}</p>
+          <p><strong>Current Round:</strong> {room.currentRound}</p>
+          <p><strong>Is VIP:</strong> {player.isVIP ? 'Yes' : 'No'}</p>
+          <p><strong>Current Judge:</strong> {room.currentJudge || 'None'}</p>
+        </div>        {/* Game State Components */}
         {room.gameState === GameState.LOBBY && (
           <LobbyComponent 
             room={room} 
             player={player} 
             onStartGame={startGame} 
+          />
+        )}
+
+        {room.gameState === GameState.JUDGE_SELECTION && (
+          <JudgeSelectionComponent 
+            room={room} 
+            player={player} 
           />
         )}
 
@@ -282,14 +477,21 @@ function GamePageContent() {
             player={player} 
             onJudgeSubmission={judgeSubmission} 
           />
-        )}
-
-        {room.gameState === GameState.ROUND_RESULTS && (
-          <ResultsComponent room={room} player={player} />
+        )}        {room.gameState === GameState.ROUND_RESULTS && (
+          <ResultsComponent room={room} player={player} roundWinner={roundWinner} />
         )}
 
         {room.gameState === GameState.GAME_OVER && (
           <GameOverComponent room={room} player={player} />
+        )}
+
+        {/* Fallback for unknown game states */}
+        {!Object.values(GameState).includes(room.gameState as GameState) && (
+          <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Unknown Game State</h2>
+            <p className="text-gray-600">Current state: {room.gameState}</p>
+            <p className="text-gray-600">Expected states: {Object.values(GameState).join(', ')}</p>
+          </div>
         )}
       </div>
     </div>
@@ -365,7 +567,6 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
       </div>
     );
   }
-
   // Mock prompts for now - in real implementation, get from server
   const mockPrompts = [
     "The sound of someone trying to explain TikTok to their grandparents",
@@ -373,19 +574,26 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
     "The noise your WiFi makes when it's having an existential crisis"
   ];
 
+  // Use actual prompts from server if available, otherwise fall back to mock prompts
+  const prompts = room.availablePrompts || mockPrompts.map((text, index) => ({ 
+    id: `prompt-${index}`, 
+    text, 
+    category: 'mock' 
+  }));
+
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg">
       <h2 className="text-2xl font-bold text-center mb-6">👨‍⚖️ You&apos;re the Judge!</h2>
       <p className="text-center text-gray-600 mb-8">Pick the weirdest prompt for other players:</p>
       
       <div className="space-y-4">
-        {mockPrompts.map((prompt, index) => (
+        {prompts.map((prompt) => (
           <button
-            key={index}
-            onClick={() => onSelectPrompt(`prompt-${index}`)}
+            key={prompt.id}
+            onClick={() => onSelectPrompt(prompt.id)}
             className="w-full p-6 bg-gradient-to-r from-blue-400 to-purple-500 text-white rounded-xl font-bold text-lg hover:from-blue-500 hover:to-purple-600 transition-all duration-200 transform hover:scale-105"
           >
-            {prompt}
+            {prompt.text}
           </button>
         ))}
       </div>
@@ -590,12 +798,64 @@ function JudgingComponent({ room, player, onJudgeSubmission }: {
   );
 }
 
-function ResultsComponent({ room }: { room: Room; player: Player }) {
+function ResultsComponent({ 
+  room, 
+  roundWinner 
+}: { 
+  room: Room; 
+  player: Player;
+  roundWinner: {
+    winnerId: string;
+    winnerName: string;
+    winningSubmission: any;
+    submissionIndex: number;
+  } | null;
+}) {
   return (
     <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
       <h2 className="text-2xl font-bold mb-6">🎉 Round Results!</h2>
-      {/* Results implementation */}
+      
+      {roundWinner && (
+        <div className="mb-6">
+          <div className="bg-yellow-100 border-2 border-yellow-400 rounded-xl p-6 mb-4">
+            <h3 className="text-xl font-bold text-yellow-800 mb-2">
+              🏆 {roundWinner.winnerName} Wins!
+            </h3>
+            {roundWinner.winningSubmission && (
+              <div className="text-sm text-yellow-700">
+                <p className="mb-2">Winning combination:</p>
+                <div className="space-y-1">
+                  {roundWinner.winningSubmission.sounds.map((soundId: string, index: number) => {
+                    const sound = SOUND_EFFECTS.find(s => s.id === soundId);
+                    return (
+                      <div key={index} className="bg-yellow-50 px-3 py-1 rounded-lg">
+                        {sound ? sound.name : soundId}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       <p className="text-gray-600 mb-6">Round {room.currentRound} complete!</p>
+      
+      <div className="mb-6">
+        <h4 className="text-lg font-bold mb-3">Current Scores:</h4>
+        <div className="space-y-2">
+          {room.players
+            .sort((a, b) => b.score - a.score)
+            .map((p, index) => (
+              <div key={p.id} className={`p-3 rounded-xl ${p.id === roundWinner?.winnerId ? 'bg-green-100 border-2 border-green-400' : 'bg-gray-100'}`}>
+                <span className="font-bold">{p.name}</span>
+                <span className="float-right font-bold">{p.score} points</span>
+              </div>
+            ))}
+        </div>
+      </div>
+      
       <div className="animate-pulse w-16 h-16 bg-green-200 rounded-full mx-auto mb-4"></div>
       <p>Next round starting soon...</p>
     </div>
@@ -616,7 +876,9 @@ function GameOverComponent({ room }: { room: Room; player: Player }) {
               <span className="float-right font-bold">{p.score} points</span>
             </div>
           ))}
-      </div>      <button
+      </div>
+      
+      <button
         onClick={() => window.location.href = '/'}
         className="bg-purple-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-600 transition-colors"
       >
@@ -638,5 +900,66 @@ export default function GamePage() {
     }>
       <GamePageContent />
     </Suspense>
+  );
+}
+
+function JudgeSelectionComponent({ room, player }: { 
+  room: Room; 
+  player: Player; 
+}) {
+  const currentJudge = room.players.find(p => p.id === room.currentJudge);
+  const [countdown, setCountdown] = useState(3); // 3 second countdown to match server
+  
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+  
+  return (
+    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <h2 className="text-2xl font-bold mb-6">⚖️ Judge Selection</h2>
+      
+      {currentJudge ? (
+        <div>
+          <div className="flex justify-center mb-6">
+            <div className={`w-20 h-20 rounded-full mx-auto ${getPlayerColorClass(currentJudge.color)} flex items-center justify-center`}>
+              <span className="text-2xl">👨‍⚖️</span>
+            </div>
+          </div>
+          <p className="text-xl font-bold text-purple-600 mb-4">{currentJudge.name}</p>
+          <p className="text-gray-600">has been chosen as the judge for Round {room.currentRound}!</p>
+          
+          {currentJudge.id === player.id ? (
+            <div className="mt-6">
+              <p className="text-lg font-bold text-green-600 mb-2">🎯 You're the Judge!</p>
+              <p className="text-gray-600">Get ready to pick a weird prompt...</p>
+            </div>
+          ) : (
+            <div className="mt-6">
+              <p className="text-gray-600">Get ready to pick sounds that match their prompt!</p>
+            </div>
+          )}
+          
+          <div className="mt-8">            <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl font-bold text-white ${
+              countdown >= 3 ? 'bg-green-500' : countdown >= 2 ? 'bg-yellow-500' : 'bg-red-500'
+            }`}>
+              {countdown}
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              {countdown > 0 ? `Starting in ${countdown}...` : 'Starting now!'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Selecting a judge for Round {room.currentRound}...</p>
+        </div>
+      )}
+    </div>
   );
 }

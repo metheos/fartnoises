@@ -17,6 +17,7 @@ export interface Room {
   maxRounds: number;
   submissions: SoundSubmission[];
   winner: string | null;
+  availablePrompts?: GamePrompt[];
 }
 
 export interface SoundSubmission {

@@ -8,17 +8,19 @@ export default function Home() {
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState<'create' | 'join' | null>(null);
   const router = useRouter();
-
   const handleSubmit = (selectedMode: 'create' | 'join') => {
     if (!playerName.trim()) return;
     
+    // Map 'create' to 'host' for the URL parameter
+    const urlMode = selectedMode === 'create' ? 'host' : 'join';
+    
     const params = new URLSearchParams({
-      mode: selectedMode,
-      name: playerName.trim(),
+      mode: urlMode,
+      playerName: playerName.trim(),
     });
     
     if (selectedMode === 'join' && roomCode.trim()) {
-      params.set('room', roomCode.trim().toUpperCase());
+      params.set('roomCode', roomCode.trim().toUpperCase());
     }
     
     router.push(`/game?${params.toString()}`);

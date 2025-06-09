@@ -26,6 +26,12 @@ export default function MainScreen() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [roundWinner, setRoundWinner] = useState<{
+    winnerId: string;
+    winnerName: string;
+    winningSubmission: any;
+    submissionIndex: number;
+  } | null>(null);
 
   useEffect(() => {
     // Initialize socket connection
@@ -53,6 +59,20 @@ export default function MainScreen() {
     socket.on('roomUpdated', (updatedRoom) => {
       if (currentRoom && updatedRoom.code === currentRoom.code) {
         setCurrentRoom(updatedRoom);
+      }
+    });
+
+    socket.on('roundComplete', (winnerData) => {
+      console.log('Main screen roundComplete event received:', winnerData);
+      if (typeof winnerData === 'object' && winnerData.winnerId) {
+        setRoundWinner(winnerData);
+      }
+    });
+
+    socket.on('gameStateChanged', (state, data) => {
+      // Clear round winner when starting a new round
+      if (state === GameState.JUDGE_SELECTION) {
+        setRoundWinner(null);
       }
     });
 
@@ -95,7 +115,7 @@ export default function MainScreen() {
         </div>
 
         {currentRoom ? (
-          <MainScreenGameDisplay room={currentRoom} />
+          <MainScreenGameDisplay room={currentRoom} roundWinner={roundWinner} />
         ) : (
           <WaitingForGameScreen rooms={rooms} />
         )}
@@ -181,7 +201,18 @@ function WaitingForGameScreen({ rooms }: { rooms: Room[] }) {
   );
 }
 
-function MainScreenGameDisplay({ room }: { room: Room }) {
+function MainScreenGameDisplay({ 
+  room, 
+  roundWinner 
+}: { 
+  room: Room; 
+  roundWinner: {
+    winnerId: string;
+    winnerName: string;
+    winningSubmission: any;
+    submissionIndex: number;
+  } | null;
+}) {
   return (
     <div className="space-y-8">
       {/* Game Header */}
@@ -240,10 +271,8 @@ function MainScreenGameDisplay({ room }: { room: Room }) {
 
       {room.gameState === GameState.JUDGING && (
         <JudgingDisplay room={room} />
-      )}
-
-      {room.gameState === GameState.ROUND_RESULTS && (
-        <ResultsDisplay room={room} />
+      )}      {room.gameState === GameState.ROUND_RESULTS && (
+        <ResultsDisplay room={room} roundWinner={roundWinner} />
       )}
 
       {room.gameState === GameState.GAME_OVER && (
@@ -366,11 +395,48 @@ function JudgingDisplay({ room }: { room: Room }) {
   );
 }
 
-function ResultsDisplay({ room }: { room: Room }) {
+function ResultsDisplay({ 
+  room, 
+  roundWinner 
+}: { 
+  room: Room; 
+  roundWinner: {
+    winnerId: string;
+    winnerName: string;
+    winningSubmission: any;
+    submissionIndex: number;
+  } | null;
+}) {
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
       <h3 className="text-3xl font-bold text-gray-800 mb-6">Round Results!</h3>
       <div className="text-6xl mb-6">🎉</div>
+      
+      {roundWinner && (
+        <div className="mb-8">
+          <div className="bg-yellow-100 border-4 border-yellow-400 rounded-2xl p-8 mb-6">
+            <h4 className="text-4xl font-bold text-yellow-800 mb-4">
+              🏆 {roundWinner.winnerName} Wins!
+            </h4>
+            {roundWinner.winningSubmission && (
+              <div className="text-lg text-yellow-700">
+                <p className="mb-4 font-semibold">Winning Combination:</p>
+                <div className="flex justify-center space-x-4">
+                  {roundWinner.winningSubmission.sounds.map((soundId: string, index: number) => {
+                    const sound = SOUND_EFFECTS.find(s => s.id === soundId);
+                    return (
+                      <div key={index} className="bg-yellow-50 px-6 py-3 rounded-xl border-2 border-yellow-300">
+                        <div className="text-xl font-bold">{sound ? sound.name : soundId}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       <p className="text-xl text-gray-600">
         Round {room.currentRound} complete! Getting ready for the next round...
       </p>

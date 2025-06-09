@@ -32,6 +32,7 @@ interface SocketApiResponse {
 // In-memory storage for rooms (in production, use Redis or database)
 const rooms: Map<string, Room> = new Map();
 const playerRooms: Map<string, string> = new Map(); // socketId -> roomCode
+const roomTimers: Map<string, NodeJS.Timeout> = new Map(); // roomCode -> timer
 
 // Utility functions
 function generateRoomCode(): string {
@@ -71,6 +72,71 @@ function getRandomPrompts(count: number = 3) {
 function getRandomSounds(count: number = 10) {
   const shuffled = [...SOUND_EFFECTS].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
+}
+
+// Timer utility functions
+function startTimer(
+  roomCode: string,
+  duration: number,
+  onComplete: () => void,
+  onTick?: (timeLeft: number) => void
+) {
+  // Clear any existing timer
+  clearTimer(roomCode);
+
+  let timeLeft = duration;
+
+  const timer = setInterval(() => {
+    timeLeft--;
+
+    if (onTick) {
+      onTick(timeLeft);
+    }
+
+    if (timeLeft <= 0) {
+      clearTimer(roomCode);
+      onComplete();
+    }
+  }, 1000);
+
+  roomTimers.set(roomCode, timer);
+
+  // Send initial time
+  if (onTick) {
+    onTick(timeLeft);
+  }
+}
+
+function clearTimer(roomCode: string) {
+  const timer = roomTimers.get(roomCode);
+  if (timer) {
+    clearInterval(timer);
+    roomTimers.delete(roomCode);
+  }
+}
+
+function startSoundSelectionTimer(
+  roomCode: string,
+  room: Room,
+  io: SocketIOServer
+) {
+  startTimer(
+    roomCode,
+    GAME_CONFIG.SOUND_SELECTION_TIME,
+    () => {
+      // Auto-transition to judging if time runs out
+      if (room.gameState === GameState.SOUND_SELECTION) {
+        room.gameState = GameState.JUDGING;
+        io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
+          submissions: room.submissions,
+          judgeId: room.currentJudge,
+        });
+      }
+    },
+    (timeLeft) => {
+      io.to(roomCode).emit("timeUpdate", { timeLeft });
+    }
+  );
 }
 
 export default function SocketHandler(
@@ -198,15 +264,58 @@ export default function SocketHandler(
           io.to(roomCode).emit("judgeSelected", room.currentJudge);
           io.to(roomCode).emit("gameStateChanged", GameState.JUDGE_SELECTION, {
             judgeId: room.currentJudge,
-          }); // Auto-transition to prompt selection after a delay
+          });
+
+          // Auto-transition to prompt selection after a delay
           setTimeout(() => {
             if (room.gameState === GameState.JUDGE_SELECTION) {
               room.gameState = GameState.PROMPT_SELECTION;
               const prompts = getRandomPrompts(3);
+              room.availablePrompts = prompts;
+
               io.to(roomCode).emit(
                 "gameStateChanged",
                 GameState.PROMPT_SELECTION,
-                { prompts, judgeId: room.currentJudge }
+                {
+                  prompts,
+                  judgeId: room.currentJudge,
+                  timeLimit: GAME_CONFIG.PROMPT_SELECTION_TIME,
+                }
+              );
+
+              // Start countdown timer for prompt selection
+              startTimer(
+                roomCode,
+                GAME_CONFIG.PROMPT_SELECTION_TIME,
+                () => {
+                  // Auto-select first prompt if no selection made
+                  if (room.gameState === GameState.PROMPT_SELECTION) {
+                    const firstPrompt = prompts[0];
+                    room.currentPrompt = firstPrompt.text;
+                    room.gameState = GameState.SOUND_SELECTION;
+                    room.submissions = [];
+
+                    const soundOptions = getRandomSounds(12);
+
+                    io.to(roomCode).emit("roomUpdated", room);
+                    io.to(roomCode).emit("promptSelected", firstPrompt.text);
+                    io.to(roomCode).emit(
+                      "gameStateChanged",
+                      GameState.SOUND_SELECTION,
+                      {
+                        prompt: firstPrompt.text,
+                        sounds: soundOptions,
+                        timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
+                      }
+                    );
+
+                    // Start sound selection timer
+                    startSoundSelectionTimer(roomCode, room, io);
+                  }
+                },
+                (timeLeft) => {
+                  io.to(roomCode).emit("timeUpdate", { timeLeft });
+                }
               );
             }
           }, 3000);
@@ -214,24 +323,66 @@ export default function SocketHandler(
           console.error("Error starting game:", error);
         }
       });
-
       socket.on("selectPrompt", (promptId) => {
+        console.log(
+          `🎯 SERVER: selectPrompt received from ${socket.id} with promptId: ${promptId}`
+        );
         try {
           const roomCode = playerRooms.get(socket.id);
-          if (!roomCode) return;
+          console.log(`🎯 SERVER: Player room lookup - roomCode: ${roomCode}`);
+          if (!roomCode) {
+            console.log(`🎯 SERVER: No room found for socket ${socket.id}`);
+            return;
+          }
 
           const room = rooms.get(roomCode);
-          if (!room || room.currentJudge !== socket.id) return;
+          console.log(`🎯 SERVER: Room lookup - room exists: ${!!room}`);
+          if (!room) {
+            console.log(`🎯 SERVER: Room ${roomCode} not found`);
+            return;
+          }
 
-          const prompt = GAME_PROMPTS.find((p) => p.id === promptId);
-          if (!prompt) return;
+          console.log(
+            `🎯 SERVER: Current judge: ${room.currentJudge}, Socket ID: ${
+              socket.id
+            }, Match: ${room.currentJudge === socket.id}`
+          );
+          if (room.currentJudge !== socket.id) {
+            console.log(
+              `🎯 SERVER: Judge validation failed - current judge: ${room.currentJudge}, socket: ${socket.id}`
+            );
+            return;
+          }
 
+          // Use available prompts from room if they exist, otherwise fallback to finding by ID
+          let prompt;
+          if (room.availablePrompts) {
+            prompt = room.availablePrompts.find((p) => p.id === promptId);
+          } else {
+            prompt = GAME_PROMPTS.find((p) => p.id === promptId);
+          }
+
+          console.log(
+            `🎯 SERVER: Prompt lookup - found: ${!!prompt}, promptId: ${promptId}`
+          );
+          if (!prompt) {
+            console.log(`🎯 SERVER: Prompt ${promptId} not found`);
+            return;
+          }
+
+          // Clear the prompt selection timer since judge made a manual selection
+          clearTimer(roomCode);
+
+          console.log(
+            `🎯 SERVER: All validations passed, updating room state to SOUND_SELECTION`
+          );
           room.currentPrompt = prompt.text;
           room.gameState = GameState.SOUND_SELECTION;
           room.submissions = [];
 
           const soundOptions = getRandomSounds(12);
 
+          console.log(`🎯 SERVER: Emitting room updates for ${roomCode}`);
           io.to(roomCode).emit("roomUpdated", room);
           io.to(roomCode).emit("promptSelected", prompt.text);
           io.to(roomCode).emit("gameStateChanged", GameState.SOUND_SELECTION, {
@@ -239,11 +390,15 @@ export default function SocketHandler(
             sounds: soundOptions,
             timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
           });
+
+          // Start sound selection timer
+          startSoundSelectionTimer(roomCode, room, io);
+
+          console.log(`🎯 SERVER: selectPrompt completed successfully`);
         } catch (error) {
-          console.error("Error selecting prompt:", error);
+          console.error("🎯 SERVER: Error selecting prompt:", error);
         }
       });
-
       socket.on("submitSounds", (sounds) => {
         try {
           const roomCode = playerRooms.get(socket.id);
@@ -275,12 +430,15 @@ export default function SocketHandler(
             (p) => p.id !== room.currentJudge
           );
           if (room.submissions.length === nonJudgePlayers.length) {
+            // Clear the sound selection timer since all players submitted
+            clearTimer(roomCode);
+
             room.gameState = GameState.PLAYBACK;
             io.to(roomCode).emit("gameStateChanged", GameState.PLAYBACK, {
               submissions: room.submissions,
             });
 
-            // Auto-transition to judging after playback
+            // Reduced delay - auto-transition to judging after shorter playback time
             setTimeout(() => {
               if (room.gameState === GameState.PLAYBACK) {
                 room.gameState = GameState.JUDGING;
@@ -289,13 +447,12 @@ export default function SocketHandler(
                   judgeId: room.currentJudge,
                 });
               }
-            }, room.submissions.length * 3000 + 2000); // Time for all sounds to play
+            }, room.submissions.length * 1500 + 1000); // Reduced from 3000ms to 1500ms per submission + 1000ms buffer
           }
         } catch (error) {
           console.error("Error submitting sounds:", error);
         }
       });
-
       socket.on("selectWinner", (submissionIndex) => {
         try {
           const roomCode = playerRooms.get(socket.id);
@@ -320,19 +477,31 @@ export default function SocketHandler(
           winner.score += 1;
           room.gameState = GameState.ROUND_RESULTS;
 
-          io.to(roomCode).emit("roundComplete", winner.id, winner.name);
-          io.to(roomCode).emit("roomUpdated", room);
-
-          // Check if game is complete
+          // Send comprehensive winner information to all clients
+          io.to(roomCode).emit("roundComplete", {
+            winnerId: winner.id,
+            winnerName: winner.name,
+            winningSubmission: winningSubmission,
+            submissionIndex: parseInt(submissionIndex),
+          });
+          io.to(roomCode).emit("roomUpdated", room);          // Check if game is complete
           const maxScore = Math.max(...room.players.map((p) => p.score));
           const gameWinners = room.players.filter((p) => p.score === maxScore);
+
+          console.log(`🏁 Game completion check: currentRound=${room.currentRound}, maxRounds=${room.maxRounds}, maxScore=${maxScore}, scoreThreshold=${Math.ceil(room.maxRounds / 2)}`);
 
           if (
             room.currentRound >= room.maxRounds ||
             maxScore >= Math.ceil(room.maxRounds / 2)
           ) {
+            console.log(`🎉 Game ending: Round ${room.currentRound}/${room.maxRounds} or score ${maxScore} reached threshold`);
             room.gameState = GameState.GAME_OVER;
             room.winner = gameWinners[0].id;
+            io.to(roomCode).emit("roomUpdated", room);
+            io.to(roomCode).emit("gameStateChanged", GameState.GAME_OVER, {
+              winner: gameWinners[0],
+              finalScores: room.players.map(p => ({ id: p.id, name: p.name, score: p.score }))
+            });
             io.to(roomCode).emit(
               "gameComplete",
               gameWinners[0].id,
@@ -359,10 +528,54 @@ export default function SocketHandler(
                 if (room.gameState === GameState.JUDGE_SELECTION) {
                   room.gameState = GameState.PROMPT_SELECTION;
                   const prompts = getRandomPrompts(3);
+                  room.availablePrompts = prompts;
+
                   io.to(roomCode).emit(
                     "gameStateChanged",
                     GameState.PROMPT_SELECTION,
-                    { prompts, judgeId: room.currentJudge }
+                    {
+                      prompts,
+                      judgeId: room.currentJudge,
+                      timeLimit: GAME_CONFIG.PROMPT_SELECTION_TIME,
+                    }
+                  );
+
+                  // Start countdown timer for prompt selection
+                  startTimer(
+                    roomCode,
+                    GAME_CONFIG.PROMPT_SELECTION_TIME,
+                    () => {
+                      // Auto-select first prompt if no selection made
+                      if (room.gameState === GameState.PROMPT_SELECTION) {
+                        const firstPrompt = prompts[0];
+                        room.currentPrompt = firstPrompt.text;
+                        room.gameState = GameState.SOUND_SELECTION;
+                        room.submissions = [];
+
+                        const soundOptions = getRandomSounds(12);
+
+                        io.to(roomCode).emit("roomUpdated", room);
+                        io.to(roomCode).emit(
+                          "promptSelected",
+                          firstPrompt.text
+                        );
+                        io.to(roomCode).emit(
+                          "gameStateChanged",
+                          GameState.SOUND_SELECTION,
+                          {
+                            prompt: firstPrompt.text,
+                            sounds: soundOptions,
+                            timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
+                          }
+                        );
+
+                        // Start sound selection timer
+                        startSoundSelectionTimer(roomCode, room, io);
+                      }
+                    },
+                    (timeLeft) => {
+                      io.to(roomCode).emit("timeUpdate", { timeLeft });
+                    }
                   );
                 }
               }, 3000);
