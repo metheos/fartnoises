@@ -421,9 +421,11 @@ export default function SocketHandler(
             playerName: player.name,
             sounds: sounds,
           };
-
           room.submissions.push(submission);
           io.to(roomCode).emit("soundSubmitted", submission);
+
+          // Send updated room state to all clients (including main screen viewers)
+          io.to(roomCode).emit("roomUpdated", room);
 
           // Check if all non-judge players have submitted
           const nonJudgePlayers = room.players.filter(
@@ -432,11 +434,11 @@ export default function SocketHandler(
           if (room.submissions.length === nonJudgePlayers.length) {
             // Clear the sound selection timer since all players submitted
             clearTimer(roomCode);
-
             room.gameState = GameState.PLAYBACK;
             io.to(roomCode).emit("gameStateChanged", GameState.PLAYBACK, {
               submissions: room.submissions,
             });
+            io.to(roomCode).emit("roomUpdated", room);
 
             // Reduced delay - auto-transition to judging after shorter playback time
             setTimeout(() => {
@@ -446,6 +448,7 @@ export default function SocketHandler(
                   submissions: room.submissions,
                   judgeId: room.currentJudge,
                 });
+                io.to(roomCode).emit("roomUpdated", room);
               }
             }, room.submissions.length * 1500 + 1000); // Reduced from 3000ms to 1500ms per submission + 1000ms buffer
           }
@@ -484,23 +487,37 @@ export default function SocketHandler(
             winningSubmission: winningSubmission,
             submissionIndex: parseInt(submissionIndex),
           });
-          io.to(roomCode).emit("roomUpdated", room);          // Check if game is complete
+          io.to(roomCode).emit("roomUpdated", room); // Check if game is complete
           const maxScore = Math.max(...room.players.map((p) => p.score));
           const gameWinners = room.players.filter((p) => p.score === maxScore);
 
-          console.log(`🏁 Game completion check: currentRound=${room.currentRound}, maxRounds=${room.maxRounds}, maxScore=${maxScore}, scoreThreshold=${Math.ceil(room.maxRounds / 2)}`);
+          console.log(
+            `🏁 Game completion check: currentRound=${
+              room.currentRound
+            }, maxRounds=${
+              room.maxRounds
+            }, maxScore=${maxScore}, scoreThreshold=${Math.ceil(
+              room.maxRounds / 2
+            )}`
+          );
 
           if (
             room.currentRound >= room.maxRounds ||
             maxScore >= Math.ceil(room.maxRounds / 2)
           ) {
-            console.log(`🎉 Game ending: Round ${room.currentRound}/${room.maxRounds} or score ${maxScore} reached threshold`);
+            console.log(
+              `🎉 Game ending: Round ${room.currentRound}/${room.maxRounds} or score ${maxScore} reached threshold`
+            );
             room.gameState = GameState.GAME_OVER;
             room.winner = gameWinners[0].id;
             io.to(roomCode).emit("roomUpdated", room);
             io.to(roomCode).emit("gameStateChanged", GameState.GAME_OVER, {
               winner: gameWinners[0],
-              finalScores: room.players.map(p => ({ id: p.id, name: p.name, score: p.score }))
+              finalScores: room.players.map((p) => ({
+                id: p.id,
+                name: p.name,
+                score: p.score,
+              })),
             });
             io.to(roomCode).emit(
               "gameComplete",
@@ -583,6 +600,39 @@ export default function SocketHandler(
           }
         } catch (error) {
           console.error("Error selecting winner:", error);
+        }
+      }); // Main screen handlers
+      socket.on("requestMainScreenUpdate", () => {
+        try {
+          const roomsArray = Array.from(rooms.values())
+            .map((room) => ({
+              ...room,
+              // Only include rooms that have players
+            }))
+            .filter((room) => room.players.length > 0);
+
+          console.log(
+            `Main screen update requested, sending ${roomsArray.length} active rooms`
+          );
+          socket.emit("mainScreenUpdate", { rooms: roomsArray });
+        } catch (error) {
+          console.error("Error handling main screen update:", error);
+        }
+      });
+
+      socket.on("joinRoomAsViewer", (roomCode) => {
+        try {
+          const room = rooms.get(roomCode.toUpperCase());
+          if (room) {
+            console.log(`Main screen joining room ${roomCode} as viewer`);
+            socket.join(roomCode);
+            socket.emit("roomJoined", room);
+          } else {
+            socket.emit("error", { message: `Room ${roomCode} not found` });
+          }
+        } catch (error) {
+          console.error("Error joining room as viewer:", error);
+          socket.emit("error", { message: "Failed to join room" });
         }
       });
 

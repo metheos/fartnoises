@@ -349,7 +349,7 @@ function GamePageContent() {
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
         <div className="bg-white rounded-3xl p-8 text-center">
           <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Connecting to game...</p>
+          <p className="text-gray-800 text-lg">Connecting to game...</p>
         </div>
       </div>
     );
@@ -360,7 +360,7 @@ function GamePageContent() {
       <div className="min-h-screen bg-gradient-to-br from-red-400 via-pink-500 to-orange-400 flex items-center justify-center p-4">
         <div className="bg-white rounded-3xl p-8 text-center max-w-md w-full">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Oops!</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <p className="text-gray-800 mb-6">{error}</p>
           <button
             onClick={() => router.push('/')}
             className="bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-600 transition-colors"
@@ -387,9 +387,8 @@ function GamePageContent() {
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
-        <div className="bg-white rounded-3xl p-8 text-center max-w-lg w-full">
-          <div className="animate-pulse w-16 h-16 bg-purple-200 rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Setting up your game...</p>
+        <div className="bg-white rounded-3xl p-8 text-center max-w-lg w-full">          <div className="animate-pulse w-16 h-16 bg-purple-200 rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-800 text-lg">Setting up your game...</p>
           <div className="mt-4 text-sm text-left">
             <p>Socket Connected: {isConnected ? '✅' : '❌'}</p>
             <p>Mode: {mode}</p>
@@ -400,9 +399,9 @@ function GamePageContent() {
             {error && <p className="text-red-500">Error: {error}</p>}
             {debugLog.length > 0 && (
               <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
-                <p className="font-bold mb-2">Debug Log:</p>
+                <p className="font-bold mb-2 text-gray-900">Debug Log:</p>
                 {debugLog.map((log, index) => (
-                  <p key={index} className="text-gray-600">{log}</p>
+                  <p key={index} className="text-gray-800">{log}</p>
                 ))}
               </div>
             )}
@@ -417,26 +416,23 @@ function GamePageContent() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-3xl p-6 mb-6 shadow-lg">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-black text-gray-800">fartnoises</h1>
-              <p className="text-gray-600">Room: <span className="font-mono font-bold">{room.code}</span></p>
+          <div className="flex justify-between items-center">            <div>
+              <h1 className="text-3xl font-black text-gray-900">fartnoises</h1>
+              <p className="text-gray-800">Room: <span className="font-mono font-bold">{room.code}</span></p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Round {room.currentRound}/{room.maxRounds}</p>
+              <p className="text-sm text-gray-700">Round {room.currentRound}/{room.maxRounds}</p>
               <p className="text-lg font-bold text-purple-600">{player.name}</p>
-              <p className="text-sm text-gray-600">Score: {player.score}</p>
+              <p className="text-sm text-gray-700">Score: {player.score}</p>
             </div>
-          </div>        </div>
-
-        {/* Debug Info */}
-        <div className="bg-white rounded-xl p-4 mb-4 text-sm">
+          </div>        </div>        {/* Debug Info */}
+        <div className="bg-white rounded-xl p-4 mb-4 text-sm text-gray-900">
           <p><strong>Current Game State:</strong> {room.gameState}</p>
           <p><strong>Players:</strong> {room.players.length}</p>
           <p><strong>Current Round:</strong> {room.currentRound}</p>
           <p><strong>Is VIP:</strong> {player.isVIP ? 'Yes' : 'No'}</p>
           <p><strong>Current Judge:</strong> {room.currentJudge || 'None'}</p>
-        </div>        {/* Game State Components */}
+        </div>{/* Game State Components */}
         {room.gameState === GameState.LOBBY && (
           <LobbyComponent 
             room={room} 
@@ -488,9 +484,8 @@ function GamePageContent() {
         {/* Fallback for unknown game states */}
         {!Object.values(GameState).includes(room.gameState as GameState) && (
           <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-            <h2 className="text-2xl font-bold text-red-600 mb-4">Unknown Game State</h2>
-            <p className="text-gray-600">Current state: {room.gameState}</p>
-            <p className="text-gray-600">Expected states: {Object.values(GameState).join(', ')}</p>
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Unknown Game State</h2>            <p className="text-gray-800">Current state: {room.gameState}</p>
+            <p className="text-gray-800">Expected states: {Object.values(GameState).join(', ')}</p>
           </div>
         )}
       </div>
@@ -505,10 +500,9 @@ function LobbyComponent({ room, player, onStartGame }: {
   onStartGame: () => void; 
 }) {
   const canStart = room.players.length >= 3 && player.isVIP;
-
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg">
-      <h2 className="text-2xl font-bold text-center mb-6">Waiting for Players</h2>
+      <h2 className="text-2xl font-bold text-center mb-6 text-gray-900">Waiting for Players</h2>
       
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
         {room.players.map((p) => (
@@ -518,14 +512,14 @@ function LobbyComponent({ room, player, onStartGame }: {
           >            <div 
               className={`w-12 h-12 rounded-full mx-auto mb-2 ${getPlayerColorClass(p.color)}`}
             ></div>
-            <p className="font-bold text-sm">{p.name}</p>
-            {p.isVIP && <p className="text-xs text-yellow-600">Host</p>}
+            <p className="font-bold text-sm text-gray-900">{p.name}</p>
+            {p.isVIP && <p className="text-xs text-yellow-700">Host</p>}
           </div>
         ))}
       </div>
 
       <div className="text-center">
-        <p className="text-gray-600 mb-4">
+        <p className="text-gray-800 mb-4">
           {room.players.length}/8 players • Need at least 3 to start
         </p>
         
@@ -536,14 +530,13 @@ function LobbyComponent({ room, player, onStartGame }: {
           >
             🎮 Start Game!
           </button>
-        )}
-        
+        )}        
         {!canStart && player.isVIP && (
-          <p className="text-yellow-600 font-bold">Need at least 3 players to start</p>
+          <p className="text-yellow-700 font-bold">Need at least 3 players to start</p>
         )}
         
         {!player.isVIP && (
-          <p className="text-gray-600">Waiting for host to start the game...</p>
+          <p className="text-gray-800">Waiting for host to start the game...</p>
         )}
       </div>
     </div>
@@ -560,8 +553,7 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
   if (!isJudge) {    return (
       <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
         <h2 className="text-2xl font-bold mb-4">Judge is Selecting Prompt</h2>
-        <div className="animate-pulse w-16 h-16 bg-purple-200 rounded-full mx-auto mb-4"></div>
-        <p className="text-gray-600">
+        <div className="animate-pulse w-16 h-16 bg-purple-200 rounded-full mx-auto mb-4"></div>        <p className="text-gray-800">
           {room.players.find(p => p.id === room.currentJudge)?.name} is choosing a weird prompt...
         </p>
       </div>
@@ -584,7 +576,7 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg">
       <h2 className="text-2xl font-bold text-center mb-6">👨‍⚖️ You&apos;re the Judge!</h2>
-      <p className="text-center text-gray-600 mb-8">Pick the weirdest prompt for other players:</p>
+      <p className="text-center text-gray-800 mb-8">Pick the weirdest prompt for other players:</p>
       
       <div className="space-y-4">
         {prompts.map((prompt) => (
@@ -617,7 +609,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   if (isJudge) {
     return (
       <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
-        <h2 className="text-2xl font-bold mb-4">Waiting for Submissions</h2>          <p className="text-gray-600 mb-4">
+        <h2 className="text-2xl font-bold mb-4">Waiting for Submissions</h2>          <p className="text-gray-800 mb-4">
             Players are selecting sounds for: <br />
             <span className="font-bold text-lg">&quot;{room.currentPrompt}&quot;</span>
           </p>
@@ -657,7 +649,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold mb-2">Pick 2 Sounds!</h2>        <p className="text-gray-600 mb-4">
+        <h2 className="text-2xl font-bold mb-2">Pick 2 Sounds!</h2>        <p className="text-gray-800 mb-4">
           Prompt: <span className="font-bold">&quot;{room.currentPrompt}&quot;</span>
         </p>
         <div className="text-xl font-bold text-purple-600 mb-4">⏰ {timeLeft}s</div>
@@ -689,7 +681,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
               className={`w-full text-xs py-1 px-2 rounded transition-colors ${
                 playingSound === sound.id
                   ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
               }`}
             >
               {playingSound === sound.id ? '🔊 Playing...' : '▶️ Preview'}
@@ -745,8 +737,7 @@ function JudgingComponent({ room, player, onJudgeSubmission }: {
   if (!isJudge) {
     return (
       <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
-        <h2 className="text-2xl font-bold mb-4">Judge is Deciding...</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl font-bold mb-4">Judge is Deciding...</h2>        <p className="text-gray-800">
           {room.players.find(p => p.id === room.currentJudge)?.name} is listening to all the sound combinations!
         </p>
       </div>
@@ -755,7 +746,7 @@ function JudgingComponent({ room, player, onJudgeSubmission }: {
 
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg">
-      <h2 className="text-2xl font-bold text-center mb-6">👨‍⚖️ Time to Judge!</h2>      <p className="text-center text-gray-600 mb-8">
+      <h2 className="text-2xl font-bold text-center mb-6">👨‍⚖️ Time to Judge!</h2>      <p className="text-center text-gray-800 mb-8">
         Prompt: <span className="font-bold">&quot;{room.currentPrompt}&quot;</span>
       </p>
 
@@ -840,7 +831,7 @@ function ResultsComponent({
         </div>
       )}
       
-      <p className="text-gray-600 mb-6">Round {room.currentRound} complete!</p>
+      <p className="text-gray-800 mb-6">Round {room.currentRound} complete!</p>
       
       <div className="mb-6">
         <h4 className="text-lg font-bold mb-3">Current Scores:</h4>
@@ -894,7 +885,7 @@ export default function GamePage() {
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
         <div className="bg-white rounded-3xl p-8 text-center">
           <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading game...</p>
+          <p className="text-gray-800 text-lg">Loading game...</p>
         </div>
       </div>
     }>
@@ -931,16 +922,16 @@ function JudgeSelectionComponent({ room, player }: {
             </div>
           </div>
           <p className="text-xl font-bold text-purple-600 mb-4">{currentJudge.name}</p>
-          <p className="text-gray-600">has been chosen as the judge for Round {room.currentRound}!</p>
+          <p className="text-gray-800">has been chosen as the judge for Round {room.currentRound}!</p>
           
           {currentJudge.id === player.id ? (
             <div className="mt-6">
               <p className="text-lg font-bold text-green-600 mb-2">🎯 You're the Judge!</p>
-              <p className="text-gray-600">Get ready to pick a weird prompt...</p>
+              <p className="text-gray-800">Get ready to pick a weird prompt...</p>
             </div>
           ) : (
             <div className="mt-6">
-              <p className="text-gray-600">Get ready to pick sounds that match their prompt!</p>
+              <p className="text-gray-800">Get ready to pick sounds that match their prompt!</p>
             </div>
           )}
           
@@ -949,7 +940,7 @@ function JudgeSelectionComponent({ room, player }: {
             }`}>
               {countdown}
             </div>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-gray-700 mt-2">
               {countdown > 0 ? `Starting in ${countdown}...` : 'Starting now!'}
             </p>
           </div>
@@ -957,7 +948,7 @@ function JudgeSelectionComponent({ room, player }: {
       ) : (
         <div>
           <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Selecting a judge for Round {room.currentRound}...</p>
+          <p className="text-gray-800">Selecting a judge for Round {room.currentRound}...</p>
         </div>
       )}
     </div>

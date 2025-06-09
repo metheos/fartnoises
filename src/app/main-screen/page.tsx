@@ -26,13 +26,14 @@ export default function MainScreen() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [joinError, setJoinError] = useState('');
   const [roundWinner, setRoundWinner] = useState<{
     winnerId: string;
     winnerName: string;
     winningSubmission: any;
     submissionIndex: number;
   } | null>(null);
-
   useEffect(() => {
     // Initialize socket connection
     socket = io({
@@ -41,25 +42,34 @@ export default function MainScreen() {
 
     socket.on('connect', () => {
       setIsConnected(true);
-      socket.emit('requestMainScreenUpdate');
+      console.log('Main screen connected to server');
     });
 
     socket.on('mainScreenUpdate', ({ rooms: updatedRooms }) => {
+      console.log('Main screen received room list update:', updatedRooms);
       setRooms(updatedRooms);
-      // Show the most active room or first room with players
-      const activeRoom = updatedRooms.find((room: Room) => 
-        room.players.length > 0 && room.gameState !== GameState.LOBBY
-      ) || updatedRooms.find((room: Room) => room.players.length > 0);
-      
-      if (activeRoom) {
-        setCurrentRoom(activeRoom);
-      }
     });
 
     socket.on('roomUpdated', (updatedRoom) => {
-      if (currentRoom && updatedRoom.code === currentRoom.code) {
-        setCurrentRoom(updatedRoom);
-      }
+      console.log('Main screen received room update:', updatedRoom);
+      setCurrentRoom(prev => {
+        // Only update if we're currently watching this room
+        if (prev && updatedRoom.code === prev.code) {
+          return updatedRoom;
+        }
+        return prev;
+      });
+    });
+
+    socket.on('roomJoined', (room) => {
+      console.log('Main screen joined room:', room);
+      setCurrentRoom(room);
+      setJoinError('');
+    });
+
+    socket.on('error', (error) => {
+      console.error('Socket error:', error);
+      setJoinError(error.message || 'Failed to connect to room');
     });
 
     socket.on('roundComplete', (winnerData) => {
@@ -67,27 +77,85 @@ export default function MainScreen() {
       if (typeof winnerData === 'object' && winnerData.winnerId) {
         setRoundWinner(winnerData);
       }
-    });
-
-    socket.on('gameStateChanged', (state, data) => {
+    });    socket.on('gameStateChanged', (state, data) => {
+      console.log('Main screen gameStateChanged:', state);
       // Clear round winner when starting a new round
       if (state === GameState.JUDGE_SELECTION) {
         setRoundWinner(null);
       }
+    });    socket.on('soundSubmitted', (submission) => {
+      console.log('Main screen received sound submission:', submission);
+      // Update currentRoom state with the new submission
+      setCurrentRoom(prev => {
+        if (prev) {
+          // Check if this submission already exists to avoid duplicates
+          const existingSubmission = prev.submissions.find(s => s.playerId === submission.playerId);
+          if (existingSubmission) {
+            return prev; // Don't update if submission already exists
+          }
+          
+          // Add the new submission to the room state
+          return {
+            ...prev,
+            submissions: [...prev.submissions, submission]
+          };
+        }
+        return prev;
+      });
     });
 
-    // Request updates every 5 seconds
-    const interval = setInterval(() => {
-      if (socket) {
-        socket.emit('requestMainScreenUpdate');
-      }
-    }, 5000);
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+      console.log('Main screen disconnected from server');
+    });
 
     return () => {
-      clearInterval(interval);
       socket.disconnect();
     };
-  }, [currentRoom]);
+  }, []); // Empty dependency array - only run once on mount
+
+  // Separate effect for managing room list updates
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
+    if (isConnected && !currentRoom) {
+      // Request initial update when connected and not in a room
+      socket.emit('requestMainScreenUpdate');
+      
+      // Set up periodic updates only when not watching a specific room
+      interval = setInterval(() => {
+        if (socket && socket.connected) {
+          socket.emit('requestMainScreenUpdate');
+        }
+      }, 10000);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isConnected, currentRoom]);
+
+  const joinRoom = () => {
+    if (roomCodeInput.length === 4) {
+      setJoinError('');
+      socket.emit('joinRoomAsViewer', roomCodeInput.toUpperCase());
+    } else {
+      setJoinError('Room code must be 4 letters');
+    }
+  };
+  const leaveRoom = () => {
+    setCurrentRoom(null);
+    setRoundWinner(null);
+    setJoinError('');
+    setRoomCodeInput('');    // Request fresh room list only when leaving a room
+    socket.emit('requestMainScreenUpdate');
+  };
+
+  const refreshRooms = () => {
+    socket.emit('requestMainScreenUpdate');
+  };
 
   if (!isConnected) {
     return (
@@ -95,7 +163,7 @@ export default function MainScreen() {
         <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
           <div className="animate-spin w-24 h-24 border-8 border-purple-500 border-t-transparent rounded-full mx-auto mb-8"></div>
           <h2 className="text-3xl font-bold text-gray-800 mb-4">Connecting to fartnoises</h2>
-          <p className="text-gray-600 text-xl">Setting up the main screen...</p>
+          <p className="text-gray-800 text-xl">Setting up the main screen...</p>
         </div>
       </div>
     );
@@ -112,37 +180,48 @@ export default function MainScreen() {
           <p className="text-white text-2xl font-bold opacity-90">
             The Silly Sound Game • Main Screen Display
           </p>
-        </div>
+        </div>        {currentRoom ? (
+          <div className="mb-4">
+            <button
+              onClick={leaveRoom}
+              className="bg-red-500 text-white px-6 py-2 rounded-xl hover:bg-red-600 transition-colors"
+            >
+              ← Leave Room {currentRoom.code}
+            </button>
+          </div>
+        ) : null}
 
         {currentRoom ? (
           <MainScreenGameDisplay room={currentRoom} roundWinner={roundWinner} />
-        ) : (
-          <WaitingForGameScreen rooms={rooms} />
+        ) : (          <WaitingForGameScreen 
+            rooms={rooms} 
+            onJoinRoom={joinRoom}
+            onRefreshRooms={refreshRooms}
+            roomCodeInput={roomCodeInput}
+            setRoomCodeInput={setRoomCodeInput}
+            joinError={joinError}
+          />
         )}
 
-        {/* Room List Footer */}
-        <div className="mt-8 bg-white bg-opacity-20 rounded-3xl p-6">
-          <h3 className="text-white text-xl font-bold mb-4 text-center">Active Rooms</h3>
+        {/* Room List Footer */}        <div className="mt-8 bg-white bg-opacity-80 rounded-3xl p-6">
+          <h3 className="text-gray-800 text-xl font-bold mb-4 text-center">Active Rooms</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {rooms.length === 0 ? (
-              <div className="col-span-full text-center text-white opacity-75">
+            {rooms.length === 0 ? (              <div className="col-span-full text-center text-gray-800">
                 No active games. Create a room on your phone to get started!
               </div>
-            ) : (
-              rooms.map((room) => (
+            ) : (              rooms.map((room) => (
                 <div 
                   key={room.code} 
                   className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
                     currentRoom?.code === room.code 
-                      ? 'bg-white bg-opacity-30 scale-105' 
-                      : 'bg-white bg-opacity-15 hover:bg-opacity-25'
+                      ? 'bg-white bg-opacity-90 scale-105' 
+                      : 'bg-white bg-opacity-80 hover:bg-opacity-90'
                   }`}
                   onClick={() => setCurrentRoom(room)}
-                >
-                  <div className="text-white">
+                >                  <div className={currentRoom?.code === room.code ? "text-gray-900" : "text-gray-800"}>
                     <h4 className="font-bold text-lg">{room.code}</h4>
-                    <p className="text-sm opacity-90">{room.players.length} players</p>
-                    <p className="text-sm opacity-75">{getGameStateDisplay(room.gameState)}</p>
+                    <p className="text-sm">{room.players.length} players</p>
+                    <p className="text-sm">{getGameStateDisplay(room.gameState)}</p>
                   </div>
                 </div>
               ))
@@ -154,49 +233,92 @@ export default function MainScreen() {
   );
 }
 
-function WaitingForGameScreen({ rooms }: { rooms: Room[] }) {
+function WaitingForGameScreen({ 
+  rooms, 
+  onJoinRoom, 
+  onRefreshRooms,
+  roomCodeInput, 
+  setRoomCodeInput, 
+  joinError 
+}: { 
+  rooms: Room[];
+  onJoinRoom: () => void;
+  onRefreshRooms: () => void;
+  roomCodeInput: string;
+  setRoomCodeInput: (value: string) => void;
+  joinError: string;
+}) {
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
       <div className="text-8xl mb-8">🎮</div>
-      <h2 className="text-4xl font-bold text-gray-800 mb-6">Ready for Fun!</h2>
-      <p className="text-gray-600 text-xl mb-8">
+      <h2 className="text-4xl font-bold text-gray-800 mb-6">Ready for Fun!</h2>      <p className="text-gray-800 text-xl mb-8">
         Players can join by going to <strong>fartnoises.game</strong> on their phones
       </p>
       
-      <div className="bg-gray-100 rounded-2xl p-8 mb-8">
-        <h3 className="text-2xl font-bold text-gray-800 mb-4">How to Play:</h3>
+      {/* Manual Room Entry */}      <div className="bg-purple-100 rounded-2xl p-6 mb-8">
+        <h3 className="text-2xl font-bold text-gray-900 mb-4">Join a Specific Game</h3>
+        <p className="text-gray-800 mb-4">Enter a 4-letter room code to watch that game:</p>
+        
+        <div className="flex justify-center items-center space-x-4">          <input
+            type="text"
+            value={roomCodeInput}
+            onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+            placeholder="ABCD"
+            maxLength={4}
+            className="text-2xl font-mono font-bold text-center w-32 h-16 border-2 border-purple-300 rounded-xl focus:border-purple-500 focus:outline-none placeholder:text-gray-700 text-gray-900 bg-white"
+          />
+          <button
+            onClick={onJoinRoom}
+            disabled={roomCodeInput.length !== 4}
+            className="bg-purple-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            Watch Game
+          </button>
+        </div>
+        
+        {joinError && (
+          <p className="text-red-600 font-bold mt-4">{joinError}</p>
+        )}
+      </div>
+        <div className="bg-gray-100 rounded-2xl p-8 mb-8">
+        <h3 className="text-2xl font-bold text-gray-900 mb-4">How to Play:</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
           <div className="text-center">
             <div className="text-4xl mb-2">📱</div>
-            <h4 className="font-bold text-lg mb-2">1. Join on Phone</h4>
-            <p className="text-gray-600">Enter your name and create or join a room</p>
+            <h4 className="font-bold text-lg mb-2 text-gray-900">1. Join on Phone</h4>
+            <p className="text-gray-800">Enter your name and create or join a room</p>
           </div>
           <div className="text-center">
             <div className="text-4xl mb-2">🎵</div>
-            <h4 className="font-bold text-lg mb-2">2. Pick Sounds</h4>
-            <p className="text-gray-600">Choose 2 silly sounds to match weird prompts</p>
+            <h4 className="font-bold text-lg mb-2 text-gray-900">2. Pick Sounds</h4>
+            <p className="text-gray-800">Choose 2 silly sounds to match weird prompts</p>
           </div>
           <div className="text-center">
             <div className="text-4xl mb-2">🏆</div>
-            <h4 className="font-bold text-lg mb-2">3. Vote & Win</h4>
-            <p className="text-gray-600">Judge picks the funniest combo and awards points</p>
+            <h4 className="font-bold text-lg mb-2 text-gray-900">3. Vote & Win</h4>
+            <p className="text-gray-800">Judge picks the funniest combo and awards points</p>
           </div>
         </div>
-      </div>
-
-      {rooms.length > 0 && (
+      </div>{/* Only show room list if user manually requests it */}      {rooms.length > 0 && (
         <div>
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Rooms Waiting for Players:</h3>
-          <div className="flex justify-center space-x-4">
-            {rooms.map((room) => (
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Active Rooms (for reference):</h3>
+          <div className="flex justify-center space-x-4 mb-4">
+            {rooms.slice(0, 5).map((room) => (
               <div key={room.code} className="bg-purple-100 px-6 py-3 rounded-xl">
-                <span className="font-mono font-bold text-lg">{room.code}</span>
-                <span className="text-gray-600 ml-2">({room.players.length} players)</span>
+                <span className="font-mono font-bold text-lg text-gray-900">{room.code}</span>
+                <span className="text-gray-700 ml-2">({room.players.length} players)</span>
               </div>
             ))}
           </div>
         </div>
       )}
+      
+      <button
+        onClick={onRefreshRooms}
+        className="bg-gray-500 text-white px-6 py-2 rounded-xl hover:bg-gray-600 transition-colors text-sm"
+      >
+        🔄 Refresh Room List
+      </button>
     </div>
   );
 }
@@ -220,10 +342,10 @@ function MainScreenGameDisplay({
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-4xl font-bold text-gray-800">Room {room.code}</h2>
-            <p className="text-xl text-gray-600">Round {room.currentRound} of {room.maxRounds}</p>
+            <p className="text-xl text-gray-800">Round {room.currentRound} of {room.maxRounds}</p>
           </div>
           <div className="text-right">
-            <p className="text-lg text-gray-600">{getGameStateDisplay(room.gameState)}</p>
+            <p className="text-lg text-gray-800">{getGameStateDisplay(room.gameState)}</p>
             <p className="text-2xl font-bold text-purple-600">{room.players.length} Players</p>
           </div>
         </div>
@@ -245,8 +367,7 @@ function MainScreenGameDisplay({
                 className={`w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl ${getPlayerColorClass(player.color)}`}
               >
                 {room.currentJudge === player.id ? '👨‍⚖️' : '🎵'}
-              </div>
-              <p className="font-bold text-lg">{player.name}</p>
+              </div>              <p className="font-bold text-lg text-gray-900">{player.name}</p>
               <p className="text-purple-600 font-bold text-xl">{player.score}</p>
               {room.currentJudge === player.id && (
                 <p className="text-yellow-600 font-bold text-sm">JUDGE</p>
@@ -285,12 +406,12 @@ function MainScreenGameDisplay({
 function LobbyDisplay({ room }: { room: Room }) {
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-800 mb-6">Waiting for Game to Start</h3>
+      <h3 className="text-3xl font-bold text-gray-900 mb-6">Waiting for Game to Start</h3>
       <div className="text-6xl mb-6">⏳</div>
-      <p className="text-xl text-gray-600 mb-6">
+      <p className="text-xl text-gray-800 mb-6">
         Need at least 3 players to begin. Current: {room.players.length}
       </p>
-      <p className="text-lg text-gray-500">
+      <p className="text-lg text-gray-700">
         Host can start the game when ready!
       </p>
     </div>
@@ -298,13 +419,49 @@ function LobbyDisplay({ room }: { room: Room }) {
 }
 
 function PromptSelectionDisplay({ room }: { room: Room }) {
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const judge = room.players.find(p => p.id === room.currentJudge);
+  
+  useEffect(() => {
+    // Use the existing global socket instead of creating a new one
+    if (!socket) return;
+    
+    const handleTimeUpdate = (data: any) => {
+      if (data.phase === 'prompt-selection') {
+        setTimeLeft(data.timeLeft);
+      }
+    };
+    
+    socket.on('timeUpdate', handleTimeUpdate);
+
+    return () => {
+      socket.off('timeUpdate', handleTimeUpdate);
+    };
+  }, []);
   
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
       <h3 className="text-3xl font-bold text-gray-800 mb-6">Judge Selecting Prompt</h3>
-      <div className="text-6xl mb-6">🤔</div>
-      <p className="text-2xl text-gray-600 mb-4">
+      
+      {/* Timer Display */}
+      {timeLeft !== null && (
+        <div className="mb-6">
+          <div className={`text-4xl font-bold mb-2 ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-blue-500'}`}>
+            {timeLeft}s
+          </div>
+          <div className="w-32 bg-gray-200 rounded-full h-3 mx-auto">
+            <div 
+              className={`h-3 rounded-full transition-all duration-1000 ${
+                timeLeft <= 5 ? 'bg-red-500' : 'bg-blue-500'
+              } ${
+                timeLeft <= 15 ? (timeLeft <= 12 ? (timeLeft <= 9 ? (timeLeft <= 6 ? (timeLeft <= 3 ? 'w-1/5' : 'w-2/5') : 'w-3/5') : 'w-4/5') : 'w-4/5') : 'w-full'
+              }`}
+            ></div>
+          </div>
+        </div>
+      )}
+        <div className="text-6xl mb-6">🤔</div>
+      <p className="text-2xl text-gray-800 mb-4">
         <span className="font-bold text-purple-600">{judge?.name}</span> is choosing a weird prompt...
       </p>
       <div className="animate-pulse flex justify-center space-x-2">
@@ -317,33 +474,79 @@ function PromptSelectionDisplay({ room }: { room: Room }) {
 }
 
 function SoundSelectionDisplay({ room }: { room: Room }) {
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const otherPlayers = room.players.filter(p => p.id !== room.currentJudge);
+  const submittedCount = room.submissions.length;
+  const totalNeeded = otherPlayers.length;
+  
+  // Debug logging
+  console.log('SoundSelectionDisplay render:', {
+    submittedCount,
+    totalNeeded,
+    submissions: room.submissions,
+    otherPlayers: otherPlayers.map(p => p.name)
+  });
+  
+  useEffect(() => {
+    // Use the existing global socket instead of creating a new one
+    if (!socket) return;
+    
+    const handleTimeUpdate = (data: any) => {
+      if (data.phase === 'sound-selection') {
+        setTimeLeft(data.timeLeft);
+      }
+    };
+    
+    socket.on('timeUpdate', handleTimeUpdate);
+
+    return () => {
+      socket.off('timeUpdate', handleTimeUpdate);
+    };
+  }, []);
   
   return (
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
       <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Sound Selection Time!</h3>
+      
+      {/* Timer Display */}
+      {timeLeft !== null && (
+        <div className="text-center mb-6">
+          <div className={`text-6xl font-bold mb-2 ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-green-500'}`}>
+            {timeLeft}s
+          </div>
+          <div className="w-64 bg-gray-200 rounded-full h-4 mx-auto">
+            <div 
+              className={`h-4 rounded-full transition-all duration-1000 ${
+                timeLeft <= 10 ? 'bg-red-500' : 'bg-green-500'
+              } ${
+                timeLeft <= 30 ? (timeLeft <= 25 ? (timeLeft <= 20 ? (timeLeft <= 15 ? (timeLeft <= 10 ? 'w-1/6' : 'w-2/6') : 'w-3/6') : 'w-4/6') : 'w-5/6') : 'w-full'
+              }`}
+            ></div>
+          </div>
+        </div>
+      )}
       
       {room.currentPrompt && (
         <div className="bg-purple-100 rounded-2xl p-6 mb-8">
           <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
           <p className="text-2xl text-gray-800 font-bold">&quot;{room.currentPrompt}&quot;</p>
         </div>
-      )}
-
-      <div className="text-center mb-8">
-        <p className="text-xl text-gray-600 mb-4">
+      )}      <div className="text-center mb-8">
+        <p className="text-xl text-gray-800 mb-4">
           Players are picking their best sound combinations...
+        </p>
+        <p className="text-lg text-gray-700 mb-4">
+          {submittedCount} of {totalNeeded} players have submitted
         </p>
         <div className="text-6xl">🎵</div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {otherPlayers.map((player) => (
-          <div key={player.id} className="text-center p-4 bg-gray-100 rounded-2xl">            <div 
+        {otherPlayers.map((player) => (          <div key={player.id} className="text-center p-4 bg-gray-100 rounded-2xl">            <div 
               className={`w-12 h-12 rounded-full mx-auto mb-2 ${getPlayerColorClass(player.color)}`}
             ></div>
-            <p className="font-bold">{player.name}</p>
-            <p className="text-sm text-gray-600">
+            <p className="font-bold text-gray-900">{player.name}</p>
+            <p className="text-sm text-gray-700">
               {room.submissions.find(s => s.playerId === player.id) ? '✅ Ready' : '⏳ Thinking...'}
             </p>
           </div>
@@ -359,9 +562,8 @@ function JudgingDisplay({ room }: { room: Room }) {
   return (
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
       <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Judging Time!</h3>
-      
-      <div className="text-center mb-8">
-        <div className="text-6xl mb-4">👨‍⚖️</div>        <p className="text-2xl text-gray-600 mb-4">
+        <div className="text-center mb-8">
+        <div className="text-6xl mb-4">👨‍⚖️</div>        <p className="text-2xl text-gray-800 mb-4">
           <span className="font-bold text-purple-600">{judge?.name}</span> is listening to all the submissions...
         </p>
         
@@ -436,8 +638,7 @@ function ResultsDisplay({
           </div>
         </div>
       )}
-      
-      <p className="text-xl text-gray-600">
+        <p className="text-xl text-gray-800">
         Round {room.currentRound} complete! Getting ready for the next round...
       </p>
     </div>
@@ -453,10 +654,9 @@ function GameOverDisplay({ room }: { room: Room }) {
       <h3 className="text-4xl font-bold text-gray-800 mb-8">🎊 Game Over! 🎊</h3>
       
       <div className="mb-8">
-        <div className="text-8xl mb-4">🏆</div>
-        <h4 className="text-3xl font-bold text-yellow-600 mb-2">Winner!</h4>
-        <p className="text-4xl font-bold text-gray-800">{winner.name}</p>
-        <p className="text-2xl text-gray-600">{winner.score} points</p>
+        <div className="text-8xl mb-4">🏆</div>        <h4 className="text-3xl font-bold text-yellow-600 mb-2">Winner!</h4>
+        <p className="text-4xl font-bold text-gray-900">{winner.name}</p>
+        <p className="text-2xl text-gray-800">{winner.score} points</p>
       </div>
 
       <div className="bg-gray-100 rounded-2xl p-6">
@@ -473,7 +673,7 @@ function GameOverDisplay({ room }: { room: Room }) {
                 <span className="text-2xl font-bold">{index + 1}.</span>                <div 
                   className={`w-8 h-8 rounded-full ${getPlayerColorClass(player.color)}`}
                 ></div>
-                <span className="text-xl font-bold">{player.name}</span>
+                <span className="text-xl font-bold text-gray-900">{player.name}</span>
               </div>
               <span className="text-2xl font-bold text-purple-600">{player.score}</span>
             </div>

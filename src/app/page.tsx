@@ -52,13 +52,12 @@ export default function Home() {
               <div className="mb-8">
                 <label className="block text-gray-700 text-lg font-bold mb-4">
                   What&apos;s your name?
-                </label>
-                <input
+                </label>                <input
                   type="text"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
                   placeholder="Enter your name..."
-                  className="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none transition-colors"
+                  className="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none transition-colors placeholder:text-gray-600"
                   maxLength={20}
                 />
               </div>
@@ -89,8 +88,7 @@ export default function Home() {
                   className="w-full bg-gradient-to-r from-purple-400 to-purple-600 text-white py-3 px-6 rounded-xl font-bold hover:from-purple-500 hover:to-purple-700 transition-all duration-200"
                 >
                   📺 Main Screen Mode
-                </button>
-                <p className="text-sm text-gray-500 text-center mt-2">
+                </button>                <p className="text-sm text-gray-700 text-center mt-2">
                   For TV/shared display
                 </p>
               </div>
@@ -107,13 +105,12 @@ export default function Home() {
                 </button>
                 <label className="block text-gray-700 text-lg font-bold mb-4">
                   Enter Room Code
-                </label>
-                <input
+                </label>                <input
                   type="text"
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                   placeholder="4-letter code..."
-                  className="w-full px-6 py-4 text-lg text-center font-mono border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors uppercase"
+                  className="w-full px-6 py-4 text-lg text-center font-mono border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors uppercase placeholder:text-gray-600"
                   maxLength={4}
                 />
               </div>
@@ -138,8 +135,7 @@ export default function Home() {
                 </button>
                 <h3 className="text-2xl font-bold text-gray-800 mb-4">
                   Ready to create a room?
-                </h3>
-                <p className="text-gray-600 mb-8">
+                </h3>                <p className="text-gray-800 mb-8">
                   You&apos;ll become the host and get a room code to share with friends!
                 </p>
                 <button
