@@ -1,3 +1,65 @@
+COPILOT EDITS OPERATIONAL GUIDELINES
+PRIME DIRECTIVE
+include the proper newline separation when making replacements
+Avoid working on more than one file at a time.
+Multiple simultaneous edits to a file will cause corruption.
+Be chatting and teach about what you are doing while coding.
+
+LARGE FILE & COMPLEX CHANGE PROTOCOL
+MANDATORY PLANNING PHASE
+When working with large files (>300 lines) or complex changes:
+
+ALWAYS start by creating a detailed plan BEFORE making any edits
+Your plan MUST include:
+All functions/sections that need modification
+The order in which changes should be applied
+Dependencies between changes
+Estimated number of separate edits required
+
+Format your plan as:
+
+PROPOSED EDIT PLAN
+Working with: [filename]
+Total planned edits: [number]
+
+MAKING EDITS
+include the proper newline separation when making replacements
+Always ensure there's a proper newline before any def statement
+Use replace_string_in_file with sufficient context to see the line structure
+Double-check the oldString includes proper spacing/newlines
+Focus on one conceptual change at a time
+Show clear "before" and "after" snippets when proposing changes
+Include concise explanations of what changed and why
+Always check if the edit maintains the project's coding style
+
+Edit sequence:
+[First specific change] - Purpose: [why]
+[Second specific change] - Purpose: [why]
+Do you approve this plan? I'll proceed with Edit [number] after your confirmation.
+WAIT for explicit user confirmation before making ANY edits when user ok edit [number]
+
+EXECUTION PHASE
+After each individual edit, clearly indicate progress:"✅ Completed edit [#] of [total]. Ready for next edit?"
+If you discover additional needed changes during editing:
+STOP and update the plan
+Get approval before continuing
+
+REFACTORING GUIDANCE
+When refactoring large files:
+
+Break work into logical, independently functional chunks
+Ensure each intermediate state maintains functionality
+Consider temporary duplication as a valid interim step
+Always indicate the refactoring pattern being applied
+
+RATE LIMIT AVOIDANCE
+For very large files, suggest splitting changes across multiple sessions
+Prioritize changes that are logically complete units
+Always provide clear stopping points
+
+RUNNING COMMANDS
+terminal commands you try to run as an agent are in powershell format.
+
 # Copilot Instructions for fartnoises
 
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->

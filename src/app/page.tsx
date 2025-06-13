@@ -57,7 +57,7 @@ export default function Home() {
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
                   placeholder="Enter your name..."
-                  className="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none transition-colors placeholder:text-gray-600"
+                  className="w-full px-6 py-4 text-lg text-gray-800 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none transition-colors placeholder:text-gray-600"
                   maxLength={20}
                 />
               </div>
@@ -110,7 +110,7 @@ export default function Home() {
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                   placeholder="4-letter code..."
-                  className="w-full px-6 py-4 text-lg text-center font-mono border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors uppercase placeholder:text-gray-600"
+                  className="w-full px-6 py-4 text-lg text-gray-800 text-center font-mono border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors uppercase placeholder:text-gray-600"
                   maxLength={4}
                 />
               </div>

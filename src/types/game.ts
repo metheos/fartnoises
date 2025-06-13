@@ -52,6 +52,7 @@ export interface GamePrompt {
 
 // Socket event types
 export interface ServerToClientEvents {
+  mainScreenUpdate: (data: { rooms: Room[] }) => void; // Added for main screen room list updates
   roomCreated: (data: { room: Room; player: Player }) => void;
   roomJoined: (data: { room: Room; player: Player }) => void;
   roomUpdated: (room: Room) => void;

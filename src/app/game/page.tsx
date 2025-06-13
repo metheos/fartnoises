@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef, useMemo } from 'react'; // Added useMemo
 import { useRouter, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { Player, Room, GameState } from '@/types/game';
 import { SOUND_EFFECTS } from '@/data/gameData';
 import { audioSystem } from '@/utils/audioSystem';
-
-let socket: Socket;
 
 // Helper function to convert hex colors to Tailwind classes
 const getPlayerColorClass = (color: string): string => {
@@ -36,315 +34,324 @@ function GamePageContent() {
     winnerName: string;
     winningSubmission: any;
     submissionIndex: number;
-  } | null>(null);  const [debugLog, setDebugLog] = useState<string[]>([]);
-  const [renderCounter, setRenderCounter] = useState(0);
+  } | null>(null);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
+  const socketRef = useRef<Socket | null>(null);
+  const hasAttemptedConnectionLogic = useRef(false);
+
+  // Stabilize the URL parameters using useMemo to prevent effect re-runs
+  const stableParams = useMemo(() => {
+    const mode = searchParams?.get('mode');
+    const playerName = searchParams?.get('playerName') || searchParams?.get('name');
+    const roomCode = searchParams?.get('roomCode') || searchParams?.get('room');
+    return { mode, playerName, roomCode };
+  }, [searchParams]);
+
+  const { mode, playerName, roomCode } = stableParams;
+
   const addDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setDebugLog(prev => [...prev.slice(-10), `[${timestamp}] ${message}`]);
   };
-  
-  const mode = searchParams?.get('mode');
-  const playerName = searchParams?.get('playerName') || searchParams?.get('name');
-  const roomCode = searchParams?.get('roomCode') || searchParams?.get('room');useEffect(() => {
+
+  // Handle redirection in a separate effect to avoid dependency issues
+  useEffect(() => {
     if (!playerName) {
+      addDebugLog('No playerName, redirecting to home.');
       router.push('/');
+    }
+  }, [playerName, router]);
+
+  useEffect(() => {
+    addDebugLog(`Main effect run. Mode: ${mode}, PlayerName: ${playerName}, RoomCode: ${roomCode}, Socket Exists: ${!!socketRef.current}, Attempted Logic: ${hasAttemptedConnectionLogic.current}, InRoom: ${!!room}`);
+
+    if (!playerName) {
+      // addDebugLog('No playerName, redirecting to home.'); // Moved to separate effect
+      // router.push('/'); // Moved to separate effect
       return;
     }
 
-    // Initialize audio system
+    // Initialize socket only if it doesn't exist or if critical params change
+    // For simplicity, this example creates it if null. More complex logic could go here
+    // if changing mode/playerName/roomCode should force a new socket.
+    if (!socketRef.current) {
+      addDebugLog('No socket instance in ref, creating new one.');
+      const newSocket = io({
+        path: '/api/socket',
+        transports: ['polling', 'websocket'],
+        // Consider adding forceNew: true if re-connection with new params is needed,
+        // but this usually means the old one should be explicitly disconnected.
+      });
+      socketRef.current = newSocket;
+      hasAttemptedConnectionLogic.current = false; // Reset for new socket instance
+      addDebugLog(`New socket instance created: ${newSocket.id}`);
+    }
+
+    const currentSocket = socketRef.current; // Use the stable instance
+
     const initAudio = async () => {
       try {
         await audioSystem.initialize();
-        
-        // Preload some common sounds
-        for (const sound of SOUND_EFFECTS.slice(0, 10)) {
+        for (const sound of SOUND_EFFECTS.slice(0, 10)) { // Consider preloading based on actual game needs
           await audioSystem.loadSound(sound.id, sound.fileName);
         }
-      } catch (error) {
-        console.warn('Audio initialization failed:', error);
-        // Continue without audio
+        addDebugLog('Audio system initialized and sounds preloaded.');
+      } catch (audioError) {
+        console.warn('Audio initialization failed:', audioError);
+        addDebugLog(`Audio initialization failed: ${audioError}`);
+      }
+    };
+    initAudio(); // Call audio initialization
+
+    // --- Define all event handlers ---
+    const handleConnect = () => {
+      addDebugLog(`Socket connected: ${currentSocket.id}. Attempted Logic: ${hasAttemptedConnectionLogic.current}, Current room state: ${room ? room.code : 'null'}`);
+      setIsConnected(true);
+
+      if (!hasAttemptedConnectionLogic.current && !room) { // Check !room to ensure we are not already in a room from a previous state
+        addDebugLog('Attempting connection logic (create/join).');
+        hasAttemptedConnectionLogic.current = true; // Mark that we are attempting it
+
+        if (mode === 'create' || mode === 'host') {
+          addDebugLog(`Emitting createRoom for player: ${playerName} on socket ${currentSocket.id}`);
+          currentSocket.emit('createRoom', playerName, (newRoomCode: string) => {
+            addDebugLog(`createRoom callback for ${playerName}, room code: ${newRoomCode}. Waiting for roomCreated event.`);
+            // State updates handled by 'roomCreated'
+          });
+        } else if (mode === 'join' && roomCode) {
+          addDebugLog(`Emitting joinRoom for room: ${roomCode}, player: ${playerName} on socket ${currentSocket.id}`);
+          currentSocket.emit('joinRoom', roomCode, playerName, (success: boolean, joinedRoomData?: Room) => {
+            if (!success) {
+              addDebugLog(`joinRoom failed for room: ${roomCode}.`);
+              setError('Failed to join room. Room may be full, not exist, or game in progress.');
+              hasAttemptedConnectionLogic.current = false; // Allow retry if join failed? Or handle error more gracefully.
+            } else {
+              addDebugLog(`joinRoom callback successful for room: ${roomCode}. Waiting for roomJoined event.`);
+              // State updates handled by 'roomJoined'
+            }
+          });
+        }
+      } else {
+        addDebugLog(`Socket connected, but connection logic already attempted or in room. Attempted: ${hasAttemptedConnectionLogic.current}, Room: ${room?.code}`);
       }
     };
 
-    initAudio();    // Initialize socket connection
-    socket = io({
-      path: '/api/socket',
-      transports: ['polling', 'websocket'],
-    });    socket.on('connect', () => {
-      console.log('Socket connected successfully!', socket.id);
-      addDebugLog(`Socket connected: ${socket.id}`);
-      setIsConnected(true);
-        if (mode === 'create' || mode === 'host') {
-        console.log('Emitting createRoom with playerName:', playerName);
-        addDebugLog(`Emitting createRoom with player: ${playerName}`);
-        socket.emit('createRoom', playerName, (roomCode: string) => {
-          // Room created successfully with the returned room code
-          console.log('Room created callback received:', roomCode);
-          addDebugLog(`CreateRoom callback received: ${roomCode}`);
-        });
-      } else if (mode === 'join' && roomCode) {
-        console.log('Emitting joinRoom with roomCode:', roomCode, 'playerName:', playerName);
-        addDebugLog(`Emitting joinRoom: ${roomCode}, player: ${playerName}`);
-        socket.emit('joinRoom', roomCode, playerName, (success: boolean) => {
-          if (!success) {
-            setError('Failed to join room. Room may be full or not exist.');
-            addDebugLog('JoinRoom failed');
-          } else {
-            addDebugLog('JoinRoom successful');
-          }
-        });
-      }
-    });
+    const handleConnectError = (err: Error) => {
+      addDebugLog(`Socket connection error: ${err.message}`);
+      setError(`Connection failed: ${err.message}`);
+      setIsConnected(false); // Ensure connection status is false
+      hasAttemptedConnectionLogic.current = false; // Allow re-attempt if connection fails before logic runs
+    };
 
-    socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-      setError(`Connection failed: ${error.message}`);
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
+    const handleDisconnect = (reason: string) => {
+      addDebugLog(`Socket disconnected: ${reason}. Socket ID: ${currentSocket.id}`);
       setIsConnected(false);
-    });    socket.on('roomCreated', ({ room, player }) => {
-      console.log('roomCreated event received:', { room, player });
-      addDebugLog(`roomCreated event received for room: ${room?.code}`);
-      
-      // Use functional state updates to ensure React re-renders
-      setRoom(() => {
-        const newRoom = room ? { ...room } : null;
-        console.log('Setting room state (functional update):', newRoom);
-        return newRoom;
-      });
-      
-      setPlayer(() => {
-        const newPlayer = player ? { ...player } : null;
-        console.log('Setting player state (functional update):', newPlayer);
-        return newPlayer;
-      });
-      
-      // Force re-render
-      setRenderCounter(prev => prev + 1);
-    });
+      // OLD LOGIC that could cause double emits on quick reconnect before room state is set:
+      // if (!room) {
+      //     hasAttemptedConnectionLogic.current = false;
+      // }
+      // NEW LOGIC: Do not reset hasAttemptedConnectionLogic.current here.
+      // It should persist for this "session" to prevent re-emitting create/join
+      // on temporary disconnects if the initial attempt was already made.
+      // It's reset on unmount, connect_error, or new socket instance creation.
+    };
 
-    socket.on('roomJoined', ({ room, player }) => {
-      console.log('roomJoined event received:', { room, player });
-      addDebugLog(`roomJoined event received for room: ${room?.code}`);
-      
-      // Use functional state updates to ensure React re-renders
-      setRoom(() => {
-        const newRoom = room ? { ...room } : null;
-        console.log('Setting room state (functional update):', newRoom);
-        return newRoom;
-      });
-      
-      setPlayer(() => {
-        const newPlayer = player ? { ...player } : null;
-        console.log('Setting player state (functional update):', newPlayer);
-        return newPlayer;
-      });
-      
-      // Force re-render
-      setRenderCounter(prev => prev + 1);
-    });    socket.on('roomUpdated', (updatedRoom) => {
-      console.log('roomUpdated event received:', updatedRoom);
-      addDebugLog(`roomUpdated: ${updatedRoom?.code} with ${updatedRoom?.players?.length} players`);
-      
-      // Only update room state if we receive valid room data
+    const handleRoomCreated = ({ room: newRoom, player: newPlayer }: { room: Room; player: Player }) => {
+      addDebugLog(`roomCreated event for room: ${newRoom?.code}. Player: ${newPlayer?.name}. Socket: ${currentSocket.id}`);
+      setRoom(newRoom);
+      setPlayer(newPlayer);
+      // router.replace(`/game?mode=join&playerName=${playerName}&roomCode=${newRoom.code}`, { scroll: false }); // Update URL
+    };
+
+    const handleRoomJoined = ({ room: newRoom, player: newPlayer }: { room: Room; player: Player }) => {
+      addDebugLog(`roomJoined event for room: ${newRoom?.code}. Player: ${newPlayer?.name}. Socket: ${currentSocket.id}`);
+      setRoom(newRoom);
+      setPlayer(newPlayer);
+    };
+
+    const handleRoomUpdated = (updatedRoom: Room) => {
+      addDebugLog(`roomUpdated event for room: ${updatedRoom?.code}, players: ${updatedRoom?.players?.length}. Socket: ${currentSocket.id}`);
       if (updatedRoom && updatedRoom.code) {
-        setRoom(() => {
-          const newRoom = { ...updatedRoom };
-          console.log('Setting room state (functional update):', newRoom);
-          return newRoom;
-        });
-        
-        // Force re-render
-        setRenderCounter(prev => prev + 1);
+        setRoom(updatedRoom);
+        const selfPlayer = updatedRoom.players.find(p => p.id === player?.id || p.id === currentSocket.id);
+        if (selfPlayer) setPlayer(selfPlayer);
       } else {
-        console.warn('roomUpdated: Received invalid room data, keeping current room state');
-        addDebugLog('roomUpdated: Invalid room data - keeping current state');
+        addDebugLog('roomUpdated: Received invalid room data.');
       }
-    });
+    };
 
-    socket.on('playerJoined', ({ room }) => {
-      console.log('playerJoined event received:', room);
-      addDebugLog(`playerJoined: ${room?.code} with ${room?.players?.length} players`);
-      
-      // Only update room state if we receive valid room data
-      if (room && room.code) {
-        setRoom(() => {
-          const newRoom = { ...room };
-          console.log('Setting room state (functional update):', newRoom);
-          return newRoom;
-        });
-        
-        // Force re-render
-        setRenderCounter(prev => prev + 1);
+    const handlePlayerJoined = ({ room: updatedRoom }: { room: Room }) => {
+      addDebugLog(`playerJoined event for room: ${updatedRoom?.code}, players: ${updatedRoom?.players?.length}. Socket: ${currentSocket.id}`);
+      if (updatedRoom && updatedRoom.code) {
+        setRoom(updatedRoom);
       } else {
-        console.warn('playerJoined: Received invalid room data, keeping current room state');
-        addDebugLog('playerJoined: Invalid room data - keeping current state');
+        addDebugLog('playerJoined: Received invalid room data.');
       }
-    });    socket.on('gameStateChanged', (state, data) => {
-      console.log('gameStateChanged event received:', state, data);
-      addDebugLog(`gameStateChanged: new state: ${state}`);
-      
-      // Clear round winner when starting a new round (judge selection)
+    };
+
+    const handleGameStateChanged = (state: GameState, data?: any) => {
+      addDebugLog(`gameStateChanged event: ${state}, data: ${JSON.stringify(data)}. Socket: ${currentSocket.id}`);
       if (state === GameState.JUDGE_SELECTION) {
         setRoundWinner(null);
       }
-      
-      // Update the room's game state
-      setRoom((currentRoom) => {
-        if (currentRoom) {
-          const newRoom = { 
-            ...currentRoom, 
+      setRoom((currentRoomVal) => {
+        if (currentRoomVal) {
+          return {
+            ...currentRoomVal,
             gameState: state,
-            // Update other properties based on the data
             ...(data?.prompts && { availablePrompts: data.prompts }),
             ...(data?.prompt && { currentPrompt: data.prompt }),
-            ...(data?.judgeId && { currentJudge: data.judgeId })
+            ...(data?.judgeId && { currentJudge: data.judgeId }),
+            ...(data?.submissions && { submissions: data.submissions }),
           };
-          console.log('Setting room state (gameStateChanged):', newRoom);
-          return newRoom;
-        } else {
-          console.warn('gameStateChanged: No current room to update');
-          addDebugLog('gameStateChanged: No current room to update');
-          return currentRoom;
         }
+        return currentRoomVal;
       });
-      
-      // Force re-render
-      setRenderCounter(prev => prev + 1);
-    });
-
-    socket.on('promptSelected', (prompt) => {
-      console.log('promptSelected event received:', prompt);
-      addDebugLog(`promptSelected: ${prompt}`);
-      
-      setRoom((currentRoom) => {
-        if (currentRoom) {
-          const newRoom = { ...currentRoom, currentPrompt: prompt };
-          console.log('Setting room state (promptSelected):', newRoom);
-          return newRoom;
-        }
-        return currentRoom;
-      });
-      
-      // Force re-render
-      setRenderCounter(prev => prev + 1);
-    });
-
-    socket.on('judgeSelected', (judgeId) => {
-      console.log('judgeSelected event received:', judgeId);
-      addDebugLog(`judgeSelected: ${judgeId}`);
-      
-      setRoom((currentRoom) => {
-        if (currentRoom) {
-          const newRoom = { ...currentRoom, currentJudge: judgeId };
-          console.log('Setting room state (judgeSelected):', newRoom);
-          return newRoom;
-        }
-        return currentRoom;
-      });
-      
-      // Force re-render
-      setRenderCounter(prev => prev + 1);
-    });
-
-    socket.on('soundSubmitted', (submission) => {
-      console.log('soundSubmitted event received:', submission);
-      addDebugLog(`soundSubmitted: ${submission.playerName}`);
-      
-      setRoom((currentRoom) => {
-        if (currentRoom) {
-          const newRoom = { 
-            ...currentRoom, 
-            submissions: [...currentRoom.submissions, submission] 
-          };
-          console.log('Setting room state (soundSubmitted):', newRoom);
-          return newRoom;
-        }
-        return currentRoom;
-      });
-      
-      // Force re-render
-      setRenderCounter(prev => prev + 1);
-    });    socket.on('roundComplete', (winnerData) => {
-      console.log('roundComplete event received:', winnerData);
-      if (typeof winnerData === 'object' && winnerData.winnerId) {
-        // New format with full winner data
-        setRoundWinner(winnerData);
-        addDebugLog(`roundComplete: ${winnerData.winnerName} won with submission ${winnerData.submissionIndex}!`);
-      } else {
-        // Legacy format for backward compatibility
-        const winnerId = arguments[0];
-        const winnerName = arguments[1];
-        addDebugLog(`roundComplete (legacy): ${winnerName} won!`);
-      }
-      // The room state will be updated via roomUpdated event
-    });
-
-    socket.on('error', ({ message }) => {
-      addDebugLog(`Error event: ${message}`);
-      setError(message);
-    });
-
-    socket.on('timeUpdate', ({ timeLeft }) => {
-      setTimeLeft(timeLeft);
-    });
-
-    return () => {
-      socket.disconnect();
     };
-  }, [mode, playerName, roomCode, router]);
-  
+
+    const handlePromptSelected = (promptText: string) => {
+      addDebugLog(`promptSelected event: ${promptText}. Socket: ${currentSocket.id}`);
+      setRoom((currentRoomVal) => currentRoomVal ? { ...currentRoomVal, currentPrompt: promptText } : null);
+    };
+
+    const handleJudgeSelected = (judgeId: string) => {
+      addDebugLog(`judgeSelected event: ${judgeId}. Socket: ${currentSocket.id}`);
+      setRoom((currentRoomVal) => currentRoomVal ? { ...currentRoomVal, currentJudge: judgeId } : null);
+    };
+
+    const handleSoundSubmitted = (submission: {playerId: string, playerName: string, sounds: [string, string]}) => {
+      addDebugLog(`soundSubmitted event by ${submission.playerName}. Socket: ${currentSocket.id}`);
+      setRoom((currentRoomVal) => {
+        if (currentRoomVal) {
+          if (currentRoomVal.submissions.find(s => s.playerId === submission.playerId)) {
+            return currentRoomVal;
+          }
+          return {
+            ...currentRoomVal,
+            submissions: [...currentRoomVal.submissions, submission]
+          };
+        }
+        return currentRoomVal;
+      });
+    };
+
+    const handleRoundComplete = (winnerData: any) => {
+      addDebugLog(`roundComplete event: ${JSON.stringify(winnerData)}. Socket: ${currentSocket.id}`);
+      if (typeof winnerData === 'object' && winnerData.winnerId) {
+        setRoundWinner(winnerData);
+      }
+    };
+
+    const handleErrorEvent = ({ message }: { message: string }) => {
+      addDebugLog(`Socket error event: ${message}. Socket: ${currentSocket.id}`);
+      setError(message);
+    };
+
+    const handleTimeUpdate = ({ timeLeft: newTimeLeft }: { timeLeft: number }) => {
+      setTimeLeft(newTimeLeft);
+    };
+
+    // --- Register event listeners ---
+    // Ensure listeners are not duplicated if effect re-runs for other reasons (though deps aim to prevent this)
+    // This pattern of defining handlers inside effect and using them is fine.
+    addDebugLog(`Registering socket event listeners for socket: ${currentSocket.id}.`);
+    currentSocket.on('connect', handleConnect);
+    currentSocket.on('connect_error', handleConnectError);
+    currentSocket.on('disconnect', handleDisconnect);
+    currentSocket.on('roomCreated', handleRoomCreated);
+    currentSocket.on('roomJoined', handleRoomJoined);
+    currentSocket.on('roomUpdated', handleRoomUpdated);
+    currentSocket.on('playerJoined', handlePlayerJoined);
+    currentSocket.on('gameStateChanged', handleGameStateChanged);
+    currentSocket.on('promptSelected', handlePromptSelected);
+    currentSocket.on('judgeSelected', handleJudgeSelected);
+    currentSocket.on('soundSubmitted', handleSoundSubmitted);
+    currentSocket.on('roundComplete', handleRoundComplete);
+    currentSocket.on('error', handleErrorEvent);
+    currentSocket.on('timeUpdate', handleTimeUpdate);
+
+    // --- Cleanup for this effect ---
+    return () => {
+      addDebugLog(`Cleaning up listeners for socket: ${currentSocket.id}. (Effect re-run or unmount preparation)`);
+      currentSocket.off('connect', handleConnect);
+      currentSocket.off('connect_error', handleConnectError);
+      currentSocket.off('disconnect', handleDisconnect);
+      currentSocket.off('roomCreated', handleRoomCreated);
+      currentSocket.off('roomJoined', handleRoomJoined);
+      currentSocket.off('roomUpdated', handleRoomUpdated);
+      currentSocket.off('playerJoined', handlePlayerJoined);
+      currentSocket.off('gameStateChanged', handleGameStateChanged);
+      currentSocket.off('promptSelected', handlePromptSelected);
+      currentSocket.off('judgeSelected', handleJudgeSelected);
+      currentSocket.off('soundSubmitted', handleSoundSubmitted);
+      currentSocket.off('roundComplete', handleRoundComplete);
+      currentSocket.off('error', handleErrorEvent);
+      currentSocket.off('timeUpdate', handleTimeUpdate);
+      // DO NOT disconnect socketRef.current here. That's for the unmount effect.
+    };
+  }, [mode, playerName, roomCode]); // Removed 'router' from dependencies
+
+  // Effect for actual socket disconnection on component unmount
+  useEffect(() => {
+    // This function is the cleanup function for the effect.
+    // It runs when the component is unmounted.
+    return () => {
+      if (socketRef.current) {
+        addDebugLog(`Component unmounting. Disconnecting socket: ${socketRef.current.id}`);
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        hasAttemptedConnectionLogic.current = false; // Reset for a completely new mount
+      }
+    };
+  }, []); // Empty dependency array ensures this runs only on mount and unmount
+
   // Monitor room state changes
   useEffect(() => {
-    console.log('Room state changed:', room);
-    addDebugLog(`Room state changed: ${room ? `${room.code} with ${room.players?.length} players` : 'null'}`);
+    addDebugLog(`Room state changed: ${room ? `${room.code} with ${room.players?.length} players, state: ${room.gameState}` : 'null'}`);
   }, [room]);
-  
+
   // Monitor player state changes
   useEffect(() => {
-    console.log('Player state changed:', player);
     addDebugLog(`Player state changed: ${player ? player.name : 'null'}`);
   }, [player]);
+
   const startGame = () => {
-    if (socket && room) {
-      console.log('Emitting startGame');
-      addDebugLog('Emitting startGame');
-      socket.emit('startGame');
+    if (socketRef.current && room) {
+      addDebugLog(`Emitting startGame on socket ${socketRef.current.id}`);
+      socketRef.current.emit('startGame');
     }
   };
 
   const selectSounds = (sound1: string, sound2: string) => {
     setSelectedSounds([sound1, sound2]);
   };
+
   const submitSounds = () => {
-    if (socket && room && selectedSounds) {
-      console.log('Emitting submitSounds with sounds:', selectedSounds);
-      addDebugLog(`Emitting submitSounds: ${selectedSounds.join(', ')}`);
-      socket.emit('submitSounds', selectedSounds);
+    if (socketRef.current && room && selectedSounds) {
+      addDebugLog(`Emitting submitSounds: ${selectedSounds.join(', ')} on socket ${socketRef.current.id}`);
+      socketRef.current.emit('submitSounds', selectedSounds);
       setSelectedSounds(null);
     }
   };
+
   const selectPrompt = (promptId: string) => {
-    if (socket && room) {
-      console.log('Emitting selectPrompt with promptId:', promptId);
-      addDebugLog(`Emitting selectPrompt: ${promptId}`);
-      socket.emit('selectPrompt', promptId);
-    }
-  };
-  const judgeSubmission = (submissionIndex: number) => {
-    if (socket && room) {
-      console.log('Emitting selectWinner with submissionIndex:', submissionIndex);
-      addDebugLog(`Emitting selectWinner: ${submissionIndex}`);
-      socket.emit('selectWinner', submissionIndex.toString());
+    if (socketRef.current && room) {
+      addDebugLog(`Emitting selectPrompt: ${promptId} on socket ${socketRef.current.id}`);
+      socketRef.current.emit('selectPrompt', promptId);
     }
   };
 
-  if (!isConnected) {
+  const judgeSubmission = (submissionIndex: number) => {
+    if (socketRef.current && room) {
+      addDebugLog(`Emitting selectWinner: ${submissionIndex} on socket ${socketRef.current.id}`);
+      socketRef.current.emit('selectWinner', submissionIndex.toString());
+    }
+  };
+
+  if (!isConnected && !error) { // Show connecting screen only if not yet connected and no error
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
         <div className="bg-white rounded-3xl p-8 text-center">
@@ -363,6 +370,7 @@ function GamePageContent() {
           <p className="text-gray-800 mb-6">{error}</p>
           <button
             onClick={() => router.push('/')}
+
             className="bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-600 transition-colors"
           >
             Back to Home
@@ -377,7 +385,6 @@ function GamePageContent() {
       hasPlayer: !!player,
       roomCode: room?.code,
       playerName: player?.name,
-      renderCounter,
       mode,
       urlPlayerName: playerName,
       urlRoomCode: roomCode
@@ -395,7 +402,6 @@ function GamePageContent() {
             <p>Player Name: {playerName}</p>
             <p>Room: {room ? `Found (${room.code})` : 'None'}</p>
             <p>Player: {player ? `Found (${player.name})` : 'None'}</p>
-            <p>Render Counter: {renderCounter}</p>
             {error && <p className="text-red-500">Error: {error}</p>}
             {debugLog.length > 0 && (
               <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
@@ -499,204 +505,172 @@ function LobbyComponent({ room, player, onStartGame }: {
   player: Player; 
   onStartGame: () => void; 
 }) {
-  const canStart = room.players.length >= 3 && player.isVIP;
+  // Basic Lobby UI
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg">
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-900">Waiting for Players</h2>
-      
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
+    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <h2 className="text-2xl font-bold text-purple-600 mb-4">Lobby</h2>
+      <p className="text-gray-800 mb-2">Room Code: <span className="font-mono font-bold">{room.code}</span></p>
+      <p className="text-gray-800 mb-4">Players in lobby: {room.players.length}</p>
+      <ul className="mb-6 text-left max-w-xs mx-auto">
         {room.players.map((p) => (
-          <div 
-            key={p.id} 
-            className={`p-4 rounded-xl text-center ${p.isVIP ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-gray-100'}`}
-          >            <div 
-              className={`w-12 h-12 rounded-full mx-auto mb-2 ${getPlayerColorClass(p.color)}`}
-            ></div>
-            <p className="font-bold text-sm text-gray-900">{p.name}</p>
-            {p.isVIP && <p className="text-xs text-yellow-700">Host</p>}
-          </div>
+          <li key={p.id} className={`p-2 rounded mb-2 flex items-center ${getPlayerColorClass(p.color)} text-white`}>
+            <span className={`w-3 h-3 rounded-full mr-2 ${getPlayerColorClass(p.color)}`}></span>
+            {p.name} {p.isVIP && '👑'} {p.id === player.id && '(You)'}
+          </li>
         ))}
-      </div>
-
-      <div className="text-center">
-        <p className="text-gray-800 mb-4">
-          {room.players.length}/8 players • Need at least 3 to start
-        </p>
-        
-        {canStart && (
-          <button
-            onClick={onStartGame}
-            className="bg-green-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition-colors"
-          >
-            🎮 Start Game!
-          </button>
-        )}        
-        {!canStart && player.isVIP && (
-          <p className="text-yellow-700 font-bold">Need at least 3 players to start</p>
-        )}
-        
-        {!player.isVIP && (
-          <p className="text-gray-800">Waiting for host to start the game...</p>
-        )}
-      </div>
+      </ul>
+      {player.isVIP && room.players.length >= 1 && (
+        <button 
+          onClick={onStartGame} 
+          className="bg-green-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-600 transition-colors text-lg"
+        >
+          Start Game
+        </button>
+      )}
+      {!player.isVIP && <p className="text-gray-700">Waiting for the host ({room.players.find(p => p.isVIP)?.name || 'VIP'}) to start the game...</p>}
+      {player.isVIP && room.players.length < 1 && <p className="text-gray-700">Waiting for at least 1 player to join before starting.</p>}
     </div>
   );
 }
 
-function PromptSelectionComponent({ room, player, onSelectPrompt }: {
-  room: Room;
-  player: Player;
-  onSelectPrompt: (promptId: string) => void;
-}) {
-  const isJudge = room.currentJudge === player.id;
-
-  if (!isJudge) {    return (
-      <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
-        <h2 className="text-2xl font-bold mb-4">Judge is Selecting Prompt</h2>
-        <div className="animate-pulse w-16 h-16 bg-purple-200 rounded-full mx-auto mb-4"></div>        <p className="text-gray-800">
-          {room.players.find(p => p.id === room.currentJudge)?.name} is choosing a weird prompt...
-        </p>
-      </div>
-    );
-  }
-  // Mock prompts for now - in real implementation, get from server
-  const mockPrompts = [
-    "The sound of someone trying to explain TikTok to their grandparents",
-    "A robot learning to sneeze",
-    "The noise your WiFi makes when it's having an existential crisis"
-  ];
-
-  // Use actual prompts from server if available, otherwise fall back to mock prompts
-  const prompts = room.availablePrompts || mockPrompts.map((text, index) => ({ 
-    id: `prompt-${index}`, 
-    text, 
-    category: 'mock' 
-  }));
-
+function JudgeSelectionComponent({ room, player }: { room: Room; player: Player }) {
+  const judge = room.players.find(p => p.id === room.currentJudge);
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg">
-      <h2 className="text-2xl font-bold text-center mb-6">👨‍⚖️ You&apos;re the Judge!</h2>
-      <p className="text-center text-gray-800 mb-8">Pick the weirdest prompt for other players:</p>
-      
-      <div className="space-y-4">
-        {prompts.map((prompt) => (
-          <button
-            key={prompt.id}
-            onClick={() => onSelectPrompt(prompt.id)}
-            className="w-full p-6 bg-gradient-to-r from-blue-400 to-purple-500 text-white rounded-xl font-bold text-lg hover:from-blue-500 hover:to-purple-600 transition-all duration-200 transform hover:scale-105"
-          >
-            {prompt.text}
-          </button>
-        ))}
-      </div>
+    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <h2 className="text-2xl font-bold text-purple-600 mb-4">Judge Selection</h2>
+      {judge ? (
+        <p className="text-gray-800 text-xl">The judge for this round is: <span className={`font-bold ${getPlayerColorClass(judge.color)} p-1 rounded`}>{judge.name}</span></p>
+      ) : (
+        <p className="text-gray-800">Waiting for judge selection...</p>
+      )}
+      {player.id === room.currentJudge && <p className="mt-4 text-lg text-green-600">You are the Judge!</p>}
     </div>
   );
 }
 
-function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds, onSubmitSounds, timeLeft }: {
-  room: Room;
-  player: Player;
+function PromptSelectionComponent({ room, player, onSelectPrompt }: { 
+  room: Room; 
+  player: Player; 
+  onSelectPrompt: (promptId: string) => void; 
+}) {
+  const isJudge = player.id === room.currentJudge;
+  return (
+    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <h2 className="text-2xl font-bold text-purple-600 mb-4">Prompt Selection</h2>
+      {isJudge ? (
+        <>
+          <p className="text-gray-800 mb-4">Choose a prompt for this round:</p>
+          <div className="space-y-3">
+            {room.availablePrompts?.map((prompt, index) => (
+              <button 
+                key={prompt.id}
+                onClick={() => onSelectPrompt(prompt.id)}
+                className="w-full bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors"
+              >
+                {prompt.text}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="text-gray-800">Waiting for the Judge ({room.players.find(p => p.id === room.currentJudge)?.name}) to select a prompt...</p>
+      )}
+    </div>
+  );
+}
+
+function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds, onSubmitSounds, timeLeft }: { 
+  room: Room; 
+  player: Player; 
   selectedSounds: [string, string] | null;
   onSelectSounds: (sound1: string, sound2: string) => void;
   onSubmitSounds: () => void;
   timeLeft: number;
 }) {
-  const isJudge = room.currentJudge === player.id;
-  const [firstSound, setFirstSound] = useState<string>('');
-  const [secondSound, setSecondSound] = useState<string>('');
-  const [playingSound, setPlayingSound] = useState<string>('');
+  const isJudge = player.id === room.currentJudge;
+  const [sound1, setSound1] = useState<string>('');
+  const [sound2, setSound2] = useState<string>('');
 
-  if (isJudge) {
-    return (
-      <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
-        <h2 className="text-2xl font-bold mb-4">Waiting for Submissions</h2>          <p className="text-gray-800 mb-4">
-            Players are selecting sounds for: <br />
-            <span className="font-bold text-lg">&quot;{room.currentPrompt}&quot;</span>
-          </p>
-        <div className="text-3xl font-bold text-purple-600">{timeLeft}s</div>
-      </div>
-    );
-  }
-  const handleSoundSelect = (soundId: string) => {
-    if (!firstSound) {
-      setFirstSound(soundId);
-    } else if (!secondSound && soundId !== firstSound) {
-      setSecondSound(soundId);
-      onSelectSounds(firstSound, soundId);
-    } else if (soundId === firstSound) {
-      setFirstSound('');
-      setSecondSound('');
-    } else if (soundId === secondSound) {
-      setSecondSound('');
+  useEffect(() => {
+    if (selectedSounds) {
+      setSound1(selectedSounds[0]);
+      setSound2(selectedSounds[1]);
+    }
+  }, [selectedSounds]);
+
+  const handleSoundChange = (index: number, soundId: string) => {
+    const newSound1 = index === 0 ? soundId : sound1;
+    const newSound2 = index === 1 ? soundId : sound2;
+    setSound1(newSound1);
+    setSound2(newSound2);
+    if (newSound1 && newSound2) {
+      onSelectSounds(newSound1, newSound2);
+    }
+  };
+  
+  const playSound = (soundId: string) => {
+    const sound = SOUND_EFFECTS.find(s => s.id === soundId);
+    if (sound) {
+      audioSystem.playSound(sound.id);
     }
   };
 
-  const handleSoundPreview = async (soundId: string) => {
-    const sound = SOUND_EFFECTS.find(s => s.id === soundId);
-    if (!sound) return;
-
-    // Load sound if not already loaded
-    await audioSystem.loadSound(soundId, sound.fileName);
-    
-    // Play with visual feedback
-    await audioSystem.previewSound(
-      soundId,
-      () => setPlayingSound(soundId),
-      () => setPlayingSound('')
+  if (isJudge) {
+    return (
+      <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+        <h2 className="text-2xl font-bold text-purple-600 mb-4">Sound Selection</h2>
+        <p className="text-gray-800">Players are selecting their sounds...</p>
+        <p className="text-gray-800 mt-2">Prompt: <span className="font-semibold">{room.currentPrompt}</span></p>
+      </div>
     );
-  };
+  }
+
+  const hasSubmitted = room.submissions.some(s => s.playerId === player.id);
 
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg">
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold mb-2">Pick 2 Sounds!</h2>        <p className="text-gray-800 mb-4">
-          Prompt: <span className="font-bold">&quot;{room.currentPrompt}&quot;</span>
-        </p>
-        <div className="text-xl font-bold text-purple-600 mb-4">⏰ {timeLeft}s</div>
-        
-        <div className="flex justify-center space-x-4 mb-6">
-          <div className={`w-20 h-20 rounded-xl flex items-center justify-center ${firstSound ? 'bg-green-200 border-2 border-green-400' : 'bg-gray-100 border-2 border-dashed border-gray-300'}`}>
-            {firstSound ? '🔊' : '1'}
+    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <h2 className="text-2xl font-bold text-purple-600 mb-4">Select Your Sounds!</h2>
+      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold">{room.currentPrompt}</span></p>
+      <p className="text-red-500 font-bold mb-4">Time Left: {timeLeft}s</p>
+      
+      {hasSubmitted ? (
+        <p className="text-green-600 text-xl">Sounds submitted! Waiting for others...</p>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div>
+              <label htmlFor="sound1" className="block text-sm font-medium text-gray-700 mb-1">Sound 1</label>
+              <select 
+                id="sound1" 
+                value={sound1}
+                onChange={(e) => handleSoundChange(0, e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500"
+              >
+                <option value="">Select first sound</option>
+                {SOUND_EFFECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              {sound1 && <button onClick={() => playSound(sound1)} className="mt-2 text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Preview</button>}
+            </div>
+            <div>
+              <label htmlFor="sound2" className="block text-sm font-medium text-gray-700 mb-1">Sound 2</label>
+              <select 
+                id="sound2" 
+                value={sound2}
+                onChange={(e) => handleSoundChange(1, e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500"
+              >
+                <option value="">Select second sound</option>
+                {SOUND_EFFECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              {sound2 && <button onClick={() => playSound(sound2)} className="mt-2 text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Preview</button>}
+            </div>
           </div>
-          <div className={`w-20 h-20 rounded-xl flex items-center justify-center ${secondSound ? 'bg-green-200 border-2 border-green-400' : 'bg-gray-100 border-2 border-dashed border-gray-300'}`}>
-            {secondSound ? '🔊' : '2'}
-          </div>
-        </div>
-      </div>      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
-        {SOUND_EFFECTS.map((sound) => (
-          <div key={sound.id} className="bg-gray-50 rounded-xl p-3">
-            <button
-              onClick={() => handleSoundSelect(sound.id)}
-              className={`w-full p-3 rounded-lg text-sm font-bold transition-all duration-200 mb-2 ${
-                firstSound === sound.id || secondSound === sound.id
-                  ? 'bg-green-500 text-white scale-105'
-                  : 'bg-white hover:bg-gray-100 text-gray-700 border-2 border-gray-200'
-              }`}
-            >
-              {sound.name}
-            </button>
-            <button
-              onClick={() => handleSoundPreview(sound.id)}
-              disabled={playingSound === sound.id}
-              className={`w-full text-xs py-1 px-2 rounded transition-colors ${
-                playingSound === sound.id
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-              }`}
-            >
-              {playingSound === sound.id ? '🔊 Playing...' : '▶️ Preview'}
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {selectedSounds && (
-        <div className="text-center">
-          <button
+          <button 
             onClick={onSubmitSounds}
-            className="bg-purple-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-600 transition-colors"
+            disabled={!sound1 || !sound2 || timeLeft <= 0}
+            className="w-full bg-green-500 text-white px-8 py-4 rounded-xl font-bold hover:bg-green-600 transition-colors text-lg disabled:bg-gray-400"
           >
-            Submit My Sounds! 🎵
+            Submit Sounds
           </button>
         </div>
       )}
@@ -704,84 +678,58 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   );
 }
 
-function JudgingComponent({ room, player, onJudgeSubmission }: {
-  room: Room;
-  player: Player;
-  onJudgeSubmission: (index: number) => void;
+function JudgingComponent({ room, player, onJudgeSubmission }: { 
+  room: Room; 
+  player: Player; 
+  onJudgeSubmission: (submissionIndex: number) => void; 
 }) {
-  const isJudge = room.currentJudge === player.id;
-  const [playingSubmission, setPlayingSubmission] = useState<number>(-1);
+  const isJudge = player.id === room.currentJudge;
 
-  const handlePlaySubmission = async (submission: { sounds: string[] }, index: number) => {
-    if (playingSubmission === index) return;
-    
-    setPlayingSubmission(index);
-    
-    try {
-      // Load and play the sounds in sequence
-      for (const soundId of submission.sounds) {
-        const sound = SOUND_EFFECTS.find(s => s.id === soundId);
-        if (sound) {
-          await audioSystem.loadSound(soundId, sound.fileName);
-        }
-      }
-      
-      await audioSystem.playSoundSequence(submission.sounds, 300);
-    } catch (error) {
-      console.error('Error playing submission:', error);
-    } finally {
-      setPlayingSubmission(-1);
+  const playSubmissionSounds = (sounds: [string, string]) => {
+    const soundFile1 = SOUND_EFFECTS.find(s => s.id === sounds[0])?.fileName;
+    const soundFile2 = SOUND_EFFECTS.find(s => s.id === sounds[1])?.fileName;
+    if (soundFile1 && soundFile2) {
+      // audioSystem.playSound(sounds[0]); // This would play by ID, assuming loaded
+      // audioSystem.playSound(sounds[1]); // This would play by ID, assuming loaded
+      // For now, let's just log. Actual playback needs careful handling of sequence.
+      console.log(`Playing sounds: ${sounds[0]} then ${sounds[1]}`);
+      audioSystem.playSound(sounds[0]);
+      setTimeout(() => audioSystem.playSound(sounds[1]), 700); // Simple delay
     }
   };
 
-  if (!isJudge) {
-    return (
-      <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
-        <h2 className="text-2xl font-bold mb-4">Judge is Deciding...</h2>        <p className="text-gray-800">
-          {room.players.find(p => p.id === room.currentJudge)?.name} is listening to all the sound combinations!
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg">
-      <h2 className="text-2xl font-bold text-center mb-6">👨‍⚖️ Time to Judge!</h2>      <p className="text-center text-gray-800 mb-8">
-        Prompt: <span className="font-bold">&quot;{room.currentPrompt}&quot;</span>
-      </p>
-
-      <div className="space-y-4">
+    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <h2 className="text-2xl font-bold text-purple-600 mb-4">Judging Time!</h2>
+      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold">{room.currentPrompt}</span></p>
+      {isJudge ? (
+        <p className="text-gray-800 mb-4">Listen to the submissions and pick the funniest!</p>
+      ) : (
+        <p className="text-gray-800 mb-4">The Judge ({room.players.find(p => p.id === room.currentJudge)?.name}) is choosing the winner...</p>
+      )}
+      <div className="space-y-4 mt-6">
         {room.submissions.map((submission, index) => (
-          <div key={index} className="border-2 border-gray-200 rounded-xl p-6">            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg">Submission {index + 1}</h3>
-              <button 
-                onClick={() => handlePlaySubmission(submission, index)}
-                disabled={playingSubmission === index}
-                className={`px-4 py-2 rounded-lg font-bold transition-colors ${
-                  playingSubmission === index
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                }`}
-              >
-                {playingSubmission === index ? '🔊 Playing...' : '▶️ Play'}
-              </button>
+          <div key={index} className="bg-gray-100 p-4 rounded-xl shadow">
+            <p className="text-lg font-semibold text-gray-800">Submission {index + 1}</p>
+            {/* <p className="text-sm text-gray-600">Sounds: {SOUND_EFFECTS.find(s=>s.id === submission.sounds[0])?.name || 'Unknown'} + {SOUND_EFFECTS.find(s=>s.id === submission.sounds[1])?.name || 'Unknown'}</p> */}
+            <div className="my-2 space-x-2">
+                <span className="inline-block bg-pink-200 text-pink-800 px-3 py-1 rounded-full text-sm font-medium">{SOUND_EFFECTS.find(s=>s.id === submission.sounds[0])?.name || 'Sound 1'}</span>
+                <span className="inline-block bg-indigo-200 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">{SOUND_EFFECTS.find(s=>s.id === submission.sounds[1])?.name || 'Sound 2'}</span>
             </div>
-            <div className="flex space-x-2 mb-4">
-              {submission.sounds.map((soundId, soundIndex) => {
-                const sound = SOUND_EFFECTS.find(s => s.id === soundId);
-                return (
-                  <span key={soundIndex} className="bg-gray-100 px-3 py-1 rounded-lg text-sm">
-                    {sound?.name}
-                  </span>
-                );
-              })}
-            </div>
-            <button
-              onClick={() => onJudgeSubmission(index)}
-              className="w-full bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 transition-colors"
+            <button 
+              onClick={() => playSubmissionSounds(submission.sounds)}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors mr-2"
             >
-              🏆 This One Wins!
+              Play Sounds
             </button>
+            {isJudge && (
+              <button 
+                onClick={() => onJudgeSubmission(index)}
+                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+              >
+                Pick as Winner
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -789,91 +737,71 @@ function JudgingComponent({ room, player, onJudgeSubmission }: {
   );
 }
 
-function ResultsComponent({ 
-  room, 
-  roundWinner 
-}: { 
+function ResultsComponent({ room, player, roundWinner }: { 
   room: Room; 
-  player: Player;
-  roundWinner: {
-    winnerId: string;
-    winnerName: string;
-    winningSubmission: any;
-    submissionIndex: number;
-  } | null;
+  player: Player; 
+  roundWinner: { winnerId: string; winnerName: string; winningSubmission: any; submissionIndex: number } | null;
 }) {
-  return (
-    <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
-      <h2 className="text-2xl font-bold mb-6">🎉 Round Results!</h2>
-      
-      {roundWinner && (
-        <div className="mb-6">
-          <div className="bg-yellow-100 border-2 border-yellow-400 rounded-xl p-6 mb-4">
-            <h3 className="text-xl font-bold text-yellow-800 mb-2">
-              🏆 {roundWinner.winnerName} Wins!
-            </h3>
-            {roundWinner.winningSubmission && (
-              <div className="text-sm text-yellow-700">
-                <p className="mb-2">Winning combination:</p>
-                <div className="space-y-1">
-                  {roundWinner.winningSubmission.sounds.map((soundId: string, index: number) => {
-                    const sound = SOUND_EFFECTS.find(s => s.id === soundId);
-                    return (
-                      <div key={index} className="bg-yellow-50 px-3 py-1 rounded-lg">
-                        {sound ? sound.name : soundId}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      
-      <p className="text-gray-800 mb-6">Round {room.currentRound} complete!</p>
-      
-      <div className="mb-6">
-        <h4 className="text-lg font-bold mb-3">Current Scores:</h4>
-        <div className="space-y-2">
-          {room.players
-            .sort((a, b) => b.score - a.score)
-            .map((p, index) => (
-              <div key={p.id} className={`p-3 rounded-xl ${p.id === roundWinner?.winnerId ? 'bg-green-100 border-2 border-green-400' : 'bg-gray-100'}`}>
-                <span className="font-bold">{p.name}</span>
-                <span className="float-right font-bold">{p.score} points</span>
-              </div>
-            ))}
-        </div>
+  if (!roundWinner) {
+    return (
+      <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+        <h2 className="text-2xl font-bold text-purple-600 mb-4">Round Results</h2>
+        <p className="text-gray-800">Waiting for results...</p>
       </div>
+    );
+  }
+  const winnerPlayerDetails = room.players.find(p => p.id === roundWinner.winnerId);
+
+  return (
+    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <h2 className="text-2xl font-bold text-purple-600 mb-4">Round Over!</h2>
+      <p className="text-3xl font-bold mb-2">
+        Winner: <span className={winnerPlayerDetails ? getPlayerColorClass(winnerPlayerDetails.color) : 'text-gray-800'}>{roundWinner.winnerName}</span>!
+      </p>
+      <p className="text-gray-700 mb-4">With the submission: 
+        <span className="font-semibold">{SOUND_EFFECTS.find(s=>s.id === roundWinner.winningSubmission.sounds[0])?.name || 'Sound 1'}</span> + 
+        <span className="font-semibold">{SOUND_EFFECTS.find(s=>s.id === roundWinner.winningSubmission.sounds[1])?.name || 'Sound 2'}</span>
+      </p>
+      <p className="text-gray-800 mb-6">Prompt was: <span className="font-italic">{room.currentPrompt}</span></p>
       
-      <div className="animate-pulse w-16 h-16 bg-green-200 rounded-full mx-auto mb-4"></div>
-      <p>Next round starting soon...</p>
+      <h3 className="text-xl font-semibold text-gray-800 mb-3">Scores:</h3>
+      <ul className="space-y-1 max-w-sm mx-auto text-left">
+        {room.players.sort((a, b) => b.score - a.score).map(p => (
+          <li key={p.id} className={`p-2 rounded flex justify-between items-center ${getPlayerColorClass(p.color)} text-white shadow`}>
+            <span>{p.name} {p.id === roundWinner.winnerId && '🎉'}</span>
+            <span className="font-bold">{p.score} pts</span>
+          </li>
+        ))}
+      </ul>
+      {/* Next round / game over will be handled by gameState change */}
     </div>
   );
 }
 
-function GameOverComponent({ room }: { room: Room; player: Player }) {
+function GameOverComponent({ room, player }: { room: Room; player: Player }) {
+  const overallWinner = room.players.reduce((prev, current) => (prev.score > current.score) ? prev : current);
   return (
-    <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
-      <h2 className="text-3xl font-bold mb-6">🎊 Game Over!</h2>
-      <p className="text-xl mb-6">Final Scores:</p>
-      <div className="space-y-2 mb-8">
-        {room.players
-          .sort((a, b) => b.score - a.score)
-          .map((p, index) => (
-            <div key={p.id} className={`p-4 rounded-xl ${index === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-gray-100'}`}>
-              <span className="font-bold">{index + 1}. {p.name}</span>
-              <span className="float-right font-bold">{p.score} points</span>
-            </div>
-          ))}
-      </div>
-      
-      <button
-        onClick={() => window.location.href = '/'}
-        className="bg-purple-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-600 transition-colors"
+    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <h2 className="text-4xl font-black text-purple-700 mb-6">Game Over!</h2>
+      {overallWinner && (
+        <p className="text-2xl font-bold mb-4">
+          The Grand Winner is <span className={getPlayerColorClass(overallWinner.color)}>{overallWinner.name}</span> with {overallWinner.score} points!
+        </p>
+      )}
+      <h3 className="text-xl font-semibold text-gray-800 mb-3">Final Scores:</h3>
+      <ul className="space-y-1 max-w-sm mx-auto text-left mb-8">
+        {room.players.sort((a, b) => b.score - a.score).map(p => (
+          <li key={p.id} className={`p-2 rounded flex justify-between items-center ${getPlayerColorClass(p.color)} text-white shadow`}>
+            <span>{p.name}</span>
+            <span className="font-bold">{p.score} pts</span>
+          </li>
+        ))}
+      </ul>
+      <button 
+        onClick={() => window.location.href = '/'} // Simple redirect to home
+        className="bg-blue-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-600 transition-colors text-lg"
       >
-        Play Again!
+        Play Again?
       </button>
     </div>
   );
@@ -881,76 +809,8 @@ function GameOverComponent({ room }: { room: Room; player: Player }) {
 
 export default function GamePage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
-        <div className="bg-white rounded-3xl p-8 text-center">
-          <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-800 text-lg">Loading game...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<div>Loading Game Page...</div>}>
       <GamePageContent />
     </Suspense>
-  );
-}
-
-function JudgeSelectionComponent({ room, player }: { 
-  room: Room; 
-  player: Player; 
-}) {
-  const currentJudge = room.players.find(p => p.id === room.currentJudge);
-  const [countdown, setCountdown] = useState(3); // 3 second countdown to match server
-  
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
-  
-  return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-      <h2 className="text-2xl font-bold mb-6">⚖️ Judge Selection</h2>
-      
-      {currentJudge ? (
-        <div>
-          <div className="flex justify-center mb-6">
-            <div className={`w-20 h-20 rounded-full mx-auto ${getPlayerColorClass(currentJudge.color)} flex items-center justify-center`}>
-              <span className="text-2xl">👨‍⚖️</span>
-            </div>
-          </div>
-          <p className="text-xl font-bold text-purple-600 mb-4">{currentJudge.name}</p>
-          <p className="text-gray-800">has been chosen as the judge for Round {room.currentRound}!</p>
-          
-          {currentJudge.id === player.id ? (
-            <div className="mt-6">
-              <p className="text-lg font-bold text-green-600 mb-2">🎯 You're the Judge!</p>
-              <p className="text-gray-800">Get ready to pick a weird prompt...</p>
-            </div>
-          ) : (
-            <div className="mt-6">
-              <p className="text-gray-800">Get ready to pick sounds that match their prompt!</p>
-            </div>
-          )}
-          
-          <div className="mt-8">            <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center text-2xl font-bold text-white ${
-              countdown >= 3 ? 'bg-green-500' : countdown >= 2 ? 'bg-yellow-500' : 'bg-red-500'
-            }`}>
-              {countdown}
-            </div>
-            <p className="text-sm text-gray-700 mt-2">
-              {countdown > 0 ? `Starting in ${countdown}...` : 'Starting now!'}
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-800">Selecting a judge for Round {room.currentRound}...</p>
-        </div>
-      )}
-    </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Room, GameState } from '@/types/game';
+import { Room, GameState, Player, SoundSubmission, GamePrompt } from '@/types/game';
 import { SOUND_EFFECTS } from '@/data/gameData';
 
 let socket: Socket;
@@ -38,25 +38,45 @@ export default function MainScreen() {
     // Initialize socket connection
     socket = io({
       path: '/api/socket',
-    });
-
-    socket.on('connect', () => {
+    });    socket.on('connect', () => {
       setIsConnected(true);
       console.log('Main screen connected to server');
-    });
-
-    socket.on('mainScreenUpdate', ({ rooms: updatedRooms }) => {
+      // Automatically request the room list when we connect
+      socket.emit('requestMainScreenUpdate');
+    });    socket.on('mainScreenUpdate', ({ rooms: updatedRooms }: { rooms: Room[] }) => {
       console.log('Main screen received room list update:', updatedRooms);
-      setRooms(updatedRooms);
-    });
+      setRooms(updatedRooms); // Update the list of all available rooms
 
-    socket.on('roomUpdated', (updatedRoom) => {
+      // If the main screen is currently displaying a specific room,
+      // try to find its updated state in the new list of rooms.
+      setCurrentRoom(prevCurrentRoom => {
+        if (prevCurrentRoom) {
+          const refreshedCurrentRoom = updatedRooms.find(r => r.code === prevCurrentRoom.code);
+          if (refreshedCurrentRoom) {
+            console.log('Main screen updating current room from room list:', refreshedCurrentRoom);
+            return refreshedCurrentRoom; // Update currentRoom with the latest from the global list
+          }
+          // If the room no longer exists in the list, keep current room for now
+          console.log('Main screen current room not found in updated list, keeping current room');
+        } else {
+          // If not currently watching a room and there's exactly one active room, 
+          // automatically join it as viewer for better UX
+          if (updatedRooms.length === 1) {
+            console.log('Main screen auto-joining the only active room:', updatedRooms[0].code);
+            socket.emit('joinRoomAsViewer', updatedRooms[0].code);
+          }
+        }
+        return prevCurrentRoom;
+      });
+    });socket.on('roomUpdated', (updatedRoom) => {
       console.log('Main screen received room update:', updatedRoom);
       setCurrentRoom(prev => {
         // Only update if we're currently watching this room
         if (prev && updatedRoom.code === prev.code) {
+          console.log('Main screen updating current room from roomUpdated event:', updatedRoom);
           return updatedRoom;
         }
+        console.log('Main screen ignoring roomUpdated for different room:', updatedRoom.code, 'current:', prev?.code);
         return prev;
       });
     });
@@ -77,13 +97,33 @@ export default function MainScreen() {
       if (typeof winnerData === 'object' && winnerData.winnerId) {
         setRoundWinner(winnerData);
       }
-    });    socket.on('gameStateChanged', (state, data) => {
-      console.log('Main screen gameStateChanged:', state);
-      // Clear round winner when starting a new round
-      if (state === GameState.JUDGE_SELECTION) {
+    });
+    socket.on('gameStateChanged', (newState: GameState, data?: any) => {
+      console.log('Main screen gameStateChanged:', newState, data);
+      setCurrentRoom(prevRoom => {
+        if (prevRoom) {
+          const updatedData: Partial<Room> = { gameState: newState };
+          // Merge relevant fields from data if they exist and are provided
+          if (data) {
+            if (data.currentJudge !== undefined) updatedData.currentJudge = data.currentJudge;
+            if (data.currentPrompt !== undefined) updatedData.currentPrompt = data.currentPrompt;
+            if (data.availablePrompts !== undefined) updatedData.availablePrompts = data.availablePrompts as GamePrompt[];
+            if (data.submissions !== undefined) updatedData.submissions = data.submissions as SoundSubmission[];
+            if (data.players !== undefined) updatedData.players = data.players as Player[]; // If players list comes with this event
+            if (data.currentRound !== undefined) updatedData.currentRound = data.currentRound;
+            // Add any other fields that might be relevant from the 'data' payload
+          }
+          return { ...prevRoom, ...updatedData };
+        }
+        return prevRoom;
+      });
+
+      // Clear round winner when starting a new round or returning to lobby
+      if (newState === GameState.JUDGE_SELECTION || newState === GameState.LOBBY) {
         setRoundWinner(null);
       }
-    });    socket.on('soundSubmitted', (submission) => {
+    });
+    socket.on('soundSubmitted', (submission) => {
       console.log('Main screen received sound submission:', submission);
       // Update currentRoom state with the new submission
       setCurrentRoom(prev => {
@@ -113,29 +153,6 @@ export default function MainScreen() {
       socket.disconnect();
     };
   }, []); // Empty dependency array - only run once on mount
-
-  // Separate effect for managing room list updates
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-
-    if (isConnected && !currentRoom) {
-      // Request initial update when connected and not in a room
-      socket.emit('requestMainScreenUpdate');
-      
-      // Set up periodic updates only when not watching a specific room
-      interval = setInterval(() => {
-        if (socket && socket.connected) {
-          socket.emit('requestMainScreenUpdate');
-        }
-      }, 10000);
-    }
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [isConnected, currentRoom]);
 
   const joinRoom = () => {
     if (roomCodeInput.length === 4) {
