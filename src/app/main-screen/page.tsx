@@ -58,13 +58,6 @@ export default function MainScreen() {
           }
           // If the room no longer exists in the list, keep current room for now
           console.log('Main screen current room not found in updated list, keeping current room');
-        } else {
-          // If not currently watching a room and there's exactly one active room, 
-          // automatically join it as viewer for better UX
-          if (updatedRooms.length === 1) {
-            console.log('Main screen auto-joining the only active room:', updatedRooms[0].code);
-            socket.emit('joinRoomAsViewer', updatedRooms[0].code);
-          }
         }
         return prevCurrentRoom;
       });

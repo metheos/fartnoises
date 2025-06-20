@@ -38,8 +38,9 @@ const roomTimers: Map<string, NodeJS.Timeout> = new Map(); // roomCode -> timer
 function broadcastRoomListUpdate(
   ioInstance: SocketIOServer<ClientToServerEvents, ServerToClientEvents>
 ) {
-  const roomsArray = Array.from(rooms.values())
-    .filter((room) => room.players.length > 0); // Only show rooms with players
+  const roomsArray = Array.from(rooms.values()).filter(
+    (room) => room.players.length > 0
+  ); // Only show rooms with players
   ioInstance.emit("mainScreenUpdate", { rooms: roomsArray });
 }
 
@@ -239,7 +240,8 @@ export default function SocketHandler(
           };
           room.players.push(player);
           playerRooms.set(socket.id, roomCode);
-          socket.join(roomCode);          callback(true);
+          socket.join(roomCode);
+          callback(true);
           socket.emit("roomJoined", { room, player });
           io.to(roomCode).emit("roomUpdated", room);
           io.to(roomCode).emit("playerJoined", { room });
@@ -738,9 +740,11 @@ export default function SocketHandler(
                 broadcastRoomListUpdate(io);
               }
             }
-          }        } catch (error) {
+          }
+        } catch (error) {
           console.error("Error during disconnect:", error);
-        }      });
+        }
+      });
 
       socket.on("startGame", () => {
         try {
@@ -1104,7 +1108,8 @@ export default function SocketHandler(
             }, 5000);
           }
         } catch (error) {
-          console.error("Error selecting winner:", error);        }
+          console.error("Error selecting winner:", error);
+        }
       });
     });
   }
