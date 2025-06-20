@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Room, GameState, Player, SoundSubmission, GamePrompt } from '@/types/game';
-import { SOUND_EFFECTS } from '@/data/gameData';
+import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } from '@/types/game';
+import { getSoundEffects } from '@/data/gameData';
 
 let socket: Socket;
 
@@ -28,12 +28,28 @@ export default function MainScreen() {
   const [isConnected, setIsConnected] = useState(false);
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [joinError, setJoinError] = useState('');
+  const [soundEffects, setSoundEffects] = useState<SoundEffect[]>([]);
   const [roundWinner, setRoundWinner] = useState<{
     winnerId: string;
     winnerName: string;
     winningSubmission: any;
     submissionIndex: number;
   } | null>(null);
+  
+  // Load sound effects on component mount
+  useEffect(() => {
+    const loadSounds = async () => {
+      try {
+        const sounds = await getSoundEffects();
+        setSoundEffects(sounds);
+        console.log(`Loaded ${sounds.length} sound effects`);
+      } catch (error) {
+        console.error('Failed to load sound effects:', error);
+      }
+    };
+    loadSounds();
+  }, []);
+
   useEffect(() => {
     // Initialize socket connection
     socket = io({
@@ -202,7 +218,7 @@ export default function MainScreen() {
         ) : null}
 
         {currentRoom ? (
-          <MainScreenGameDisplay room={currentRoom} roundWinner={roundWinner} />
+          <MainScreenGameDisplay room={currentRoom} roundWinner={roundWinner} soundEffects={soundEffects} />
         ) : (          <WaitingForGameScreen 
             rooms={rooms} 
             onJoinRoom={joinRoom}
@@ -335,7 +351,8 @@ function WaitingForGameScreen({
 
 function MainScreenGameDisplay({ 
   room, 
-  roundWinner 
+  roundWinner,
+  soundEffects 
 }: { 
   room: Room; 
   roundWinner: {
@@ -344,6 +361,7 @@ function MainScreenGameDisplay({
     winningSubmission: any;
     submissionIndex: number;
   } | null;
+  soundEffects: SoundEffect[];
 }) {
   return (
     <div className="space-y-8">
@@ -398,12 +416,10 @@ function MainScreenGameDisplay({
 
       {room.gameState === GameState.SOUND_SELECTION && (
         <SoundSelectionDisplay room={room} />
-      )}
-
-      {room.gameState === GameState.JUDGING && (
-        <JudgingDisplay room={room} />
+      )}      {room.gameState === GameState.JUDGING && (
+        <JudgingDisplay room={room} soundEffects={soundEffects} />
       )}      {room.gameState === GameState.ROUND_RESULTS && (
-        <ResultsDisplay room={room} roundWinner={roundWinner} />
+        <ResultsDisplay room={room} roundWinner={roundWinner} soundEffects={soundEffects} />
       )}
 
       {room.gameState === GameState.GAME_OVER && (
@@ -566,7 +582,7 @@ function SoundSelectionDisplay({ room }: { room: Room }) {
   );
 }
 
-function JudgingDisplay({ room }: { room: Room }) {
+function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffects: SoundEffect[] }) {
   const judge = room.players.find(p => p.id === room.currentJudge);
   
   return (
@@ -589,10 +605,9 @@ function JudgingDisplay({ room }: { room: Room }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {room.submissions.map((submission, index) => (
           <div key={index} className="bg-gray-100 rounded-2xl p-6">
-            <h4 className="text-xl font-bold text-gray-800 mb-4">Submission {index + 1}</h4>
-            <div className="space-y-2">
+            <h4 className="text-xl font-bold text-gray-800 mb-4">Submission {index + 1}</h4>            <div className="space-y-2">
               {submission.sounds.map((soundId, soundIndex) => {
-                const sound = SOUND_EFFECTS.find(s => s.id === soundId);
+                const sound = soundEffects.find(s => s.id === soundId);
                 return (
                   <div key={soundIndex} className="bg-white px-4 py-2 rounded-lg">
                     <span className="font-bold">🔊 {sound?.name}</span>
@@ -609,7 +624,8 @@ function JudgingDisplay({ room }: { room: Room }) {
 
 function ResultsDisplay({ 
   room, 
-  roundWinner 
+  roundWinner,
+  soundEffects 
 }: { 
   room: Room; 
   roundWinner: {
@@ -618,6 +634,7 @@ function ResultsDisplay({
     winningSubmission: any;
     submissionIndex: number;
   } | null;
+  soundEffects: SoundEffect[];
 }) {
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
@@ -632,10 +649,9 @@ function ResultsDisplay({
             </h4>
             {roundWinner.winningSubmission && (
               <div className="text-lg text-yellow-700">
-                <p className="mb-4 font-semibold">Winning Combination:</p>
-                <div className="flex justify-center space-x-4">
+                <p className="mb-4 font-semibold">Winning Combination:</p>                <div className="flex justify-center space-x-4">
                   {roundWinner.winningSubmission.sounds.map((soundId: string, index: number) => {
-                    const sound = SOUND_EFFECTS.find(s => s.id === soundId);
+                    const sound = soundEffects.find(s => s.id === soundId);
                     return (
                       <div key={index} className="bg-yellow-50 px-6 py-3 rounded-xl border-2 border-yellow-300">
                         <div className="text-xl font-bold">{sound ? sound.name : soundId}</div>

@@ -11,7 +11,7 @@ import {
 } from "@/types/game";
 import {
   GAME_PROMPTS,
-  SOUND_EFFECTS,
+  getSoundEffects,
   PLAYER_COLORS,
   GAME_CONFIG,
 } from "@/data/gameData";
@@ -79,9 +79,15 @@ function getRandomPrompts(count: number = 3) {
   return shuffled.slice(0, count);
 }
 
-function getRandomSounds(count: number = 10) {
-  const shuffled = [...SOUND_EFFECTS].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
+async function getRandomSounds(count: number = 10) {
+  try {
+    const soundEffects = await getSoundEffects();
+    const shuffled = [...soundEffects].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
+  } catch (error) {
+    console.error("Failed to load sounds for random selection:", error);
+    return [];
+  }
 }
 
 // Timer utility functions

@@ -1,55 +1,15 @@
 // Game data: sound effects library
 import { SoundEffect, GamePrompt } from "@/types/game";
+import { loadEarwaxSounds } from "@/utils/soundLoader";
 
-export const SOUND_EFFECTS: SoundEffect[] = [
-  // Bodily sounds
-  {
-    id: "fart1",
-    name: "Classic Fart",
-    fileName: "fart1.mp3",
-    category: "bodily",
-  },
-  {
-    id: "fart2",
-    name: "Squeaky Fart",
-    fileName: "fart2.mp3",
-    category: "bodily",
-  },
-  {
-    id: "burp",
-    name: "Loud Burp",
-    fileName: "burp.mp3",
-    category: "bodily",
-  },
+// Dynamic sound effects loaded from EarwaxAudio.jet
+// Use getSoundEffects() to get the actual sound effects at runtime
+// Legacy SOUND_EFFECTS array removed - now using dynamic loader from soundLoader.ts
 
-  // Animal sounds
-  {
-    id: "goat",
-    name: "Screaming Goat",
-    fileName: "goat.mp3",
-    category: "animals",
-  },
-  {
-    id: "duck",
-    name: "Angry Duck",
-    fileName: "duck.mp3",
-    category: "animals",
-  },
-
-  // Mechanical/Tech sounds
-  {
-    id: "laser",
-    name: "Laser Pew Pew",
-    fileName: "laser.mp3",
-    category: "tech",
-  },
-  {
-    id: "robot",
-    name: "Robot Voice",
-    fileName: "robot.mp3",
-    category: "tech",
-  },
-];
+// Function to get sound effects (use this instead of the static array)
+export async function getSoundEffects(): Promise<SoundEffect[]> {
+  return await loadEarwaxSounds();
+}
 
 export const GAME_PROMPTS: GamePrompt[] = [
   // Relationship/Dating

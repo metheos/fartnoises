@@ -112,7 +112,7 @@ src/
 ### Adding Sound Effects
 
 1. Add MP3 files to `public/sounds/`
-2. Update the `SOUND_EFFECTS` array in `src/data/gameData.ts`
+2. Update the sound effects by modifying the EarwaxAudio.jet file or adding new .ogg files to `public/sounds/Earwax/EarwaxAudio/Audio/`
 3. Follow the naming convention: `{category}_{name}.mp3`
 
 ### Customization

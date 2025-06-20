@@ -3,8 +3,8 @@
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react'; // Added useMemo
 import { useRouter, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
-import { Player, Room, GameState } from '@/types/game';
-import { SOUND_EFFECTS } from '@/data/gameData';
+import { Player, Room, GameState, SoundEffect } from '@/types/game';
+import { getSoundEffects } from '@/data/gameData';
 import { audioSystem } from '@/utils/audioSystem';
 
 // Helper function to convert hex colors to Tailwind classes
@@ -29,6 +29,7 @@ function GamePageContent() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState<number>(30);
+  const [soundEffects, setSoundEffects] = useState<SoundEffect[]>([]);
   const [roundWinner, setRoundWinner] = useState<{
     winnerId: string;
     winnerName: string;
@@ -51,11 +52,26 @@ function GamePageContent() {
   }, [searchParams]);
 
   const { mode, playerName, roomCode } = stableParams;
-
   const addDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setDebugLog(prev => [...prev.slice(-10), `[${timestamp}] ${message}`]);
   };
+
+  // Load sound effects on component mount
+  useEffect(() => {
+    const loadSounds = async () => {
+      try {
+        const sounds = await getSoundEffects();
+        setSoundEffects(sounds);
+        console.log(`Loaded ${sounds.length} sound effects`);
+        addDebugLog(`Loaded ${sounds.length} sound effects`);
+      } catch (error) {
+        console.error('Failed to load sound effects:', error);
+        addDebugLog(`Failed to load sound effects: ${error}`);
+      }
+    };
+    loadSounds();
+  }, []);
 
   // Handle redirection in a separate effect to avoid dependency issues
   useEffect(() => {
@@ -88,17 +104,13 @@ function GamePageContent() {
       socketRef.current = newSocket;
       hasAttemptedConnectionLogic.current = false; // Reset for new socket instance
       addDebugLog(`New socket instance created: ${newSocket.id}`);
-    }
-
-    const currentSocket = socketRef.current; // Use the stable instance
+    }    const currentSocket = socketRef.current; // Use the stable instance
 
     const initAudio = async () => {
       try {
         await audioSystem.initialize();
-        for (const sound of SOUND_EFFECTS.slice(0, 10)) { // Consider preloading based on actual game needs
-          await audioSystem.loadSound(sound.id, sound.fileName);
-        }
-        addDebugLog('Audio system initialized and sounds preloaded.');
+        // Audio system will load sounds dynamically as needed
+        addDebugLog('Audio system initialized.');
       } catch (audioError) {
         console.warn('Audio initialization failed:', audioError);
         addDebugLog(`Audio initialization failed: ${audioError}`);
@@ -460,9 +472,7 @@ function GamePageContent() {
             player={player} 
             onSelectPrompt={selectPrompt} 
           />
-        )}
-
-        {room.gameState === GameState.SOUND_SELECTION && (
+        )}        {room.gameState === GameState.SOUND_SELECTION && (
           <SoundSelectionComponent 
             room={room} 
             player={player} 
@@ -470,17 +480,17 @@ function GamePageContent() {
             onSelectSounds={selectSounds}
             onSubmitSounds={submitSounds}
             timeLeft={timeLeft}
+            soundEffects={soundEffects}
           />
-        )}
-
-        {room.gameState === GameState.JUDGING && (
+        )}        {room.gameState === GameState.JUDGING && (
           <JudgingComponent 
             room={room} 
             player={player} 
-            onJudgeSubmission={judgeSubmission} 
+            onJudgeSubmission={judgeSubmission}
+            soundEffects={soundEffects}
           />
-        )}        {room.gameState === GameState.ROUND_RESULTS && (
-          <ResultsComponent room={room} player={player} roundWinner={roundWinner} />
+        )}{room.gameState === GameState.ROUND_RESULTS && (
+          <ResultsComponent room={room} player={player} roundWinner={roundWinner} soundEffects={soundEffects} />
         )}
 
         {room.gameState === GameState.GAME_OVER && (
@@ -579,13 +589,14 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
   );
 }
 
-function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds, onSubmitSounds, timeLeft }: { 
+function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds, onSubmitSounds, timeLeft, soundEffects }: { 
   room: Room; 
   player: Player; 
   selectedSounds: [string, string] | null;
   onSelectSounds: (sound1: string, sound2: string) => void;
   onSubmitSounds: () => void;
   timeLeft: number;
+  soundEffects: SoundEffect[];
 }) {
   const isJudge = player.id === room.currentJudge;
   const [sound1, setSound1] = useState<string>('');
@@ -609,7 +620,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   };
   
   const playSound = (soundId: string) => {
-    const sound = SOUND_EFFECTS.find(s => s.id === soundId);
+    const sound = soundEffects.find(s => s.id === soundId);
     if (sound) {
       audioSystem.playSound(sound.id);
     }
@@ -644,10 +655,9 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                 id="sound1" 
                 value={sound1}
                 onChange={(e) => handleSoundChange(0, e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500"
-              >
+                className="w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500"              >
                 <option value="">Select first sound</option>
-                {SOUND_EFFECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {soundEffects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               {sound1 && <button onClick={() => playSound(sound1)} className="mt-2 text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Preview</button>}
             </div>
@@ -657,10 +667,9 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                 id="sound2" 
                 value={sound2}
                 onChange={(e) => handleSoundChange(1, e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500"
-              >
+                className="w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500"              >
                 <option value="">Select second sound</option>
-                {SOUND_EFFECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {soundEffects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               {sound2 && <button onClick={() => playSound(sound2)} className="mt-2 text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Preview</button>}
             </div>
@@ -678,23 +687,19 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   );
 }
 
-function JudgingComponent({ room, player, onJudgeSubmission }: { 
+function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: { 
   room: Room; 
   player: Player; 
-  onJudgeSubmission: (submissionIndex: number) => void; 
+  onJudgeSubmission: (submissionIndex: number) => void;
+  soundEffects: SoundEffect[];
 }) {
   const isJudge = player.id === room.currentJudge;
-
   const playSubmissionSounds = (sounds: [string, string]) => {
-    const soundFile1 = SOUND_EFFECTS.find(s => s.id === sounds[0])?.fileName;
-    const soundFile2 = SOUND_EFFECTS.find(s => s.id === sounds[1])?.fileName;
-    if (soundFile1 && soundFile2) {
-      // audioSystem.playSound(sounds[0]); // This would play by ID, assuming loaded
-      // audioSystem.playSound(sounds[1]); // This would play by ID, assuming loaded
-      // For now, let's just log. Actual playback needs careful handling of sequence.
+    const soundFile1 = soundEffects.find(s => s.id === sounds[0])?.fileName;
+    const soundFile2 = soundEffects.find(s => s.id === sounds[1])?.fileName;    if (soundFile1 && soundFile2) {
       console.log(`Playing sounds: ${sounds[0]} then ${sounds[1]}`);
-      audioSystem.playSound(sounds[0]);
-      setTimeout(() => audioSystem.playSound(sounds[1]), 700); // Simple delay
+      // Use the proper sequence method that waits for each sound to finish
+      audioSystem.playSoundSequence(sounds, 200); // 200ms delay between sounds
     }
   };
 
@@ -711,10 +716,9 @@ function JudgingComponent({ room, player, onJudgeSubmission }: {
         {room.submissions.map((submission, index) => (
           <div key={index} className="bg-gray-100 p-4 rounded-xl shadow">
             <p className="text-lg font-semibold text-gray-800">Submission {index + 1}</p>
-            {/* <p className="text-sm text-gray-600">Sounds: {SOUND_EFFECTS.find(s=>s.id === submission.sounds[0])?.name || 'Unknown'} + {SOUND_EFFECTS.find(s=>s.id === submission.sounds[1])?.name || 'Unknown'}</p> */}
             <div className="my-2 space-x-2">
-                <span className="inline-block bg-pink-200 text-pink-800 px-3 py-1 rounded-full text-sm font-medium">{SOUND_EFFECTS.find(s=>s.id === submission.sounds[0])?.name || 'Sound 1'}</span>
-                <span className="inline-block bg-indigo-200 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">{SOUND_EFFECTS.find(s=>s.id === submission.sounds[1])?.name || 'Sound 2'}</span>
+                <span className="inline-block bg-pink-200 text-pink-800 px-3 py-1 rounded-full text-sm font-medium">{soundEffects.find(s=>s.id === submission.sounds[0])?.name || 'Sound 1'}</span>
+                <span className="inline-block bg-indigo-200 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">{soundEffects.find(s=>s.id === submission.sounds[1])?.name || 'Sound 2'}</span>
             </div>
             <button 
               onClick={() => playSubmissionSounds(submission.sounds)}
@@ -737,10 +741,11 @@ function JudgingComponent({ room, player, onJudgeSubmission }: {
   );
 }
 
-function ResultsComponent({ room, player, roundWinner }: { 
+function ResultsComponent({ room, player, roundWinner, soundEffects }: { 
   room: Room; 
   player: Player; 
   roundWinner: { winnerId: string; winnerName: string; winningSubmission: any; submissionIndex: number } | null;
+  soundEffects: SoundEffect[];
 }) {
   if (!roundWinner) {
     return (
@@ -757,10 +762,9 @@ function ResultsComponent({ room, player, roundWinner }: {
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Round Over!</h2>
       <p className="text-3xl font-bold mb-2">
         Winner: <span className={winnerPlayerDetails ? getPlayerColorClass(winnerPlayerDetails.color) : 'text-gray-800'}>{roundWinner.winnerName}</span>!
-      </p>
-      <p className="text-gray-700 mb-4">With the submission: 
-        <span className="font-semibold">{SOUND_EFFECTS.find(s=>s.id === roundWinner.winningSubmission.sounds[0])?.name || 'Sound 1'}</span> + 
-        <span className="font-semibold">{SOUND_EFFECTS.find(s=>s.id === roundWinner.winningSubmission.sounds[1])?.name || 'Sound 2'}</span>
+      </p>      <p className="text-gray-700 mb-4">With the submission: 
+        <span className="font-semibold">{soundEffects.find(s=>s.id === roundWinner.winningSubmission.sounds[0])?.name || 'Sound 1'}</span> + 
+        <span className="font-semibold">{soundEffects.find(s=>s.id === roundWinner.winningSubmission.sounds[1])?.name || 'Sound 2'}</span>
       </p>
       <p className="text-gray-800 mb-6">Prompt was: <span className="font-italic">{room.currentPrompt}</span></p>
       

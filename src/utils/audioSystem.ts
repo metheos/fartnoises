@@ -27,12 +27,14 @@ export class AudioSystem {
       await this.audioContext.resume();
     }
   }
-
   async loadSound(id: string, fileName: string): Promise<void> {
     if (this.loadedSounds.has(id) || this.failedSounds.has(id)) return;
 
     try {
-      const response = await fetch(`/sounds/${fileName}`);
+      // Earwax audio files are located in /sounds/Earwax/EarwaxAudio/Audio/
+      const response = await fetch(
+        `/sounds/Earwax/EarwaxAudio/Audio/${fileName}`
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to load sound: ${fileName}`);
@@ -77,10 +79,15 @@ export class AudioSystem {
     this.loadedSounds.set(id, audioBuffer);
     console.log(`🔊 Generated placeholder beep for: ${id}`);
   }
-
   async playSound(id: string): Promise<void> {
     if (!this.audioContext) {
       await this.initialize();
+    }
+
+    // If sound is not loaded, try to load it on-demand
+    if (!this.loadedSounds.has(id) && !this.failedSounds.has(id)) {
+      console.log(`Loading sound on-demand: ${id}`);
+      await this.loadSound(id, `${id}.ogg`);
     }
 
     const audioBuffer = this.loadedSounds.get(id);
@@ -89,25 +96,16 @@ export class AudioSystem {
       return;
     }
 
-    const source = this.audioContext!.createBufferSource();
-    const gainNode = this.audioContext!.createGain();
+    return new Promise<void>((resolve) => {
+      const source = this.audioContext!.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.audioContext!.destination);
 
-    source.buffer = audioBuffer;
-    source.connect(gainNode);
-    gainNode.connect(this.audioContext!.destination);
+      // Resolve the promise when the sound finishes
+      source.onended = () => resolve();
 
-    // Add a slight fade to prevent clicks
-    gainNode.gain.setValueAtTime(0, this.audioContext!.currentTime);
-    gainNode.gain.linearRampToValueAtTime(
-      1,
-      this.audioContext!.currentTime + 0.01
-    );
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.01,
-      this.audioContext!.currentTime + audioBuffer.duration - 0.01
-    );
-
-    source.start();
+      source.start();
+    });
   }
 
   async playSoundSequence(
@@ -121,7 +119,6 @@ export class AudioSystem {
       }
     }
   }
-
   // Preview a sound with visual feedback
   async previewSound(
     id: string,
@@ -131,35 +128,63 @@ export class AudioSystem {
     if (onStart) onStart();
 
     try {
-      await this.playSound(id);
-
-      // Estimate sound duration for feedback
-      const audioBuffer = this.loadedSounds.get(id);
-      const duration = audioBuffer ? audioBuffer.duration * 1000 : 500;
-
-      setTimeout(() => {
-        if (onEnd) onEnd();
-      }, duration);
+      await this.playSound(id); // This now properly waits for the sound to finish
+      if (onEnd) onEnd();
     } catch (error) {
       console.error("Error previewing sound:", error);
       if (onEnd) onEnd();
     }
   }
 
+  // Play a sound immediately without waiting for it to finish (for rapid playback)
+  async playSoundImmediate(id: string): Promise<void> {
+    if (!this.audioContext) {
+      await this.initialize();
+    }
+
+    // If sound is not loaded, try to load it on-demand
+    if (!this.loadedSounds.has(id) && !this.failedSounds.has(id)) {
+      console.log(`Loading sound on-demand: ${id}`);
+      await this.loadSound(id, `${id}.ogg`);
+    }
+
+    const audioBuffer = this.loadedSounds.get(id);
+    if (!audioBuffer) {
+      console.warn(`Sound not loaded: ${id}`);
+      return;
+    }
+
+    const source = this.audioContext!.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(this.audioContext!.destination);
+    source.start();
+  }
+
   isSoundLoaded(id: string): boolean {
     return this.loadedSounds.has(id);
   }
-
   getSoundStatus(id: string): "loaded" | "failed" | "not-loaded" {
     if (this.loadedSounds.has(id)) return "loaded";
     if (this.failedSounds.has(id)) return "failed";
     return "not-loaded";
   }
+
+  // Preload specific sounds (useful when players select sounds)
+  async preloadSounds(soundIds: string[]): Promise<void> {
+    const loadPromises = soundIds.map(async (id) => {
+      if (!this.loadedSounds.has(id) && !this.failedSounds.has(id)) {
+        return this.loadSound(id, `${id}.ogg`);
+      }
+    });
+
+    await Promise.all(loadPromises);
+    console.log(`Preloaded ${soundIds.length} specific sounds`);
+  }
 }
 
 // Hook for React components
 import { useEffect, useState } from "react";
-import { SOUND_EFFECTS } from "@/data/gameData";
+import { getSoundEffects } from "@/data/gameData";
 
 export function useAudioSystem() {
   const [audioSystem, setAudioSystem] = useState<AudioSystem | null>(null);
@@ -169,13 +194,6 @@ export function useAudioSystem() {
     const initializeAudio = async () => {
       const audio = AudioSystem.getInstance();
       await audio.initialize();
-
-      // Preload all sound effects
-      const loadPromises = SOUND_EFFECTS.map((sound) =>
-        audio.loadSound(sound.id, sound.fileName)
-      );
-
-      await Promise.all(loadPromises);
       setAudioSystem(audio);
       setIsLoading(false);
     };
