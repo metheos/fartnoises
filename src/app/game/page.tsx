@@ -37,6 +37,16 @@ function GamePageContent() {
     submissionIndex: number;
   } | null>(null);
   const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [reconnectionVote, setReconnectionVote] = useState<{
+    disconnectedPlayerName: string;
+    timeLeft: number;
+    showVoteDialog: boolean;
+  } | null>(null);
+  const [gamePaused, setGamePaused] = useState<{
+    disconnectedPlayerName: string;
+    timeLeft: number;
+  } | null>(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -266,7 +276,49 @@ function GamePageContent() {
       setTimeLeft(newTimeLeft);
     };
 
-    // --- Register event listeners ---
+    const handlePlayerDisconnected = ({ playerId, playerName, canReconnect }: { playerId: string; playerName: string; canReconnect: boolean }) => {
+      addDebugLog(`Player disconnected: ${playerName} (${playerId}), can reconnect: ${canReconnect}`);
+    };
+
+    const handlePlayerReconnected = ({ playerId, playerName }: { playerId: string; playerName: string }) => {
+      addDebugLog(`Player reconnected: ${playerName} (${playerId})`);
+      setIsReconnecting(false);
+    };
+
+    const handleReconnectionVoteRequest = ({ disconnectedPlayerName, timeLeft }: { disconnectedPlayerName: string; timeLeft: number }) => {
+      addDebugLog(`Reconnection vote requested for ${disconnectedPlayerName}`);
+      setReconnectionVote({
+        disconnectedPlayerName,
+        timeLeft,
+        showVoteDialog: true
+      });
+    };
+
+    const handleReconnectionVoteUpdate = ({ vote }: { vote: any }) => {
+      addDebugLog(`Reconnection vote update: ${vote.voterName} voted ${vote.continueWithoutPlayer ? 'continue' : 'wait'}`);
+    };
+
+    const handleReconnectionVoteResult = ({ continueWithoutPlayer, disconnectedPlayerName }: { continueWithoutPlayer: boolean; disconnectedPlayerName: string }) => {
+      addDebugLog(`Reconnection vote result: ${continueWithoutPlayer ? 'continue' : 'wait'} for ${disconnectedPlayerName}`);
+      setReconnectionVote(null);
+      if (continueWithoutPlayer) {
+        setGamePaused(null);
+      }
+    };
+
+    const handleGamePausedForDisconnection = ({ disconnectedPlayerName, timeLeft }: { disconnectedPlayerName: string; timeLeft: number }) => {
+      addDebugLog(`Game paused for disconnection: ${disconnectedPlayerName}`);
+      setGamePaused({
+        disconnectedPlayerName,
+        timeLeft
+      });
+    };
+
+    const handleGameResumed = () => {
+      addDebugLog('Game resumed after disconnection');
+      setGamePaused(null);
+      setReconnectionVote(null);
+    };    // --- Register event listeners ---
     // Ensure listeners are not duplicated if effect re-runs for other reasons (though deps aim to prevent this)
     // This pattern of defining handlers inside effect and using them is fine.
     addDebugLog(`Registering socket event listeners for socket: ${currentSocket.id}.`);
@@ -277,6 +329,13 @@ function GamePageContent() {
     currentSocket.on('roomJoined', handleRoomJoined);
     currentSocket.on('roomUpdated', handleRoomUpdated);
     currentSocket.on('playerJoined', handlePlayerJoined);
+    currentSocket.on('playerDisconnected', handlePlayerDisconnected);
+    currentSocket.on('playerReconnected', handlePlayerReconnected);
+    currentSocket.on('reconnectionVoteRequest', handleReconnectionVoteRequest);
+    currentSocket.on('reconnectionVoteUpdate', handleReconnectionVoteUpdate);
+    currentSocket.on('reconnectionVoteResult', handleReconnectionVoteResult);
+    currentSocket.on('gamePausedForDisconnection', handleGamePausedForDisconnection);
+    currentSocket.on('gameResumed', handleGameResumed);
     currentSocket.on('gameStateChanged', handleGameStateChanged);
     currentSocket.on('promptSelected', handlePromptSelected);
     currentSocket.on('judgeSelected', handleJudgeSelected);
@@ -284,6 +343,13 @@ function GamePageContent() {
     currentSocket.on('roundComplete', handleRoundComplete);
     currentSocket.on('error', handleErrorEvent);
     currentSocket.on('timeUpdate', handleTimeUpdate);
+    currentSocket.on('playerDisconnected', handlePlayerDisconnected);
+    currentSocket.on('playerReconnected', handlePlayerReconnected);
+    currentSocket.on('reconnectionVoteRequest', handleReconnectionVoteRequest);
+    currentSocket.on('reconnectionVoteUpdate', handleReconnectionVoteUpdate);
+    currentSocket.on('reconnectionVoteResult', handleReconnectionVoteResult);
+    currentSocket.on('gamePausedForDisconnection', handleGamePausedForDisconnection);
+    currentSocket.on('gameResumed', handleGameResumed);
 
     // --- Cleanup for this effect ---
     return () => {
@@ -302,6 +368,13 @@ function GamePageContent() {
       currentSocket.off('roundComplete', handleRoundComplete);
       currentSocket.off('error', handleErrorEvent);
       currentSocket.off('timeUpdate', handleTimeUpdate);
+      currentSocket.off('playerDisconnected', handlePlayerDisconnected);
+      currentSocket.off('playerReconnected', handlePlayerReconnected);
+      currentSocket.off('reconnectionVoteRequest', handleReconnectionVoteRequest);
+      currentSocket.off('reconnectionVoteUpdate', handleReconnectionVoteUpdate);
+      currentSocket.off('reconnectionVoteResult', handleReconnectionVoteResult);
+      currentSocket.off('gamePausedForDisconnection', handleGamePausedForDisconnection);
+      currentSocket.off('gameResumed', handleGameResumed);
       // DO NOT disconnect socketRef.current here. That's for the unmount effect.
     };
   }, [mode, playerName, roomCode]); // Removed 'router' from dependencies
@@ -324,10 +397,13 @@ function GamePageContent() {
   useEffect(() => {
     addDebugLog(`Room state changed: ${room ? `${room.code} with ${room.players?.length} players, state: ${room.gameState}` : 'null'}`);
   }, [room]);
-
   // Monitor player state changes
   useEffect(() => {
     addDebugLog(`Player state changed: ${player ? player.name : 'null'}`);
+    // Store original player ID for reconnection purposes
+    if (player && socketRef.current?.id) {
+      localStorage.setItem('originalPlayerId', socketRef.current.id);
+    }
   }, [player]);
 
   const startGame = () => {
@@ -363,6 +439,42 @@ function GamePageContent() {
     }
   };
 
+  const voteOnReconnection = (continueWithoutPlayer: boolean) => {
+    if (socketRef.current && room) {
+      addDebugLog(`Voting on reconnection: ${continueWithoutPlayer ? 'continue' : 'wait'}`);
+      socketRef.current.emit('voteOnReconnection', continueWithoutPlayer);
+      setReconnectionVote(null);
+    }
+  };
+
+  const attemptReconnection = () => {
+    if (!playerName || !roomCode) return;
+    
+    setIsReconnecting(true);
+    addDebugLog('Attempting to reconnect...');
+    
+    // Try to get the original player ID from localStorage or use current socket ID
+    const originalPlayerId = localStorage.getItem('originalPlayerId') || socketRef.current?.id || '';
+    
+    if (socketRef.current) {
+      socketRef.current.emit('reconnectToRoom', roomCode, playerName, originalPlayerId, (success: boolean, reconnectedRoom?: Room) => {
+        if (success && reconnectedRoom) {
+          addDebugLog('Reconnection successful');
+          setRoom(reconnectedRoom);
+          const reconnectedPlayer = reconnectedRoom.players.find(p => p.name === playerName);
+          if (reconnectedPlayer) {
+            setPlayer(reconnectedPlayer);
+          }
+          setIsReconnecting(false);
+          setError('');
+        } else {
+          addDebugLog('Reconnection failed');
+          setIsReconnecting(false);
+          setError('Failed to reconnect. The game may have continued without you.');
+        }
+      });
+    }
+  };
   if (!isConnected && !error) { // Show connecting screen only if not yet connected and no error
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
@@ -497,11 +609,75 @@ function GamePageContent() {
           <GameOverComponent room={room} player={player} />
         )}
 
-        {/* Fallback for unknown game states */}
+        {room.gameState === GameState.PAUSED_FOR_DISCONNECTION && (
+          <PausedForDisconnectionComponent room={room} player={player} onAttemptReconnection={attemptReconnection} />
+        )}        {/* Fallback for unknown game states */}
         {!Object.values(GameState).includes(room.gameState as GameState) && (
           <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-            <h2 className="text-2xl font-bold text-red-600 mb-4">Unknown Game State</h2>            <p className="text-gray-800">Current state: {room.gameState}</p>
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Unknown Game State</h2>
+            <p className="text-gray-800">Current state: {room.gameState}</p>
             <p className="text-gray-800">Expected states: {Object.values(GameState).join(', ')}</p>
+          </div>
+        )}
+
+        {/* Reconnection Vote Dialog */}
+        {reconnectionVote && reconnectionVote.showVoteDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl">
+              <h2 className="text-2xl font-bold text-purple-600 mb-4 text-center">Player Disconnected</h2>
+              <p className="text-gray-800 mb-4 text-center">
+                <span className="font-semibold">{reconnectionVote.disconnectedPlayerName}</span> has disconnected.
+              </p>
+              <p className="text-gray-700 mb-6 text-center">
+                Would you like to continue the game without them or wait a bit longer?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => voteOnReconnection(false)}
+                  className="flex-1 bg-blue-500 text-white px-4 py-3 rounded-xl font-bold hover:bg-blue-600 transition-colors"
+                >
+                  Wait Longer
+                </button>
+                <button
+                  onClick={() => voteOnReconnection(true)}
+                  className="flex-1 bg-red-500 text-white px-4 py-3 rounded-xl font-bold hover:bg-red-600 transition-colors"
+                >
+                  Continue Without
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Game Paused Overlay */}
+        {gamePaused && (
+          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40">
+            <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4 text-center shadow-2xl">
+              <div className="animate-pulse w-16 h-16 bg-orange-200 rounded-full mx-auto mb-4"></div>
+              <h2 className="text-2xl font-bold text-orange-600 mb-4">Game Paused</h2>
+              <p className="text-gray-800 mb-2">
+                <span className="font-semibold">{gamePaused.disconnectedPlayerName}</span> has disconnected.
+              </p>
+              <p className="text-gray-700 mb-4">
+                Waiting for them to reconnect or for a player to vote...
+              </p>
+              <p className="text-sm text-gray-600">
+                Time remaining: {gamePaused.timeLeft}s
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Reconnection Attempt Dialog */}
+        {isReconnecting && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4 text-center shadow-2xl">
+              <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <h2 className="text-2xl font-bold text-purple-600 mb-4">Reconnecting...</h2>
+              <p className="text-gray-800">
+                Attempting to reconnect to the game...
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -807,6 +983,56 @@ function GameOverComponent({ room, player }: { room: Room; player: Player }) {
       >
         Play Again?
       </button>
+    </div>
+  );
+}
+
+function PausedForDisconnectionComponent({ room, player, onAttemptReconnection }: { 
+  room: Room; 
+  player: Player; 
+  onAttemptReconnection: () => void; 
+}) {
+  const disconnectedPlayers = room.disconnectedPlayers || [];
+  const timeSinceDisconnection = room.disconnectionTimestamp ? 
+    Math.floor((Date.now() - room.disconnectionTimestamp) / 1000) : 0;
+
+  return (
+    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <h2 className="text-2xl font-bold text-orange-600 mb-4">Game Paused</h2>
+      <div className="animate-pulse w-16 h-16 bg-orange-200 rounded-full mx-auto mb-4"></div>
+      
+      {disconnectedPlayers.length > 0 && (
+        <div className="mb-6">
+          <p className="text-gray-800 mb-2">Players who disconnected:</p>
+          <ul className="space-y-1 max-w-xs mx-auto">
+            {disconnectedPlayers.map((p, index) => (
+              <li key={index} className={`p-2 rounded ${getPlayerColorClass(p.color)} text-white shadow`}>
+                {p.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      <p className="text-gray-700 mb-4">
+        The game is paused while we wait for disconnected players to return.
+      </p>
+      
+      <p className="text-sm text-gray-600 mb-6">
+        Time since disconnection: {timeSinceDisconnection}s
+      </p>
+
+      <div className="space-y-3">
+        <p className="text-sm text-gray-700">
+          If you were disconnected, you can try to reconnect:
+        </p>
+        <button
+          onClick={onAttemptReconnection}
+          className="bg-green-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-600 transition-colors"
+        >
+          Attempt Reconnection
+        </button>
+      </div>
     </div>
   );
 }

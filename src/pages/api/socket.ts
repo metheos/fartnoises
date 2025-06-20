@@ -33,6 +33,12 @@ interface SocketApiResponse {
 const rooms: Map<string, Room> = new Map();
 const playerRooms: Map<string, string> = new Map(); // socketId -> roomCode
 const roomTimers: Map<string, NodeJS.Timeout> = new Map(); // roomCode -> timer
+const disconnectionTimers: Map<string, NodeJS.Timeout> = new Map(); // roomCode -> disconnection timer
+const reconnectionVoteTimers: Map<string, NodeJS.Timeout> = new Map(); // roomCode -> vote timer
+
+// Constants for disconnection handling
+const RECONNECTION_GRACE_PERIOD = 30000; // 30 seconds
+const RECONNECTION_VOTE_TIMEOUT = 20000; // 20 seconds to vote
 
 // Helper function to broadcast the list of rooms
 function broadcastRoomListUpdate(
@@ -153,6 +159,316 @@ function startSoundSelectionTimer(
       io.to(roomCode).emit("timeUpdate", { timeLeft });
     }
   );
+}
+
+// Disconnection handling utility functions
+function handlePlayerDisconnection(
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
+  socketId: string,
+  roomCode: string
+) {
+  const room = rooms.get(roomCode);
+  if (!room) return;
+
+  const player = room.players.find((p) => p.id === socketId);
+  if (!player) return;
+
+  console.log(`Player ${player.name} disconnected from room ${roomCode}`);
+
+  // If we're in lobby or game over, handle immediately without grace period
+  if (
+    room.gameState === GameState.LOBBY ||
+    room.gameState === GameState.GAME_OVER
+  ) {
+    removePlayerFromRoom(io, socketId, roomCode);
+    return;
+  }
+
+  // Initialize disconnected players array if it doesn't exist
+  if (!room.disconnectedPlayers) {
+    room.disconnectedPlayers = [];
+  }
+
+  // Move player to disconnected list
+  const disconnectedPlayer = {
+    ...player,
+    disconnectedAt: Date.now(),
+    socketId: socketId,
+  };
+
+  room.disconnectedPlayers.push(disconnectedPlayer);
+  room.players = room.players.filter((p) => p.id !== socketId);
+
+  // Pause the game and notify players
+  const previousGameState = room.gameState;
+  room.gameState = GameState.PAUSED_FOR_DISCONNECTION;
+  room.pausedForDisconnection = true;
+  room.disconnectionTimestamp = Date.now();
+
+  // Clear any existing game timers
+  clearTimer(roomCode);
+
+  // Notify all players about the disconnection
+  io.to(roomCode).emit("playerDisconnected", {
+    playerId: socketId,
+    playerName: player.name,
+    canReconnect: true,
+  });
+
+  io.to(roomCode).emit("gamePausedForDisconnection", {
+    disconnectedPlayerName: player.name,
+    timeLeft: RECONNECTION_GRACE_PERIOD / 1000,
+  });
+
+  io.to(roomCode).emit("gameStateChanged", GameState.PAUSED_FOR_DISCONNECTION, {
+    previousState: previousGameState,
+    disconnectedPlayer: player.name,
+  });
+
+  // Start reconnection grace period timer
+  startReconnectionTimer(io, roomCode, previousGameState);
+}
+
+function startReconnectionTimer(
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
+  roomCode: string,
+  previousGameState: GameState
+) {
+  // Clear any existing disconnection timer
+  if (disconnectionTimers.has(roomCode)) {
+    clearTimeout(disconnectionTimers.get(roomCode)!);
+  }
+
+  const timer = setTimeout(() => {
+    const room = rooms.get(roomCode);
+    if (!room || !room.pausedForDisconnection) return;
+
+    // Grace period expired, start voting process
+    startReconnectionVote(io, roomCode, previousGameState);
+  }, RECONNECTION_GRACE_PERIOD);
+
+  disconnectionTimers.set(roomCode, timer);
+}
+
+function startReconnectionVote(
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
+  roomCode: string,
+  previousGameState: GameState
+) {
+  const room = rooms.get(roomCode);
+  if (!room || !room.disconnectedPlayers?.length) return;
+
+  const disconnectedPlayer = room.disconnectedPlayers[0]; // Handle first disconnected player
+  const connectedPlayers = room.players.filter((p) => !p.isDisconnected);
+
+  if (connectedPlayers.length === 0) {
+    // No connected players left, close room
+    rooms.delete(roomCode);
+    clearTimer(roomCode);
+    clearDisconnectionTimer(roomCode);
+    broadcastRoomListUpdate(io);
+    return;
+  }
+
+  // Select a random connected player to vote
+  const randomVoter =
+    connectedPlayers[Math.floor(Math.random() * connectedPlayers.length)];
+
+  // Send vote request to the selected player
+  io.to(randomVoter.id).emit("reconnectionVoteRequest", {
+    disconnectedPlayerName: disconnectedPlayer.name,
+    timeLeft: RECONNECTION_VOTE_TIMEOUT / 1000,
+  });
+
+  // Set vote timeout
+  const voteTimer = setTimeout(() => {
+    // No vote received, default to continuing without the player
+    handleReconnectionVoteResult(
+      io,
+      roomCode,
+      true,
+      disconnectedPlayer.name,
+      previousGameState
+    );
+  }, RECONNECTION_VOTE_TIMEOUT);
+
+  reconnectionVoteTimers.set(roomCode, voteTimer);
+}
+
+function handleReconnectionVoteResult(
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
+  roomCode: string,
+  continueWithoutPlayer: boolean,
+  disconnectedPlayerName: string,
+  previousGameState: GameState
+) {
+  const room = rooms.get(roomCode);
+  if (!room) return;
+
+  // Clear vote timer
+  if (reconnectionVoteTimers.has(roomCode)) {
+    clearTimeout(reconnectionVoteTimers.get(roomCode)!);
+    reconnectionVoteTimers.delete(roomCode);
+  }
+
+  // Notify all players of the vote result
+  io.to(roomCode).emit("reconnectionVoteResult", {
+    continueWithoutPlayer,
+    disconnectedPlayerName,
+  });
+
+  if (continueWithoutPlayer) {
+    // Remove disconnected player permanently and resume game
+    if (room.disconnectedPlayers) {
+      room.disconnectedPlayers = room.disconnectedPlayers.filter(
+        (p) => p.name !== disconnectedPlayerName
+      );
+    }
+
+    resumeGame(io, roomCode, previousGameState);
+  } else {
+    // Wait longer - restart the reconnection timer
+    startReconnectionTimer(io, roomCode, previousGameState);
+  }
+}
+
+function resumeGame(
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
+  roomCode: string,
+  previousGameState: GameState
+) {
+  const room = rooms.get(roomCode);
+  if (!room) return;
+
+  // Clear disconnection state
+  room.gameState = previousGameState;
+  room.pausedForDisconnection = false;
+  room.disconnectionTimestamp = undefined;
+  room.reconnectionVote = null;
+
+  // Handle judge reassignment if needed
+  if (
+    room.currentJudge &&
+    !room.players.find((p) => p.id === room.currentJudge)
+  ) {
+    room.currentJudge = selectNextJudge(room);
+    io.to(roomCode).emit("judgeSelected", room.currentJudge);
+  }
+
+  // Notify players that game is resuming
+  io.to(roomCode).emit("gameResumed");
+  io.to(roomCode).emit("gameStateChanged", previousGameState);
+  io.to(roomCode).emit("roomUpdated", room);
+  // Restart game timers if needed
+  if (previousGameState === GameState.SOUND_SELECTION) {
+    startSoundSelectionTimer(roomCode, room, io);
+  }
+  // Note: Add other timer restarts as needed based on game state
+}
+
+function handlePlayerReconnection(
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
+  socket: any,
+  roomCode: string,
+  playerName: string,
+  originalPlayerId: string
+): boolean {
+  const room = rooms.get(roomCode);
+  if (!room || !room.disconnectedPlayers) return false;
+
+  const disconnectedPlayer = room.disconnectedPlayers.find(
+    (p) => p.name === playerName && p.socketId === originalPlayerId
+  );
+
+  if (!disconnectedPlayer) return false;
+
+  console.log(`Player ${playerName} reconnecting to room ${roomCode}`);
+
+  // Remove from disconnected list and add back to active players
+  room.disconnectedPlayers = room.disconnectedPlayers.filter(
+    (p) => p.socketId !== originalPlayerId
+  );
+  const reconnectedPlayer: Player = {
+    id: socket.id, // Update with new socket ID
+    name: disconnectedPlayer.name,
+    color: disconnectedPlayer.color,
+    score: disconnectedPlayer.score,
+    isVIP: disconnectedPlayer.isVIP,
+    isDisconnected: false,
+  };
+
+  room.players.push(reconnectedPlayer);
+  playerRooms.set(socket.id, roomCode);
+
+  // If no more disconnected players, resume the game
+  if (room.disconnectedPlayers.length === 0 && room.pausedForDisconnection) {
+    const previousGameState = room.gameState; // This should be PAUSED_FOR_DISCONNECTION
+    // We need to restore the actual previous game state - this would require tracking it
+    // For now, let's assume we can determine it from context or add tracking
+    resumeGame(io, roomCode, GameState.SOUND_SELECTION); // Default to sound selection for now
+  }
+
+  // Notify everyone about the reconnection
+  io.to(roomCode).emit("playerReconnected", {
+    playerId: socket.id,
+    playerName: playerName,
+  });
+
+  io.to(roomCode).emit("roomUpdated", room);
+
+  return true;
+}
+
+function removePlayerFromRoom(
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
+  socketId: string,
+  roomCode: string
+) {
+  const room = rooms.get(roomCode);
+  if (!room) return;
+
+  const player = room.players.find((p) => p.id === socketId);
+  room.players = room.players.filter((p) => p.id !== socketId);
+  playerRooms.delete(socketId);
+
+  if (room.players.length === 0) {
+    rooms.delete(roomCode);
+    clearTimer(roomCode);
+    clearDisconnectionTimer(roomCode);
+    console.log(`Room ${roomCode} closed due to no players.`);
+    broadcastRoomListUpdate(io);
+  } else {
+    // Handle VIP or judge changes if necessary
+    if (
+      player?.isVIP &&
+      room.players.length > 0 &&
+      room.players.every((p) => !p.isVIP)
+    ) {
+      room.players[0].isVIP = true; // Assign VIP to the next player
+    }
+    if (
+      room.currentJudge === socketId &&
+      room.gameState !== GameState.LOBBY &&
+      room.gameState !== GameState.GAME_OVER
+    ) {
+      room.currentJudge = selectNextJudge(room);
+      io.to(roomCode).emit("judgeSelected", room.currentJudge as string);
+    }
+    io.to(roomCode).emit("roomUpdated", room);
+    io.to(roomCode).emit("playerLeft", socketId);
+    broadcastRoomListUpdate(io);
+  }
+}
+
+function clearDisconnectionTimer(roomCode: string) {
+  if (disconnectionTimers.has(roomCode)) {
+    clearTimeout(disconnectionTimers.get(roomCode)!);
+    disconnectionTimers.delete(roomCode);
+  }
+  if (reconnectionVoteTimers.has(roomCode)) {
+    clearTimeout(reconnectionVoteTimers.get(roomCode)!);
+    reconnectionVoteTimers.delete(roomCode);
+  }
 }
 
 export default function SocketHandler(
@@ -699,53 +1015,13 @@ export default function SocketHandler(
           socket.emit("error", { message: "Failed to leave room" });
         }
       });
-
       socket.on("disconnect", () => {
         console.log(`Client disconnected: ${socket.id}`);
         try {
           const roomCode = playerRooms.get(socket.id);
           if (roomCode) {
-            const room = rooms.get(roomCode);
-            if (room) {
-              const player = room.players.find((p) => p.id === socket.id);
-              room.players = room.players.filter((p) => p.id !== socket.id);
-              playerRooms.delete(socket.id);
-
-              if (room.players.length === 0) {
-                rooms.delete(roomCode);
-                clearTimer(roomCode);
-                console.log(`Room ${roomCode} closed due to disconnection.`);
-                // Broadcast updated room list as a room was removed
-                broadcastRoomListUpdate(io);
-              } else {
-                // If room still active, handle VIP or judge changes if necessary
-                if (
-                  player?.isVIP &&
-                  room.players.length > 0 &&
-                  room.players.every((p) => !p.isVIP)
-                ) {
-                  room.players[0].isVIP = true; // Assign VIP to the next player
-                }
-                if (
-                  room.currentJudge === socket.id &&
-                  room.gameState !== GameState.LOBBY &&
-                  room.gameState !== GameState.GAME_OVER
-                ) {
-                  // Handle judge disconnecting mid-game (e.g., select new judge, reset round)
-                  // This might need more sophisticated logic depending on game rules
-                  room.currentJudge = selectNextJudge(room);
-                  io.to(roomCode).emit(
-                    "judgeSelected",
-                    room.currentJudge as string
-                  );
-                  // Potentially reset current round or phase
-                }
-                io.to(roomCode).emit("roomUpdated", room);
-                io.to(roomCode).emit("playerLeft", socket.id);
-                // Broadcast updated room list if player count changes are relevant to the main list
-                broadcastRoomListUpdate(io);
-              }
-            }
+            // Use new disconnection handling
+            handlePlayerDisconnection(io, socket.id, roomCode);
           }
         } catch (error) {
           console.error("Error during disconnect:", error);
@@ -1115,6 +1391,86 @@ export default function SocketHandler(
           }
         } catch (error) {
           console.error("Error selecting winner:", error);
+        }
+      });
+      socket.on(
+        "reconnectToRoom",
+        (roomCode, playerName, originalPlayerId, callback) => {
+          try {
+            console.log(
+              `Reconnection attempt: ${playerName} to room ${roomCode} with original ID ${originalPlayerId}`
+            );
+
+            if (!rooms.has(roomCode)) {
+              callback(false);
+              return;
+            }
+
+            const success = handlePlayerReconnection(
+              io,
+              socket,
+              roomCode,
+              playerName,
+              originalPlayerId
+            );
+
+            if (success) {
+              const room = rooms.get(roomCode);
+              const player = room?.players.find((p) => p.id === socket.id);
+              if (room && player) {
+                socket.emit("roomJoined", { room, player });
+                callback(true, room);
+              } else {
+                callback(false);
+              }
+            } else {
+              callback(false);
+            }
+          } catch (error) {
+            console.error("Error during reconnection:", error);
+            callback(false);
+          }
+        }
+      );
+
+      socket.on("voteOnReconnection", (continueWithoutPlayer) => {
+        try {
+          const roomCode = playerRooms.get(socket.id);
+          if (!roomCode) return;
+
+          const room = rooms.get(roomCode);
+          if (!room || !room.pausedForDisconnection) return;
+
+          const player = room.players.find((p) => p.id === socket.id);
+          if (!player) return;
+
+          // Store the vote
+          room.reconnectionVote = {
+            voterId: socket.id,
+            voterName: player.name,
+            continueWithoutPlayer,
+            timestamp: Date.now(),
+          };
+
+          // Broadcast the vote to all players
+          io.to(roomCode).emit("reconnectionVoteUpdate", {
+            vote: room.reconnectionVote,
+          });
+
+          // Get the disconnected player name for the vote result
+          const disconnectedPlayerName =
+            room.disconnectedPlayers?.[0]?.name || "Unknown Player";
+
+          // Handle the vote result immediately (in a real implementation, you might want to collect multiple votes)
+          handleReconnectionVoteResult(
+            io,
+            roomCode,
+            continueWithoutPlayer,
+            disconnectedPlayerName,
+            GameState.SOUND_SELECTION
+          );
+        } catch (error) {
+          console.error("Error handling reconnection vote:", error);
         }
       });
     });

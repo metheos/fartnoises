@@ -89,4 +89,8 @@ export const GAME_CONFIG = {
   SOUND_SELECTION_TIME: 45, // seconds
   PROMPT_SELECTION_TIME: 15, // seconds
   ROOM_CODE_LENGTH: 4,
+  // Disconnection handling
+  RECONNECTION_GRACE_PERIOD: 30, // seconds to wait for reconnection
+  RECONNECTION_VOTE_TIMEOUT: 20, // seconds for players to vote
+  MAX_DISCONNECTION_TIME: 300, // 5 minutes max before auto-removal
 };
