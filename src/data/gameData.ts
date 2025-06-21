@@ -36,9 +36,9 @@ export const PLAYER_COLORS = [
 export const GAME_CONFIG = {
   MIN_PLAYERS: 3,
   MAX_PLAYERS: 8,
-  DEFAULT_MAX_ROUNDS: 5,
+  DEFAULT_MAX_ROUNDS: 10,
   SOUND_SELECTION_TIME: 45, // seconds
-  PROMPT_SELECTION_TIME: 15, // seconds
+  PROMPT_SELECTION_TIME: 30, // seconds
   ROOM_CODE_LENGTH: 4,
   // Disconnection handling
   RECONNECTION_GRACE_PERIOD: 30, // seconds to wait for reconnection
