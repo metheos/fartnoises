@@ -1212,6 +1212,9 @@ function PlaybackSubmissionsDisplay({ room, soundEffects }: { room: Room; soundE
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
   const [audioElements, setAudioElements] = useState<HTMLAudioElement[]>([]);
+  const [revealedCards, setRevealedCards] = useState<number[]>([]);
+  const [currentPlayingSoundInCard, setCurrentPlayingSoundInCard] = useState<number>(-1);
+  const [revealedSounds, setRevealedSounds] = useState<{[cardIndex: number]: number[]}>({});
 
   // Create audio elements for the current submission when playback starts
   useEffect(() => {
@@ -1246,6 +1249,9 @@ function PlaybackSubmissionsDisplay({ room, soundEffects }: { room: Room; soundE
           if (soundIndex >= newAudioElements.length) {
             console.log(`[AUDIO] All sounds finished for submission ${currentlyPlaying}`);
             
+            // Reset current playing sound
+            setCurrentPlayingSoundInCard(-1);
+            
             // Notify server that this submission's playback is complete
             if (socket && socket.connected && currentlyPlaying !== null) {
               console.log(`[AUDIO] Notifying server: submission ${currentlyPlaying} playback complete`);
@@ -1256,6 +1262,13 @@ function PlaybackSubmissionsDisplay({ room, soundEffects }: { room: Room; soundE
           
           const audio = newAudioElements[soundIndex];
           console.log(`[AUDIO] Playing sound ${soundIndex + 1} of ${newAudioElements.length}`);
+          
+          // Reveal this sound in the current card
+          setCurrentPlayingSoundInCard(soundIndex);
+          setRevealedSounds(prev => ({
+            ...prev,
+            [currentlyPlaying]: [...(prev[currentlyPlaying] || []), soundIndex]
+          }));
           
           // Set up event listener for when this sound ends
           const onEnded = () => {
@@ -1293,16 +1306,21 @@ function PlaybackSubmissionsDisplay({ room, soundEffects }: { room: Room; soundE
       };
     }
   }, [currentlyPlaying, room.submissions, soundEffects]);
-
   useEffect(() => {
     if (!socket) return;
       const handleSubmissionPlayback = (data: any) => {
       console.log('[MAIN SCREEN] Received submission playback:', data);
       if (data.submissionIndex !== undefined) {
+        // Reveal the card before starting playback
+        setRevealedCards(prev => [...prev, data.submissionIndex]);
+        
         setCurrentlyPlaying(data.submissionIndex);
         setPlaybackProgress(0);
         setHasStarted(true);
+        setCurrentPlayingSoundInCard(-1); // Reset sound tracking
+        
         console.log('[MAIN SCREEN] Set currently playing to:', data.submissionIndex);
+        console.log('[MAIN SCREEN] Revealed card:', data.submissionIndex);
       }
     };    const handlePlaybackProgress = (data: any) => {
       if (data.progress !== undefined) {
@@ -1316,6 +1334,7 @@ function PlaybackSubmissionsDisplay({ room, soundEffects }: { room: Room; soundE
       console.log('[MAIN SCREEN] Received playback complete');
       setCurrentlyPlaying(null);
       setPlaybackProgress(0);
+      setCurrentPlayingSoundInCard(-1);
       
       // Stop all audio when playback is complete
       audioElements.forEach(audio => {
@@ -1335,27 +1354,21 @@ function PlaybackSubmissionsDisplay({ room, soundEffects }: { room: Room; soundE
     };
   }, []);
 
-  // Cleanup audio when component unmounts or game state changes away from PLAYBACK
-  useEffect(() => {
-    return () => {
-      // Stop all audio when component unmounts
-      audioElements.forEach(audio => {
-        audio.pause();
-        audio.currentTime = 0;
-      });
-    };
-  }, [audioElements]);
-
-  // Clean up audio when leaving playback state
+  // Reset reveal states when game state changes away from PLAYBACK
   useEffect(() => {
     if (room.gameState !== GameState.PLAYBACK) {
-      audioElements.forEach(audio => {
-        audio.pause();
-        audio.currentTime = 0;
-      });
+      setRevealedCards([]);
+      setRevealedSounds({});
+      setCurrentPlayingSoundInCard(-1);
       setCurrentlyPlaying(null);
       setPlaybackProgress(0);
       setHasStarted(false);
+      
+      // Stop all audio when leaving playback state
+      audioElements.forEach(audio => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
     }
   }, [room.gameState, audioElements]);
 
@@ -1395,133 +1408,176 @@ function PlaybackSubmissionsDisplay({ room, soundEffects }: { room: Room; soundE
             </div>
           </div>
         )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      </div>      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {room.submissions.map((submission, index) => {
           const isActive = currentlyPlaying === index;
-          const hasPlayed = hasStarted && (currentlyPlaying === null || currentlyPlaying > index);
+          const hasPlayed = hasStarted && revealedCards.includes(index) && (currentlyPlaying === null || currentlyPlaying > index);
+          const isRevealed = revealedCards.includes(index);
+          const revealedSoundIndices = revealedSounds[index] || [];
           
           return (
             <div 
               key={index} 
-              className={`relative rounded-3xl p-6 transition-all duration-500 ${
-                isActive 
-                  ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-110 shadow-2xl transform -rotate-1' 
-                  : hasPlayed
-                    ? 'bg-gray-200 scale-95'
-                    : 'bg-gray-100 hover:bg-gray-50'
+              className={`relative rounded-3xl p-6 transition-all duration-700 ${
+                !isRevealed
+                  ? 'bg-gray-800 shadow-2xl opacity-60 scale-95 blur-sm' // Hidden in shadow
+                  : isActive 
+                    ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-110 shadow-2xl transform -rotate-1' 
+                    : hasPlayed
+                      ? 'bg-gray-200 scale-95'
+                      : 'bg-gray-100 hover:bg-gray-50'
               }`}
             >
-              {/* Radial Progress Indicator */}
-              {isActive && (
-                <div className="absolute -top-2 -right-2 w-16 h-16">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="text-white opacity-30"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      fill="transparent"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      className="text-white"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      fill="transparent"
-                      strokeLinecap="round"
-                      strokeDasharray={`${playbackProgress * 100}, 100`}
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-white text-xs font-bold">
-                      {Math.round(playbackProgress * 100)}%
-                    </div>
+              {/* Mystery Card Overlay for Unrevealed Cards */}
+              {!isRevealed && (
+                <div className="absolute inset-0 rounded-3xl flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <div className="text-6xl mb-4">❓</div>
+                    <h4 className="text-2xl font-bold">Mystery Combo</h4>
+                    <p className="text-lg opacity-75">Combo {index + 1}</p>
                   </div>
                 </div>
               )}
 
-              {/* Pulsing Animation for Active Card */}
-              {isActive && (
+              {/* Revealed Card Content */}
+              {isRevealed && (
                 <>
-                  <div className="absolute inset-0 rounded-3xl bg-white opacity-20 animate-pulse"></div>
-                  <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-purple-400 to-pink-500 opacity-75 blur animate-pulse"></div>
-                </>
-              )}
-
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className={`text-xl font-bold ${
-                    isActive ? 'text-white' : hasPlayed ? 'text-gray-600' : 'text-gray-800'
-                  }`}>
-                    Combo {index + 1}
-                  </h4>
-                  
-                  {/* Status Indicator */}
-                  <div className={`w-4 h-4 rounded-full ${
-                    isActive 
-                      ? 'bg-white animate-pulse' 
-                      : hasPlayed 
-                        ? 'bg-green-500' 
-                        : 'bg-gray-400'
-                  }`}></div>
-                </div>
-
-                <div className="space-y-3">
-                  {submission.sounds.map((soundId, soundIndex) => {
-                    const sound = soundEffects.find(s => s.id === soundId);
-                    return (
-                      <div 
-                        key={soundIndex} 
-                        className={`px-4 py-3 rounded-xl transition-all duration-300 ${
-                          isActive 
-                            ? 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
-                            : hasPlayed
-                              ? 'bg-white bg-opacity-50 text-gray-600'
-                              : 'bg-white text-gray-800'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg">🔊</span>
-                          <span className="font-semibold">{sound?.name || soundId}</span>
+                  {/* Radial Progress Indicator */}
+                  {isActive && (
+                    <div className="absolute -top-2 -right-2 w-16 h-16">
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                        <path
+                          className="text-white opacity-30"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          fill="transparent"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        />
+                        <path
+                          className="text-white"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          fill="transparent"
+                          strokeLinecap="round"
+                          strokeDasharray={`${playbackProgress * 100}, 100`}
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-white text-xs font-bold">
+                          {Math.round(playbackProgress * 100)}%
                         </div>
                       </div>
-                    );
-                  })}
-                </div>                {/* Waveform Animation for Active Card */}
-                {isActive && (
-                  <div className="mt-4 flex justify-center space-x-1">
-                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                  </div>
-                )}
+                    </div>
+                  )}
 
-                {/* Play Status */}
-                <div className="mt-4 text-center">                  {isActive && (
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
-                      <span className="text-white font-bold text-sm">PLAYING NOW</span>
-                      <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                  {/* Pulsing Animation for Active Card */}
+                  {isActive && (
+                    <>
+                      <div className="absolute inset-0 rounded-3xl bg-white opacity-20 animate-pulse"></div>
+                      <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-purple-400 to-pink-500 opacity-75 blur animate-pulse"></div>
+                    </>
+                  )}
+
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className={`text-xl font-bold ${
+                        isActive ? 'text-white' : hasPlayed ? 'text-gray-600' : 'text-gray-800'
+                      }`}>
+                        Combo {index + 1}
+                      </h4>
+                      
+                      {/* Status Indicator */}
+                      <div className={`w-4 h-4 rounded-full ${
+                        isActive 
+                          ? 'bg-white animate-pulse' 
+                          : hasPlayed 
+                            ? 'bg-green-500' 
+                            : 'bg-yellow-400'
+                      }`}></div>
                     </div>
-                  )}
-                  {hasPlayed && !isActive && (
-                    <div className="flex items-center justify-center space-x-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-gray-600 font-medium text-sm">PLAYED</span>
+
+                    <div className="space-y-3">
+                      {submission.sounds.map((soundId, soundIndex) => {
+                        const sound = soundEffects.find(s => s.id === soundId);
+                        const isSoundRevealed = revealedSoundIndices.includes(soundIndex);
+                        const isSoundCurrentlyPlaying = isActive && currentPlayingSoundInCard === soundIndex;
+                        
+                        return (
+                          <div 
+                            key={soundIndex} 
+                            className={`px-4 py-3 rounded-xl transition-all duration-500 ${
+                              !isSoundRevealed && isActive
+                                ? 'bg-gray-300 bg-opacity-50 text-gray-500' // Sound not yet revealed
+                                : isSoundCurrentlyPlaying
+                                  ? 'bg-yellow-200 bg-opacity-90 text-gray-900 shadow-lg scale-105 border-2 border-yellow-400' // Currently playing sound
+                                  : isSoundRevealed && isActive
+                                    ? 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
+                                    : isSoundRevealed && hasPlayed
+                                      ? 'bg-white bg-opacity-50 text-gray-600'
+                                      : isSoundRevealed
+                                        ? 'bg-white text-gray-800'
+                                        : 'bg-gray-200 text-gray-400' // Default unrevealed state
+                            }`}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <span className={`text-lg ${
+                                isSoundCurrentlyPlaying ? 'animate-pulse' : ''
+                              }`}>
+                                {isSoundCurrentlyPlaying ? '🔊' : isSoundRevealed ? '🎵' : '❓'}
+                              </span>
+                              <span className={`font-semibold ${
+                                isSoundCurrentlyPlaying ? 'animate-pulse' : ''
+                              }`}>
+                                {isSoundRevealed ? (sound?.name || soundId) : '???'}
+                              </span>
+                              {isSoundCurrentlyPlaying && (
+                                <span className="text-xs bg-yellow-600 text-white px-2 py-1 rounded-full animate-pulse">
+                                  PLAYING
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
-                  {!hasStarted && (
-                    <span className="text-gray-500 font-medium text-sm">WAITING...</span>
-                  )}
-                </div>
-              </div>
+
+                    {/* Waveform Animation for Active Card */}
+                    {isActive && (
+                      <div className="mt-4 flex justify-center space-x-1">
+                        <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                        <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                        <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                        <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                        <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                        <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                        <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                        <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                      </div>
+                    )}
+
+                    {/* Play Status */}
+                    <div className="mt-4 text-center">
+                      {isActive && (
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                          <span className="text-white font-bold text-sm">PLAYING NOW</span>
+                          <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                        </div>
+                      )}
+                      {hasPlayed && !isActive && (
+                        <div className="flex items-center justify-center space-x-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-gray-600 font-medium text-sm">PLAYED</span>
+                        </div>
+                      )}
+                      {isRevealed && !hasStarted && (
+                        <span className="text-gray-500 font-medium text-sm">REVEALED</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
