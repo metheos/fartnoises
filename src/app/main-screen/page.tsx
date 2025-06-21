@@ -613,11 +613,13 @@ function SoundSelectionDisplay({ room }: { room: Room }) {
   const otherPlayers = room.players.filter(p => p.id !== room.currentJudge);
   const submittedCount = room.submissions.length;
   const totalNeeded = otherPlayers.length;
+  const hasFirstSubmission = submittedCount > 0;
   
   // Debug logging
   console.log('SoundSelectionDisplay render:', {
     submittedCount,
     totalNeeded,
+    hasFirstSubmission,
     submissions: room.submissions,
     otherPlayers: otherPlayers.map(p => p.name)
   });
@@ -643,8 +645,8 @@ function SoundSelectionDisplay({ room }: { room: Room }) {
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
       <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Sound Selection Time!</h3>
       
-      {/* Timer Display */}
-      {timeLeft !== null && (
+      {/* Timer Display - Only show after first submission */}
+      {timeLeft !== null && hasFirstSubmission && (
         <div className="text-center mb-6">
           <div className={`text-6xl font-bold mb-2 ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-green-500'}`}>
             {timeLeft}s
@@ -658,34 +660,110 @@ function SoundSelectionDisplay({ room }: { room: Room }) {
               }`}
             ></div>
           </div>
+          <p className="text-sm text-gray-600 mt-2">
+            ⏰ Countdown started after first submission
+          </p>
         </div>
       )}
       
-      {room.currentPrompt && (
+      {/* Waiting for first submission message */}
+      {!hasFirstSubmission && (
+        <div className="text-center mb-6">
+          <div className="text-6xl mb-4">⏳</div>
+          <div className="bg-blue-100 rounded-2xl p-6">
+            <h4 className="text-2xl font-bold text-blue-800 mb-2">Waiting for First Player</h4>
+            <p className="text-lg text-blue-700">
+              The countdown will begin once the first player submits their sounds
+            </p>
+            <div className="mt-4 animate-pulse flex justify-center space-x-2">
+              <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+              <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+              <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+      )}
+        {room.currentPrompt && (
         <div className="bg-purple-100 rounded-2xl p-6 mb-8">
           <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
           <p className="text-2xl text-gray-800 font-bold">&quot;{room.currentPrompt}&quot;</p>
         </div>
-      )}      <div className="text-center mb-8">
-        <p className="text-xl text-gray-800 mb-4">
-          Players are picking their best sound combinations...
-        </p>
-        <p className="text-lg text-gray-700 mb-4">
-          {submittedCount} of {totalNeeded} players have submitted
-        </p>
-        <div className="text-6xl">🎵</div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {otherPlayers.map((player) => (          <div key={player.id} className="text-center p-4 bg-gray-100 rounded-2xl">            <div 
-              className={`w-12 h-12 rounded-full mx-auto mb-2 ${getPlayerColorClass(player.color)}`}
-            ></div>
-            <p className="font-bold text-gray-900">{player.name}</p>
-            <p className="text-sm text-gray-700">
-              {room.submissions.find(s => s.playerId === player.id) ? '✅ Ready' : '⏳ Thinking...'}
+      <div className="text-center mb-8">
+        {!hasFirstSubmission ? (
+          <>
+            <p className="text-xl text-gray-800 mb-4">
+              Players are thinking about their sound combinations...
             </p>
-          </div>
-        ))}
+            <p className="text-lg text-gray-700 mb-4">
+              {submittedCount} of {totalNeeded} players have submitted
+            </p>
+            <p className="text-base text-blue-600 font-semibold mb-4">
+              💡 Timer will start when the first player submits their sounds!
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-xl text-gray-800 mb-4">
+              ⏰ Countdown in progress! Remaining players, choose quickly!
+            </p>
+            <p className="text-lg text-gray-700 mb-4">
+              {submittedCount} of {totalNeeded} players have submitted
+            </p>
+            {timeLeft !== null && timeLeft <= 15 && (
+              <p className="text-base text-red-600 font-bold mb-4 animate-pulse">
+                🚨 Time running out! {totalNeeded - submittedCount} players still need to submit!
+              </p>
+            )}
+          </>
+        )}
+        <div className="text-6xl">🎵</div>
+      </div>      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {otherPlayers.map((player) => {
+          const hasSubmitted = room.submissions.find(s => s.playerId === player.id);
+          const isFirstSubmitter = hasSubmitted && submittedCount === 1 && room.submissions[0].playerId === player.id;
+          
+          return (
+            <div 
+              key={player.id} 
+              className={`text-center p-4 rounded-2xl transition-all duration-300 ${
+                hasSubmitted 
+                  ? isFirstSubmitter 
+                    ? 'bg-gradient-to-br from-green-200 to-blue-200 border-2 border-green-400 scale-105' 
+                    : 'bg-green-100 border-2 border-green-300'
+                  : hasFirstSubmission 
+                    ? 'bg-yellow-100 border-2 border-yellow-300 animate-pulse'
+                    : 'bg-gray-100'
+              }`}
+            >
+              <div 
+                className={`w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-xl ${getPlayerColorClass(player.color)}`}
+              >
+                {hasSubmitted ? '✅' : hasFirstSubmission ? '⏰' : '🤔'}
+              </div>
+              <p className="font-bold text-gray-900">{player.name}</p>
+              <p className={`text-sm font-semibold ${
+                hasSubmitted 
+                  ? isFirstSubmitter 
+                    ? 'text-blue-700' 
+                    : 'text-green-700'
+                  : hasFirstSubmission 
+                    ? 'text-yellow-700' 
+                    : 'text-gray-700'
+              }`}>
+                {hasSubmitted 
+                  ? isFirstSubmitter 
+                    ? '🎯 Started Timer!' 
+                    : '✅ Ready'
+                  : hasFirstSubmission 
+                    ? '⏰ Countdown Active' 
+                    : '⏳ Thinking...'
+                }
+              </p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -803,14 +803,20 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
       </div>
     );
   }
-
   const hasSubmitted = room.submissions.some(s => s.playerId === player.id);
+  const hasFirstSubmission = room.submissions.length > 0;
 
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Select Your Sounds!</h2>
       <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold">{room.currentPrompt}</span></p>
-      <p className="text-red-500 font-bold mb-4">Time Left: {timeLeft}s</p>
+      
+      {/* Only show timer after first submission */}
+      {hasFirstSubmission ? (
+        <p className="text-red-500 font-bold mb-4">Time Left: {timeLeft}s</p>
+      ) : (
+        <p className="text-blue-600 font-semibold mb-4">⏳ Timer will start when first player submits</p>
+      )}
       
       {hasSubmitted ? (
         <p className="text-green-600 text-xl">Sounds submitted! Waiting for others...</p>

@@ -38,6 +38,7 @@ export interface Room {
   winner: string | null;
   availablePrompts?: GamePrompt[];
   isPlayingBack?: boolean; // Flag to prevent transitions during playback
+  soundSelectionTimerStarted: boolean; // Flag to track if countdown has started for sound selection
   // Disconnection handling
   disconnectedPlayers?: DisconnectedPlayer[];
   pausedForDisconnection?: boolean;

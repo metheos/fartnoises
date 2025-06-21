@@ -110,6 +110,10 @@ function startTimer(
   // Clear any existing timer
   clearTimer(roomCode);
 
+  console.log(
+    `[${new Date().toISOString()}] [TIMER] Starting timer for room ${roomCode}, duration: ${duration}s`
+  );
+
   let timeLeft = duration;
 
   const timer = setInterval(() => {
@@ -136,8 +140,15 @@ function startTimer(
 function clearTimer(roomCode: string) {
   const timer = roomTimers.get(roomCode);
   if (timer) {
+    console.log(
+      `[${new Date().toISOString()}] [TIMER] Clearing timer for room ${roomCode}`
+    );
     clearInterval(timer);
     roomTimers.delete(roomCode);
+  } else {
+    console.log(
+      `[${new Date().toISOString()}] [TIMER] No timer found to clear for room ${roomCode}`
+    );
   }
 }
 
@@ -241,11 +252,30 @@ async function startPlaybackSequence(
   }, 1500); // 1.5 second delay before judging
 }
 
-function startSoundSelectionTimer(
+// Helper function for starting the delayed sound selection timer
+// This should only be called after the first player submits their sounds
+function startDelayedSoundSelectionTimer(
   roomCode: string,
   room: Room,
   io: SocketIOServer
 ) {
+  // Prevent starting multiple timers
+  if (room.soundSelectionTimerStarted) {
+    console.log(
+      `[${new Date().toISOString()}] [TIMER] Timer already started for room ${roomCode}, skipping`
+    );
+    return;
+  }
+
+  // Add stack trace to see where this is being called from
+  console.log(
+    `[${new Date().toISOString()}] [TIMER] *** startDelayedSoundSelectionTimer called for room ${roomCode} ***`
+  );
+  console.log(
+    `[${new Date().toISOString()}] [TIMER] Call stack:`,
+    new Error().stack
+  );
+  room.soundSelectionTimerStarted = true;
   startTimer(
     roomCode,
     GAME_CONFIG.SOUND_SELECTION_TIME,
@@ -253,7 +283,7 @@ function startSoundSelectionTimer(
       // Auto-transition to judging if time runs out, but only if not already in playback
       if (room.gameState === GameState.SOUND_SELECTION && !room.isPlayingBack) {
         console.log(
-          `[TIMER] Sound selection time expired for room ${roomCode}, transitioning to JUDGING`
+          `[${new Date().toISOString()}] [TIMER] Sound selection time expired for room ${roomCode}, transitioning to JUDGING`
         );
         room.gameState = GameState.JUDGING;
         io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
@@ -262,12 +292,24 @@ function startSoundSelectionTimer(
         });
       } else {
         console.log(
-          `[TIMER] Sound selection time expired for room ${roomCode}, but room state is ${room.gameState}, playback flag: ${room.isPlayingBack}`
+          `[${new Date().toISOString()}] [TIMER] Sound selection time expired for room ${roomCode}, but room state is ${
+            room.gameState
+          }, playback flag: ${room.isPlayingBack}`
         );
       }
     },
     (timeLeft) => {
-      io.to(roomCode).emit("timeUpdate", { timeLeft });
+      // Only send timer updates if the timer has been started
+      if (room.soundSelectionTimerStarted) {
+        console.log(
+          `[${new Date().toISOString()}] [TIMER] Sending timeUpdate for sound selection: ${timeLeft}s remaining in room ${roomCode}`
+        );
+        io.to(roomCode).emit("timeUpdate", { timeLeft });
+      } else {
+        console.log(
+          `[${new Date().toISOString()}] [TIMER] Suppressing timeUpdate for sound selection: timer not yet started in room ${roomCode}`
+        );
+      }
     }
   );
 }
@@ -469,10 +511,12 @@ function resumeGame(
   // Notify players that game is resuming
   io.to(roomCode).emit("gameResumed");
   io.to(roomCode).emit("gameStateChanged", previousGameState);
-  io.to(roomCode).emit("roomUpdated", room);
-  // Restart game timers if needed
+  io.to(roomCode).emit("roomUpdated", room); // Restart game timers if needed
   if (previousGameState === GameState.SOUND_SELECTION) {
-    startSoundSelectionTimer(roomCode, room, io);
+    // Only restart timer if it was already started before disconnection
+    if (room.soundSelectionTimerStarted) {
+      startDelayedSoundSelectionTimer(roomCode, room, io);
+    }
   }
   // Note: Add other timer restarts as needed based on game state
 }
@@ -672,7 +716,6 @@ export default function SocketHandler(
             score: 0,
             isVIP: true,
           };
-
           const room: Room = {
             code: roomCode,
             players: [player],
@@ -683,6 +726,7 @@ export default function SocketHandler(
             maxRounds: GAME_CONFIG.DEFAULT_MAX_ROUNDS,
             submissions: [],
             winner: null,
+            soundSelectionTimerStarted: false,
           };
           rooms.set(roomCode, room);
           playerRooms.set(socket.id, roomCode);
@@ -793,10 +837,17 @@ export default function SocketHandler(
                 () => {
                   // Auto-select first prompt if no selection made
                   if (room.gameState === GameState.PROMPT_SELECTION) {
+                    console.log(
+                      `[TIMER] Prompt selection time expired for room ${roomCode}, auto-selecting first prompt`
+                    );
+                    // Clear the prompt selection timer first
+                    clearTimer(roomCode);
+
                     const firstPrompt = prompts[0];
                     room.currentPrompt = firstPrompt.text;
                     room.gameState = GameState.SOUND_SELECTION;
                     room.submissions = [];
+                    room.soundSelectionTimerStarted = false;
 
                     const soundOptions = getRandomSounds(12);
 
@@ -812,12 +863,24 @@ export default function SocketHandler(
                       }
                     );
 
-                    // Start sound selection timer
-                    startSoundSelectionTimer(roomCode, room, io);
+                    // Note: Sound selection timer will start when first player submits
+                    console.log(
+                      `[TIMER] Transitioned to sound selection, waiting for first submission to start timer`
+                    );
                   }
                 },
                 (timeLeft) => {
-                  io.to(roomCode).emit("timeUpdate", { timeLeft });
+                  console.log(
+                    `[TIMER] Sending timeUpdate for prompt selection: ${timeLeft}s remaining in room ${roomCode}, game state: ${room.gameState}`
+                  );
+                  // Only send timeUpdate if we're still in prompt selection
+                  if (room.gameState === GameState.PROMPT_SELECTION) {
+                    io.to(roomCode).emit("timeUpdate", { timeLeft });
+                  } else {
+                    console.log(
+                      `[TIMER] Suppressing timeUpdate for prompt selection: game state is now ${room.gameState}`
+                    );
+                  }
                 }
               );
             }
@@ -871,9 +934,7 @@ export default function SocketHandler(
           if (!prompt) {
             console.log(`🎯 SERVER: Prompt ${promptId} not found`);
             return;
-          }
-
-          // Clear the prompt selection timer since judge made a manual selection
+          } // Clear the prompt selection timer since judge made a manual selection
           clearTimer(roomCode);
 
           console.log(
@@ -882,6 +943,7 @@ export default function SocketHandler(
           room.currentPrompt = prompt.text;
           room.gameState = GameState.SOUND_SELECTION;
           room.submissions = [];
+          room.soundSelectionTimerStarted = false;
 
           const soundOptions = getRandomSounds(12);
 
@@ -894,8 +956,10 @@ export default function SocketHandler(
             timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
           });
 
-          // Start sound selection timer
-          startSoundSelectionTimer(roomCode, room, io);
+          // Note: Sound selection timer will start when first player submits
+          console.log(
+            `[${new Date().toISOString()}] [TIMER] Judge selected prompt, transitioned to sound selection, waiting for first submission to start timer`
+          );
 
           console.log(`🎯 SERVER: selectPrompt completed successfully`);
         } catch (error) {
@@ -918,14 +982,22 @@ export default function SocketHandler(
             (s) => s.playerId === socket.id
           );
           if (existingSubmission) return;
-
           const submission = {
             playerId: socket.id,
             playerName: player.name,
             sounds: sounds,
           };
           room.submissions.push(submission);
-          io.to(roomCode).emit("soundSubmitted", submission);
+          io.to(roomCode).emit("soundSubmitted", submission); // Check if this is the first submission and start the timer
+          if (
+            room.submissions.length === 1 &&
+            !room.soundSelectionTimerStarted
+          ) {
+            console.log(
+              `[${new Date().toISOString()}] [SUBMISSION] First player submitted for room ${roomCode}, starting countdown timer`
+            );
+            startDelayedSoundSelectionTimer(roomCode, room, io);
+          }
 
           // Send updated room state to all clients (including main screen viewers)
           io.to(roomCode).emit("roomUpdated", room); // Check if all non-judge players have submitted
@@ -1041,6 +1113,7 @@ export default function SocketHandler(
               room.gameState = GameState.JUDGE_SELECTION;
               room.currentPrompt = null;
               room.submissions = [];
+              room.soundSelectionTimerStarted = false;
 
               io.to(roomCode).emit("judgeSelected", room.currentJudge);
               io.to(roomCode).emit(
@@ -1077,6 +1150,7 @@ export default function SocketHandler(
                         room.currentPrompt = firstPrompt.text;
                         room.gameState = GameState.SOUND_SELECTION;
                         room.submissions = [];
+                        room.soundSelectionTimerStarted = false;
 
                         const soundOptions = getRandomSounds(12);
 
@@ -1095,12 +1169,24 @@ export default function SocketHandler(
                           }
                         );
 
-                        // Start sound selection timer
-                        startSoundSelectionTimer(roomCode, room, io);
+                        // Note: Sound selection timer will start when first player submits
+                        console.log(
+                          `[TIMER] Transitioned to sound selection (flow 2), waiting for first submission to start timer`
+                        );
                       }
                     },
                     (timeLeft) => {
-                      io.to(roomCode).emit("timeUpdate", { timeLeft });
+                      console.log(
+                        `[TIMER] Sending timeUpdate for prompt selection (flow 2): ${timeLeft}s remaining in room ${roomCode}, game state: ${room.gameState}`
+                      );
+                      // Only send timeUpdate if we're still in prompt selection
+                      if (room.gameState === GameState.PROMPT_SELECTION) {
+                        io.to(roomCode).emit("timeUpdate", { timeLeft });
+                      } else {
+                        console.log(
+                          `[TIMER] Suppressing timeUpdate for prompt selection (flow 2): game state is now ${room.gameState}`
+                        );
+                      }
                     }
                   );
                 }
