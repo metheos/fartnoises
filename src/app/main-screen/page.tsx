@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } from '@/types/game';
 import { getSoundEffects } from '@/data/gameData';
+import { audioSystem } from '@/utils/audioSystem';
 
 let socket: Socket;
 
@@ -116,8 +117,7 @@ export default function MainScreen() {
       console.log('Setting roundWinner state to:', winnerData);
       if (typeof winnerData === 'object' && winnerData.winnerId) {
         setRoundWinner(winnerData);
-      }
-    });socket.on('gameStateChanged', (newState: GameState, data?: any) => {
+      }    });socket.on('gameStateChanged', (newState: GameState, data?: any) => {
       console.log('Main screen gameStateChanged:', newState, data);
       console.log('Current room before state change:', currentRoom?.gameState, '-> New state:', newState);
       
@@ -155,6 +155,17 @@ export default function MainScreen() {
           
           const newRoom = { ...prevRoom, ...updatedData };
           console.log('Main screen final room state after gameStateChanged:', newRoom);
+          
+          // Play prompt audio when transitioning to sound selection
+          if (newState === GameState.SOUND_SELECTION && data?.promptAudio) {
+            console.log('🔊 Playing prompt audio:', data.promptAudio);
+            audioSystem.initialize().then(() => {
+              audioSystem.loadAndPlayPromptAudio(data.promptAudio);
+            }).catch(error => {
+              console.error('Failed to initialize audio system for prompt playback:', error);
+            });
+          }
+          
           return newRoom;
         }
         console.log('Main screen: No current room to update for gameStateChanged');

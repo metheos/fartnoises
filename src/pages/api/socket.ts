@@ -11,11 +11,12 @@ import {
   ClientToServerEvents,
 } from "@/types/game";
 import {
-  GAME_PROMPTS,
+  getGamePrompts,
   getSoundEffects,
   PLAYER_COLORS,
   GAME_CONFIG,
 } from "@/data/gameData";
+import { getRandomPrompts as getRandomPromptsFromLoader } from "@/utils/soundLoader";
 
 interface SocketServer extends NetServer {
   io?: SocketIOServer<ClientToServerEvents, ServerToClientEvents>;
@@ -84,9 +85,8 @@ function selectNextJudge(room: Room): string {
   return playerIds[nextIndex];
 }
 
-function getRandomPrompts(count: number = 3) {
-  const shuffled = [...GAME_PROMPTS].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
+async function getRandomPrompts(count: number = 6) {
+  return await getRandomPromptsFromLoader(count);
 }
 
 async function getRandomSounds(count: number = 10) {
@@ -788,7 +788,7 @@ export default function SocketHandler(
         }
       });
 
-      socket.on("startGame", () => {
+      socket.on("startGame", async () => {
         try {
           const roomCode = playerRooms.get(socket.id);
           if (!roomCode) return;
@@ -813,13 +813,11 @@ export default function SocketHandler(
           io.to(roomCode).emit("judgeSelected", room.currentJudge);
           io.to(roomCode).emit("gameStateChanged", GameState.JUDGE_SELECTION, {
             judgeId: room.currentJudge,
-          });
-
-          // Auto-transition to prompt selection after a delay
-          setTimeout(() => {
+          }); // Auto-transition to prompt selection after a delay
+          setTimeout(async () => {
             if (room.gameState === GameState.JUDGE_SELECTION) {
               room.gameState = GameState.PROMPT_SELECTION;
-              const prompts = getRandomPrompts(3);
+              const prompts = await getRandomPrompts(6);
               room.availablePrompts = prompts;
 
               io.to(roomCode).emit(
@@ -836,7 +834,7 @@ export default function SocketHandler(
               startTimer(
                 roomCode,
                 GAME_CONFIG.PROMPT_SELECTION_TIME,
-                () => {
+                async () => {
                   // Auto-select first prompt if no selection made
                   if (room.gameState === GameState.PROMPT_SELECTION) {
                     console.log(
@@ -851,7 +849,7 @@ export default function SocketHandler(
                     room.submissions = [];
                     room.soundSelectionTimerStarted = false;
 
-                    const soundOptions = getRandomSounds(12);
+                    const soundOptions = await getRandomSounds(12);
 
                     io.to(roomCode).emit("roomUpdated", room);
                     io.to(roomCode).emit("promptSelected", firstPrompt.text);
@@ -860,6 +858,7 @@ export default function SocketHandler(
                       GameState.SOUND_SELECTION,
                       {
                         prompt: firstPrompt.text,
+                        promptAudio: firstPrompt.audioFile, // Include audio file for main screen
                         sounds: soundOptions,
                         timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                       }
@@ -891,7 +890,7 @@ export default function SocketHandler(
           console.error("Error starting game:", error);
         }
       });
-      socket.on("selectPrompt", (promptId) => {
+      socket.on("selectPrompt", async (promptId) => {
         console.log(
           `🎯 SERVER: selectPrompt received from ${socket.id} with promptId: ${promptId}`
         );
@@ -920,14 +919,13 @@ export default function SocketHandler(
               `🎯 SERVER: Judge validation failed - current judge: ${room.currentJudge}, socket: ${socket.id}`
             );
             return;
-          }
-
-          // Use available prompts from room if they exist, otherwise fallback to finding by ID
+          } // Use available prompts from room if they exist, otherwise load dynamically
           let prompt;
           if (room.availablePrompts) {
             prompt = room.availablePrompts.find((p) => p.id === promptId);
           } else {
-            prompt = GAME_PROMPTS.find((p) => p.id === promptId);
+            const allPrompts = await getGamePrompts();
+            prompt = allPrompts.find((p) => p.id === promptId);
           }
 
           console.log(
@@ -954,6 +952,7 @@ export default function SocketHandler(
           io.to(roomCode).emit("promptSelected", prompt.text);
           io.to(roomCode).emit("gameStateChanged", GameState.SOUND_SELECTION, {
             prompt: prompt.text,
+            promptAudio: prompt.audioFile, // Include audio file for main screen
             sounds: soundOptions,
             timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
           });
@@ -1146,13 +1145,11 @@ export default function SocketHandler(
               "gameStateChanged",
               GameState.JUDGE_SELECTION,
               { judgeId: room.currentJudge }
-            );
-
-            // Auto-transition to prompt selection
-            setTimeout(() => {
+            ); // Auto-transition to prompt selection
+            setTimeout(async () => {
               if (room.gameState === GameState.JUDGE_SELECTION) {
                 room.gameState = GameState.PROMPT_SELECTION;
-                const prompts = getRandomPrompts(3);
+                const prompts = await getRandomPrompts(6);
                 room.availablePrompts = prompts;
 
                 io.to(roomCode).emit(
@@ -1169,7 +1166,7 @@ export default function SocketHandler(
                 startTimer(
                   roomCode,
                   GAME_CONFIG.PROMPT_SELECTION_TIME,
-                  () => {
+                  async () => {
                     // Auto-select first prompt if no selection made
                     if (room.gameState === GameState.PROMPT_SELECTION) {
                       const firstPrompt = prompts[0];
@@ -1178,7 +1175,7 @@ export default function SocketHandler(
                       room.submissions = [];
                       room.soundSelectionTimerStarted = false;
 
-                      const soundOptions = getRandomSounds(12);
+                      const soundOptions = await getRandomSounds(12);
 
                       io.to(roomCode).emit("roomUpdated", room);
                       io.to(roomCode).emit("promptSelected", firstPrompt.text);
@@ -1187,6 +1184,7 @@ export default function SocketHandler(
                         GameState.SOUND_SELECTION,
                         {
                           prompt: firstPrompt.text,
+                          promptAudio: firstPrompt.audioFile, // Include audio file for main screen
                           sounds: soundOptions,
                           timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                         }

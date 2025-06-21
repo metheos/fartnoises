@@ -1,5 +1,5 @@
 // Dynamic sound loader for EarwaxAudio.jet
-import { SoundEffect } from "@/types/game";
+import { SoundEffect, GamePrompt } from "@/types/game";
 
 interface EarwaxSound {
   id?: number | string;
@@ -9,8 +9,19 @@ interface EarwaxSound {
   categories?: string[];
 }
 
+interface EarwaxPrompt {
+  id: number;
+  x: boolean;
+  PromptAudio: string;
+  name: string;
+}
+
 interface EarwaxData {
   content: EarwaxSound[];
+}
+
+interface EarwaxPromptData {
+  content: EarwaxPrompt[];
 }
 
 // Function to decode Unicode escape sequences
@@ -339,4 +350,112 @@ export function clearSoundCache(): void {
 export async function getSoundCategories(): Promise<string[]> {
   const allSounds = await loadEarwaxSounds();
   return [...new Set(allSounds.map((s) => s.category))].sort();
+}
+
+// ========================================
+// PROMPT LOADING FUNCTIONS
+// ========================================
+
+// Cache for loaded prompts to avoid re-parsing
+let promptCache: GamePrompt[] | null = null;
+let promptCacheTimestamp: number = 0;
+
+export async function loadEarwaxPrompts(): Promise<GamePrompt[]> {
+  // Check if we have a valid cache
+  const now = Date.now();
+  if (promptCache && now - promptCacheTimestamp < CACHE_DURATION) {
+    return promptCache;
+  }
+
+  try {
+    console.log("Loading EarwaxPrompts.jet file...");
+
+    let jetContent: string;
+
+    // Check if we're in a browser or server environment
+    if (typeof window !== "undefined") {
+      // Browser environment - use fetch
+      const response = await fetch("/sounds/Earwax/EarwaxPrompts.jet");
+      if (!response.ok) {
+        throw new Error(
+          `Failed to load EarwaxPrompts.jet: ${response.statusText}`
+        );
+      }
+      jetContent = await response.text();
+    } else {
+      // Server environment - use fs
+      const fs = await import("fs");
+      const path = await import("path");
+      const jetFilePath = path.join(
+        process.cwd(),
+        "public",
+        "sounds",
+        "Earwax",
+        "EarwaxPrompts.jet"
+      );
+      jetContent = fs.readFileSync(jetFilePath, "utf8");
+    }
+
+    const earwaxPromptData: EarwaxPromptData = JSON.parse(jetContent);
+
+    console.log(
+      `Processing ${earwaxPromptData.content.length} prompt entries...`
+    );
+
+    // Filter out explicit content and invalid entries
+    const validPrompts = earwaxPromptData.content.filter((prompt) => {
+      if (!prompt.id || !prompt.name || !prompt.PromptAudio) return false;
+      if (typeof prompt.name !== "string" || prompt.name.trim() === "")
+        return false;
+      // if (prompt.x) return false; // Filter out explicit content
+      return true;
+    });
+
+    console.log(`Found ${validPrompts.length} valid, safe prompt entries`);
+
+    // Convert to our GamePrompt format
+    const gamePrompts: GamePrompt[] = validPrompts.map((prompt) => {
+      const cleanName = decodeUnicode(prompt.name);
+
+      return {
+        id: prompt.id.toString(),
+        text: cleanName,
+        category: "general", // We could categorize prompts in the future
+        audioFile: `${prompt.PromptAudio}.ogg`, // Add audio file reference
+      };
+    });
+
+    // Sort by name for easier browsing
+    gamePrompts.sort((a, b) => a.text.localeCompare(b.text));
+
+    console.log(`✅ Loaded ${gamePrompts.length} game prompts`);
+
+    // Update cache
+    promptCache = gamePrompts;
+    promptCacheTimestamp = now;
+
+    return gamePrompts;
+  } catch (error) {
+    console.error("❌ Error loading prompts:", error);
+
+    // Return empty array on error to prevent app crash
+    return [];
+  }
+}
+
+// Get random prompts
+export async function getRandomPrompts(
+  count: number = 6
+): Promise<GamePrompt[]> {
+  const allPrompts = await loadEarwaxPrompts();
+
+  // Shuffle and take the requested count
+  const shuffled = [...allPrompts].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+// Clear prompt cache (useful for development)
+export function clearPromptCache(): void {
+  promptCache = null;
+  promptCacheTimestamp = 0;
 }

@@ -820,7 +820,6 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   const [sound1, setSound1] = useState<string>('');
   const [sound2, setSound2] = useState<string>('');
   const [playerSoundSet, setPlayerSoundSet] = useState<SoundEffect[]>([]);
-
   // Generate random sound set for this player when component mounts or when entering new round
   useEffect(() => {
     if (soundEffects.length > 0 && room.gameState === GameState.SOUND_SELECTION) {
@@ -835,7 +834,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
         setSound2('');
       }
     }
-  }, [room.gameState, room.currentRound, room.submissions, player.id, soundEffects]);
+  }, [room.gameState, room.currentRound, player.id, soundEffects]);
 
   useEffect(() => {
     if (selectedSounds) {

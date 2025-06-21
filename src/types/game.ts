@@ -76,6 +76,7 @@ export interface GamePrompt {
   id: string;
   text: string;
   category: string;
+  audioFile?: string; // Optional audio file for prompt playback
 }
 
 // Socket event types

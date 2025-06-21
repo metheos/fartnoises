@@ -180,6 +180,48 @@ export class AudioSystem {
     await Promise.all(loadPromises);
     console.log(`Preloaded ${soundIds.length} specific sounds`);
   }
+
+  // Load and play prompt audio from EarwaxPrompts folder
+  async loadAndPlayPromptAudio(audioFileName: string): Promise<void> {
+    const promptId = `prompt_${audioFileName}`;
+
+    try {
+      // Check if already loaded
+      if (this.loadedSounds.has(promptId)) {
+        this.playSound(promptId);
+        return;
+      }
+
+      // Load prompt audio from the EarwaxPrompts folder
+      const response = await fetch(
+        `/sounds/Earwax/EarwaxPrompts/${audioFileName}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to load prompt audio: ${audioFileName}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+
+      if (!this.audioContext) {
+        await this.initialize();
+      }
+
+      const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
+      this.loadedSounds.set(promptId, audioBuffer);
+
+      // Play the audio immediately after loading
+      this.playSound(promptId);
+
+      console.log(`✅ Played prompt audio: ${audioFileName}`);
+    } catch (error) {
+      console.error(
+        `❌ Failed to load/play prompt audio ${audioFileName}:`,
+        error
+      );
+      this.failedSounds.add(promptId);
+    }
+  }
 }
 
 // Hook for React components
