@@ -445,13 +445,33 @@ export async function loadEarwaxPrompts(): Promise<GamePrompt[]> {
 
 // Get random prompts
 export async function getRandomPrompts(
-  count: number = 6
+  count: number = 6,
+  excludePromptIds: string[] = []
 ): Promise<GamePrompt[]> {
   const allPrompts = await loadEarwaxPrompts();
 
-  // Shuffle and take the requested count
-  const shuffled = [...allPrompts].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+  // Filter out already used prompts
+  const availablePrompts = allPrompts.filter(
+    prompt => !excludePromptIds.includes(prompt.id)
+  );
+
+  // If we don't have enough unused prompts, include all prompts as fallback
+  const promptsToSelectFrom = availablePrompts.length >= count 
+    ? availablePrompts 
+    : allPrompts;
+
+  // Generate unique random indices
+  const maxIndex = promptsToSelectFrom.length - 1;
+  const requestedCount = Math.min(count, promptsToSelectFrom.length);
+  const uniqueIndices = new Set<number>();
+  
+  while (uniqueIndices.size < requestedCount) {
+    const randomIndex = Math.floor(Math.random() * (maxIndex + 1));
+    uniqueIndices.add(randomIndex);
+  }
+  
+  // Select prompts using the unique indices
+  return Array.from(uniqueIndices).map(index => promptsToSelectFrom[index]);
 }
 
 // Clear prompt cache (useful for development)

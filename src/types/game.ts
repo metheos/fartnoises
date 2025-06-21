@@ -37,6 +37,7 @@ export interface Room {
   submissions: SoundSubmission[];
   winner: string | null;
   availablePrompts?: GamePrompt[];
+  usedPromptIds?: string[]; // Track prompts already used in this game session
   isPlayingBack?: boolean; // Flag to prevent transitions during playback
   soundSelectionTimerStarted: boolean; // Flag to track if countdown has started for sound selection  // Disconnection handling
   disconnectedPlayers?: DisconnectedPlayer[];
