@@ -37,6 +37,7 @@ export interface Room {
   submissions: SoundSubmission[];
   winner: string | null;
   availablePrompts?: GamePrompt[];
+  isPlayingBack?: boolean; // Flag to prevent transitions during playback
   // Disconnection handling
   disconnectedPlayers?: DisconnectedPlayer[];
   pausedForDisconnection?: boolean;
@@ -112,6 +113,15 @@ export interface ServerToClientEvents {
   roundComplete: (winnerId: string, winnerName: string) => void;
   gameComplete: (winnerId: string, winnerName: string) => void;
   timeUpdate: (data: { timeLeft: number }) => void;
+  submissionPlayback: (data: {
+    submissionIndex: number;
+    submission: SoundSubmission;
+  }) => void;
+  playbackProgress: (data: {
+    progress: number;
+    submissionIndex: number;
+  }) => void;
+  playbackComplete: () => void;
 }
 
 export interface ClientToServerEvents {
@@ -137,4 +147,5 @@ export interface ClientToServerEvents {
   selectWinner: (submissionId: string) => void;
   voteOnReconnection: (continueWithoutPlayer: boolean) => void;
   restartGame: () => void;
+  submissionPlaybackComplete: (submissionIndex: number) => void;
 }

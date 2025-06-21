@@ -59,7 +59,13 @@ export default function MainScreen() {
       console.log('Main screen connected to server');
       // Automatically request the room list when we connect
       socket.emit('requestMainScreenUpdate');
-    });    socket.on('mainScreenUpdate', ({ rooms: updatedRooms }: { rooms: Room[] }) => {
+      
+      // If we were watching a specific room before disconnection, rejoin it
+      if (currentRoom) {
+        console.log('Main screen: Reconnecting to room', currentRoom.code);
+        socket.emit('joinRoomAsViewer', currentRoom.code);
+      }
+    });socket.on('mainScreenUpdate', ({ rooms: updatedRooms }: { rooms: Room[] }) => {
       console.log('Main screen received room list update:', updatedRooms);
       setRooms(updatedRooms); // Update the list of all available rooms
 
@@ -77,23 +83,29 @@ export default function MainScreen() {
         }
         return prevCurrentRoom;
       });
-    });socket.on('roomUpdated', (updatedRoom) => {
+    });    socket.on('roomUpdated', (updatedRoom) => {
       console.log('Main screen received room update:', updatedRoom);
       setCurrentRoom(prev => {
         // Only update if we're currently watching this room
         if (prev && updatedRoom.code === prev.code) {
           console.log('Main screen updating current room from roomUpdated event:', updatedRoom);
+          console.log('Previous game state:', prev.gameState, '-> New game state:', updatedRoom.gameState);
+          console.log('Previous judge:', prev.currentJudge, '-> New judge:', updatedRoom.currentJudge);
+          console.log('Previous round:', prev.currentRound, '-> New round:', updatedRoom.currentRound);
           return updatedRoom;
         }
         console.log('Main screen ignoring roomUpdated for different room:', updatedRoom.code, 'current:', prev?.code);
         return prev;
       });
-    });
-
-    socket.on('roomJoined', (room) => {
-      console.log('Main screen joined room:', room);
-      setCurrentRoom(room);
-      setJoinError('');
+    });    socket.on('roomJoined', (data) => {
+      console.log('[MAIN SCREEN] Room joined event received:', data);
+      // Handle both formats: direct room object (from viewer join) or { room, player } object
+      const room = data.room || data;
+      if (room) {
+        console.log('[MAIN SCREEN] Setting current room to:', room.code);
+        setCurrentRoom(room);
+        setJoinError('');
+      }
     });
 
     socket.on('error', (error) => {
@@ -106,24 +118,47 @@ export default function MainScreen() {
       if (typeof winnerData === 'object' && winnerData.winnerId) {
         setRoundWinner(winnerData);
       }
-    });
-    socket.on('gameStateChanged', (newState: GameState, data?: any) => {
+    });    socket.on('gameStateChanged', (newState: GameState, data?: any) => {
       console.log('Main screen gameStateChanged:', newState, data);
+      console.log('Current room before state change:', currentRoom?.gameState, '-> New state:', newState);
+      
       setCurrentRoom(prevRoom => {
         if (prevRoom) {
           const updatedData: Partial<Room> = { gameState: newState };
+          
+          console.log('Main screen processing gameStateChanged for room:', prevRoom.code);
+          console.log('Previous state:', prevRoom.gameState, 'New state:', newState);
+          
           // Merge relevant fields from data if they exist and are provided
           if (data) {
+            // Map server field names to room properties
+            if (data.judgeId !== undefined) {
+              console.log('Setting judge from gameStateChanged:', data.judgeId);
+              updatedData.currentJudge = data.judgeId;
+            }
+            if (data.prompt !== undefined) updatedData.currentPrompt = data.prompt;
+            if (data.prompts !== undefined) updatedData.availablePrompts = data.prompts as GamePrompt[];
+            if (data.submissions !== undefined) updatedData.submissions = data.submissions as SoundSubmission[];
+            if (data.sounds !== undefined) {
+              // Store available sounds for this phase if needed
+              // Could add to room state if we extend the Room type
+            }
+            if (data.timeLimit !== undefined) {
+              // Handle time limit if needed
+            }
+            // Keep existing field mappings as fallback
             if (data.currentJudge !== undefined) updatedData.currentJudge = data.currentJudge;
             if (data.currentPrompt !== undefined) updatedData.currentPrompt = data.currentPrompt;
             if (data.availablePrompts !== undefined) updatedData.availablePrompts = data.availablePrompts as GamePrompt[];
-            if (data.submissions !== undefined) updatedData.submissions = data.submissions as SoundSubmission[];
-            if (data.players !== undefined) updatedData.players = data.players as Player[]; // If players list comes with this event
+            if (data.players !== undefined) updatedData.players = data.players as Player[];
             if (data.currentRound !== undefined) updatedData.currentRound = data.currentRound;
-            // Add any other fields that might be relevant from the 'data' payload
           }
-          return { ...prevRoom, ...updatedData };
+          
+          const newRoom = { ...prevRoom, ...updatedData };
+          console.log('Main screen final room state after gameStateChanged:', newRoom);
+          return newRoom;
         }
+        console.log('Main screen: No current room to update for gameStateChanged');
         return prevRoom;
       });
 
@@ -131,8 +166,7 @@ export default function MainScreen() {
       if (newState === GameState.JUDGE_SELECTION || newState === GameState.LOBBY) {
         setRoundWinner(null);
       }
-    });
-    socket.on('soundSubmitted', (submission) => {
+    });socket.on('soundSubmitted', (submission) => {
       console.log('Main screen received sound submission:', submission);
       // Update currentRoom state with the new submission
       setCurrentRoom(prev => {
@@ -153,6 +187,61 @@ export default function MainScreen() {
       });
     });
 
+    socket.on('promptSelected', (promptText: string) => {
+      console.log('Main screen received prompt selection:', promptText);
+      setCurrentRoom(prev => prev ? { ...prev, currentPrompt: promptText } : null);
+    });    socket.on('judgeSelected', (judgeId: string) => {
+      console.log('Main screen received judge selection:', judgeId);
+      setCurrentRoom(prev => {
+        if (prev) {
+          console.log('Main screen updating currentJudge from', prev.currentJudge, 'to', judgeId);
+          return { ...prev, currentJudge: judgeId };
+        }
+        return null;
+      });
+    });// Global time update handler (not phase-specific)
+    socket.on('timeUpdate', (data: { timeLeft: number }) => {
+      console.log('Main screen received time update:', data);
+      // This will be handled by individual component useEffect hooks
+    });
+
+    // Add handler for game phase transitions that might need special handling
+    socket.on('playbackStarted', (data?: any) => {
+      console.log('Main screen received playback started:', data);
+      // Could update room state if needed
+      if (data && data.submissions) {
+        setCurrentRoom(prev => prev ? { ...prev, submissions: data.submissions } : null);
+      }
+    });
+
+    // Add handler for when judge makes selections
+    socket.on('winnerSelected', (data: any) => {
+      console.log('Main screen received winner selected:', data);
+      if (data) {
+        setRoundWinner(data);
+      }
+    });
+
+    // Handle disconnection/reconnection events to keep UI in sync
+    socket.on('gamePausedForDisconnection', (data: any) => {
+      console.log('Main screen: Game paused for disconnection:', data);
+      // Could show a pause overlay or message
+    });
+
+    socket.on('gameResumed', () => {
+      console.log('Main screen: Game resumed');
+      // Could hide pause overlay
+    });    socket.on('playerReconnected', (data: any) => {
+      console.log('Main screen: Player reconnected:', data);
+      // Room will be updated via roomUpdated event
+    });
+
+    // Add handler to track when games start
+    socket.on('gameStarted', (data: any) => {
+      console.log('Main screen: Game started:', data);
+      // This might be emitted by the server when a game begins
+    });
+
     socket.on('disconnect', () => {
       setIsConnected(false);
       console.log('Main screen disconnected from server');
@@ -160,27 +249,37 @@ export default function MainScreen() {
 
     return () => {
       socket.disconnect();
-    };
-  }, []); // Empty dependency array - only run once on mount
-
+    };  }, []); // Empty dependency array - only run once on mount
+  
   const joinRoom = () => {
     if (roomCodeInput.length === 4) {
       setJoinError('');
-      socket.emit('joinRoomAsViewer', roomCodeInput.toUpperCase());
+      console.log('Main screen: Joining room as viewer:', roomCodeInput.toUpperCase());
+      if (socket && socket.connected) {
+        socket.emit('joinRoomAsViewer', roomCodeInput.toUpperCase());
+      }
     } else {
       setJoinError('Room code must be 4 letters');
     }
   };
+  
   const leaveRoom = () => {
     setCurrentRoom(null);
     setRoundWinner(null);
     setJoinError('');
-    setRoomCodeInput('');    // Request fresh room list only when leaving a room
-    socket.emit('requestMainScreenUpdate');
+    setRoomCodeInput('');
+    
+    // Request fresh room list only when leaving a room
+    if (socket && socket.connected) {
+      socket.emit('requestMainScreenUpdate');
+    }
   };
-
+  
   const refreshRooms = () => {
-    socket.emit('requestMainScreenUpdate');
+    console.log('Main screen: Manually refreshing room list');
+    if (socket && socket.connected) {
+      socket.emit('requestMainScreenUpdate');
+    }
   };
 
   if (!isConnected) {
@@ -235,16 +334,20 @@ export default function MainScreen() {
             {rooms.length === 0 ? (              <div className="col-span-full text-center text-gray-800">
                 No active games. Create a room on your phone to get started!
               </div>
-            ) : (              rooms.map((room) => (
-                <div 
+            ) : (              rooms.map((room) => (                <div 
                   key={room.code} 
                   className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
                     currentRoom?.code === room.code 
                       ? 'bg-white bg-opacity-90 scale-105' 
                       : 'bg-white bg-opacity-80 hover:bg-opacity-90'
                   }`}
-                  onClick={() => setCurrentRoom(room)}
-                >                  <div className={currentRoom?.code === room.code ? "text-gray-900" : "text-gray-800"}>
+                  onClick={() => {
+                    console.log('Main screen: Clicking to view room', room.code);
+                    setCurrentRoom(room);
+                    // Also join the room as viewer to get real-time updates
+                    socket.emit('joinRoomAsViewer', room.code);
+                  }}
+                ><div className={currentRoom?.code === room.code ? "text-gray-900" : "text-gray-800"}>
                     <h4 className="font-bold text-lg">{room.code}</h4>
                     <p className="text-sm">{room.players.length} players</p>
                     <p className="text-sm">{getGameStateDisplay(room.gameState)}</p>
@@ -403,22 +506,28 @@ function MainScreenGameDisplay({
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Game State Display */}
+      </div>      {/* Game State Display */}
       {room.gameState === GameState.LOBBY && (
         <LobbyDisplay room={room} />
       )}
 
-      {room.gameState === GameState.PROMPT_SELECTION && (
-        <PromptSelectionDisplay room={room} />
+      {room.gameState === GameState.JUDGE_SELECTION && (
+        <JudgeSelectionDisplay room={room} />
       )}
 
-      {room.gameState === GameState.SOUND_SELECTION && (
+      {room.gameState === GameState.PROMPT_SELECTION && (
+        <PromptSelectionDisplay room={room} />
+      )}      {room.gameState === GameState.SOUND_SELECTION && (
         <SoundSelectionDisplay room={room} />
-      )}      {room.gameState === GameState.JUDGING && (
+      )}
+
+      {room.gameState === GameState.PLAYBACK && (
+        <PlaybackSubmissionsDisplay room={room} soundEffects={soundEffects} />
+      )}
+
+      {room.gameState === GameState.JUDGING && (
         <JudgingDisplay room={room} soundEffects={soundEffects} />
-      )}      {room.gameState === GameState.ROUND_RESULTS && (
+      )}{room.gameState === GameState.ROUND_RESULTS && (
         <ResultsDisplay room={room} roundWinner={roundWinner} soundEffects={soundEffects} />
       )}
 
@@ -447,13 +556,13 @@ function LobbyDisplay({ room }: { room: Room }) {
 function PromptSelectionDisplay({ room }: { room: Room }) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const judge = room.players.find(p => p.id === room.currentJudge);
-  
-  useEffect(() => {
+    useEffect(() => {
     // Use the existing global socket instead of creating a new one
     if (!socket) return;
     
     const handleTimeUpdate = (data: any) => {
-      if (data.phase === 'prompt-selection') {
+      // Server sends simple { timeLeft: number } format during prompt selection
+      if (data.timeLeft !== undefined) {
         setTimeLeft(data.timeLeft);
       }
     };
@@ -512,13 +621,13 @@ function SoundSelectionDisplay({ room }: { room: Room }) {
     submissions: room.submissions,
     otherPlayers: otherPlayers.map(p => p.name)
   });
-  
-  useEffect(() => {
+    useEffect(() => {
     // Use the existing global socket instead of creating a new one
     if (!socket) return;
     
     const handleTimeUpdate = (data: any) => {
-      if (data.phase === 'sound-selection') {
+      // Server sends simple { timeLeft: number } format during sound selection
+      if (data.timeLeft !== undefined) {
         setTimeLeft(data.timeLeft);
       }
     };
@@ -706,6 +815,410 @@ function GameOverDisplay({ room }: { room: Room }) {
           ))}
         </div>
       </div>
+    </div>  );
+}
+
+function JudgeSelectionDisplay({ room }: { room: Room }) {
+  const judge = room.players.find(p => p.id === room.currentJudge);
+  
+  return (
+    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
+      <h3 className="text-3xl font-bold text-gray-800 mb-6">Judge Selection</h3>
+      <div className="text-6xl mb-6">👨‍⚖️</div>
+      
+      {judge ? (
+        <div>
+          <p className="text-2xl text-gray-800 mb-4">
+            This round's judge is: 
+          </p>
+          <div className="bg-yellow-100 rounded-2xl p-6 inline-block">
+            <div 
+              className={`w-16 h-16 rounded-full mx-auto mb-3 ${getPlayerColorClass(judge.color)}`}
+            ></div>
+            <p className="text-3xl font-bold text-gray-900">{judge.name}</p>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xl text-gray-800">Selecting judge...</p>
+      )}
+    </div>
+  );
+}
+
+function PlaybackDisplay({ room, soundEffects }: { room: Room; soundEffects: SoundEffect[] }) {
+  return (
+    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
+      <h3 className="text-3xl font-bold text-gray-800 mb-6">Sound Playback Time!</h3>
+      <div className="text-6xl mb-6">🔊</div>
+      
+      <div className="mb-8">
+        {room.currentPrompt && (
+          <div className="bg-purple-100 rounded-2xl p-4 mb-6">
+            <p className="text-lg text-purple-800">
+              Prompt: <span className="font-bold">"{room.currentPrompt}"</span>
+            </p>
+          </div>
+        )}
+        
+        <p className="text-2xl text-gray-800 mb-4">
+          Listen to all the submissions!
+        </p>
+        <p className="text-lg text-gray-700">
+          The judge will pick the funniest combination...
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {room.submissions.map((submission, index) => (
+          <div key={index} className="bg-gray-100 rounded-2xl p-6">
+            <h4 className="text-xl font-bold text-gray-800 mb-4">Submission {index + 1}</h4>
+            <div className="space-y-2">
+              {submission.sounds.map((soundId, soundIndex) => {
+                const sound = soundEffects.find(s => s.id === soundId);
+                return (
+                  <div key={soundIndex} className="bg-white px-4 py-2 rounded-lg">
+                    <span className="font-bold">🔊 {sound?.name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PlaybackSubmissionsDisplay({ room, soundEffects }: { room: Room; soundEffects: SoundEffect[] }) {
+  const [currentlyPlaying, setCurrentlyPlaying] = useState<number | null>(null);
+  const [playbackProgress, setPlaybackProgress] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [audioElements, setAudioElements] = useState<HTMLAudioElement[]>([]);
+
+  // Create audio elements for the current submission when playback starts
+  useEffect(() => {
+    if (currentlyPlaying !== null && room.submissions[currentlyPlaying]) {
+      const submission = room.submissions[currentlyPlaying];
+      const newAudioElements: HTMLAudioElement[] = [];
+        submission.sounds.forEach((soundId, index) => {
+        const sound = soundEffects.find(s => s.id === soundId);
+        if (sound) {
+          // Construct the URL from the fileName
+          const soundUrl = `/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`;
+          const audio = new Audio(soundUrl);
+          audio.volume = 0.7; // Set volume to 70%
+          audio.preload = 'auto';
+          newAudioElements.push(audio);
+          
+          // Add error handling
+          audio.onerror = () => {
+            console.error(`Failed to load sound: ${sound.name} (${soundUrl})`);
+          };
+          
+          console.log(`[AUDIO] Prepared audio for ${sound.name}: ${soundUrl}`);
+        }
+      });
+      
+      setAudioElements(newAudioElements);
+        // Start playing the sounds with a small delay
+      setTimeout(() => {
+        console.log(`[AUDIO] Playing ${newAudioElements.length} sounds for submission ${currentlyPlaying}`);
+          // Play sounds sequentially, waiting for each to finish
+        const playNextSound = (soundIndex: number) => {
+          if (soundIndex >= newAudioElements.length) {
+            console.log(`[AUDIO] All sounds finished for submission ${currentlyPlaying}`);
+            
+            // Notify server that this submission's playback is complete
+            if (socket && socket.connected && currentlyPlaying !== null) {
+              console.log(`[AUDIO] Notifying server: submission ${currentlyPlaying} playback complete`);
+              socket.emit('submissionPlaybackComplete', currentlyPlaying);
+            }
+            return;
+          }
+          
+          const audio = newAudioElements[soundIndex];
+          console.log(`[AUDIO] Playing sound ${soundIndex + 1} of ${newAudioElements.length}`);
+          
+          // Set up event listener for when this sound ends
+          const onEnded = () => {
+            audio.removeEventListener('ended', onEnded);
+            console.log(`[AUDIO] Sound ${soundIndex + 1} finished, moving to next`);
+            
+            // Wait a brief moment between sounds, then play the next one
+            setTimeout(() => {
+              playNextSound(soundIndex + 1);
+            }, 300); // 300ms pause between sounds
+          };
+          
+          audio.addEventListener('ended', onEnded);
+          
+          // Start playing this sound
+          audio.play().catch(error => {
+            console.error(`Failed to play audio ${soundIndex}:`, error);
+            // If this sound fails, try the next one
+            setTimeout(() => {
+              playNextSound(soundIndex + 1);
+            }, 500);
+          });
+        };
+        
+        // Start with the first sound
+        playNextSound(0);
+      }, 500); // 500ms delay before starting playback
+      
+      // Cleanup function
+      return () => {
+        newAudioElements.forEach(audio => {
+          audio.pause();
+          audio.currentTime = 0;
+        });
+      };
+    }
+  }, [currentlyPlaying, room.submissions, soundEffects]);
+
+  useEffect(() => {
+    if (!socket) return;
+      const handleSubmissionPlayback = (data: any) => {
+      console.log('[MAIN SCREEN] Received submission playback:', data);
+      if (data.submissionIndex !== undefined) {
+        setCurrentlyPlaying(data.submissionIndex);
+        setPlaybackProgress(0);
+        setHasStarted(true);
+        console.log('[MAIN SCREEN] Set currently playing to:', data.submissionIndex);
+      }
+    };    const handlePlaybackProgress = (data: any) => {
+      if (data.progress !== undefined) {
+        setPlaybackProgress(data.progress);
+        // Reduced logging frequency - only log every 25%
+        if (data.progress % 0.25 === 0) {
+          console.log('[MAIN SCREEN] Progress update:', data.progress);
+        }
+      }
+    };const handlePlaybackComplete = () => {
+      console.log('[MAIN SCREEN] Received playback complete');
+      setCurrentlyPlaying(null);
+      setPlaybackProgress(0);
+      
+      // Stop all audio when playback is complete
+      audioElements.forEach(audio => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
+    };
+
+    socket.on('submissionPlayback', handleSubmissionPlayback);
+    socket.on('playbackProgress', handlePlaybackProgress);
+    socket.on('playbackComplete', handlePlaybackComplete);
+
+    return () => {
+      socket.off('submissionPlayback', handleSubmissionPlayback);
+      socket.off('playbackProgress', handlePlaybackProgress);
+      socket.off('playbackComplete', handlePlaybackComplete);
+    };
+  }, []);
+
+  // Cleanup audio when component unmounts or game state changes away from PLAYBACK
+  useEffect(() => {
+    return () => {
+      // Stop all audio when component unmounts
+      audioElements.forEach(audio => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
+    };
+  }, [audioElements]);
+
+  // Clean up audio when leaving playback state
+  useEffect(() => {
+    if (room.gameState !== GameState.PLAYBACK) {
+      audioElements.forEach(audio => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
+      setCurrentlyPlaying(null);
+      setPlaybackProgress(0);
+      setHasStarted(false);
+    }
+  }, [room.gameState, audioElements]);
+
+  return (
+    <div className="bg-white rounded-3xl p-12 shadow-2xl">
+      <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">🎵 Sound Combinations 🎵</h3>
+      
+      {room.currentPrompt && (
+        <div className="bg-purple-100 rounded-2xl p-6 mb-8 text-center">
+          <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
+          <p className="text-2xl text-gray-800 font-bold">&quot;{room.currentPrompt}&quot;</p>
+        </div>
+      )}      <div className="text-center mb-8">
+        <div className="text-6xl mb-4">🔊</div>
+        <p className="text-xl text-gray-800 mb-2">
+          {!hasStarted 
+            ? "Getting ready to play all submissions..."
+            : currentlyPlaying !== null 
+              ? `🎵 Now playing submission ${currentlyPlaying + 1}... 🎵`
+              : "All submissions played! Judge is deciding..."
+          }
+        </p>
+        <p className="text-lg text-gray-700">
+          {currentlyPlaying !== null 
+            ? "🔊 Listen to the sound combination!" 
+            : "Listen carefully to each sound combination!"
+          }
+        </p>
+        
+        {/* Audio Volume Indicator */}
+        {currentlyPlaying !== null && (
+          <div className="mt-4">
+            <div className="flex items-center justify-center space-x-2 text-green-600">
+              <span className="text-xl">🔊</span>
+              <span className="font-bold animate-pulse">AUDIO PLAYING</span>
+              <span className="text-xl">🔊</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {room.submissions.map((submission, index) => {
+          const isActive = currentlyPlaying === index;
+          const hasPlayed = hasStarted && (currentlyPlaying === null || currentlyPlaying > index);
+          
+          return (
+            <div 
+              key={index} 
+              className={`relative rounded-3xl p-6 transition-all duration-500 ${
+                isActive 
+                  ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-110 shadow-2xl transform -rotate-1' 
+                  : hasPlayed
+                    ? 'bg-gray-200 scale-95'
+                    : 'bg-gray-100 hover:bg-gray-50'
+              }`}
+            >
+              {/* Radial Progress Indicator */}
+              {isActive && (
+                <div className="absolute -top-2 -right-2 w-16 h-16">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-white opacity-30"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      fill="transparent"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="text-white"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      fill="transparent"
+                      strokeLinecap="round"
+                      strokeDasharray={`${playbackProgress * 100}, 100`}
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-white text-xs font-bold">
+                      {Math.round(playbackProgress * 100)}%
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Pulsing Animation for Active Card */}
+              {isActive && (
+                <>
+                  <div className="absolute inset-0 rounded-3xl bg-white opacity-20 animate-pulse"></div>
+                  <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-purple-400 to-pink-500 opacity-75 blur animate-pulse"></div>
+                </>
+              )}
+
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className={`text-xl font-bold ${
+                    isActive ? 'text-white' : hasPlayed ? 'text-gray-600' : 'text-gray-800'
+                  }`}>
+                    Combo {index + 1}
+                  </h4>
+                  
+                  {/* Status Indicator */}
+                  <div className={`w-4 h-4 rounded-full ${
+                    isActive 
+                      ? 'bg-white animate-pulse' 
+                      : hasPlayed 
+                        ? 'bg-green-500' 
+                        : 'bg-gray-400'
+                  }`}></div>
+                </div>
+
+                <div className="space-y-3">
+                  {submission.sounds.map((soundId, soundIndex) => {
+                    const sound = soundEffects.find(s => s.id === soundId);
+                    return (
+                      <div 
+                        key={soundIndex} 
+                        className={`px-4 py-3 rounded-xl transition-all duration-300 ${
+                          isActive 
+                            ? 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
+                            : hasPlayed
+                              ? 'bg-white bg-opacity-50 text-gray-600'
+                              : 'bg-white text-gray-800'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="text-lg">🔊</span>
+                          <span className="font-semibold">{sound?.name || soundId}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>                {/* Waveform Animation for Active Card */}
+                {isActive && (
+                  <div className="mt-4 flex justify-center space-x-1">
+                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                  </div>
+                )}
+
+                {/* Play Status */}
+                <div className="mt-4 text-center">                  {isActive && (
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                      <span className="text-white font-bold text-sm">PLAYING NOW</span>
+                      <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                    </div>
+                  )}
+                  {hasPlayed && !isActive && (
+                    <div className="flex items-center justify-center space-x-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-gray-600 font-medium text-sm">PLAYED</span>
+                    </div>
+                  )}
+                  {!hasStarted && (
+                    <span className="text-gray-500 font-medium text-sm">WAITING...</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bottom Status */}
+      <div className="mt-8 text-center">
+        {hasStarted && currentlyPlaying === null && (
+          <div className="bg-green-100 rounded-2xl p-6">
+            <div className="text-4xl mb-2">✅</div>
+            <p className="text-xl font-bold text-green-800">All combinations played!</p>
+            <p className="text-green-700">Moving to judging phase...</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -713,11 +1226,14 @@ function GameOverDisplay({ room }: { room: Room }) {
 function getGameStateDisplay(state: GameState): string {
   switch (state) {
     case GameState.LOBBY: return 'In Lobby';
+    case GameState.JUDGE_SELECTION: return 'Selecting Judge';
     case GameState.PROMPT_SELECTION: return 'Selecting Prompt';
     case GameState.SOUND_SELECTION: return 'Picking Sounds';
+    case GameState.PLAYBACK: return 'Playing Submissions';
     case GameState.JUDGING: return 'Judging Submissions';
     case GameState.ROUND_RESULTS: return 'Round Results';
     case GameState.GAME_OVER: return 'Game Complete';
+    case GameState.PAUSED_FOR_DISCONNECTION: return 'Game Paused';
     default: return 'Unknown';
   }
 }

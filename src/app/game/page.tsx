@@ -339,17 +339,9 @@ function GamePageContent() {
     currentSocket.on('gameStateChanged', handleGameStateChanged);
     currentSocket.on('promptSelected', handlePromptSelected);
     currentSocket.on('judgeSelected', handleJudgeSelected);
-    currentSocket.on('soundSubmitted', handleSoundSubmitted);
-    currentSocket.on('roundComplete', handleRoundComplete);
+    currentSocket.on('soundSubmitted', handleSoundSubmitted);    currentSocket.on('roundComplete', handleRoundComplete);
     currentSocket.on('error', handleErrorEvent);
     currentSocket.on('timeUpdate', handleTimeUpdate);
-    currentSocket.on('playerDisconnected', handlePlayerDisconnected);
-    currentSocket.on('playerReconnected', handlePlayerReconnected);
-    currentSocket.on('reconnectionVoteRequest', handleReconnectionVoteRequest);
-    currentSocket.on('reconnectionVoteUpdate', handleReconnectionVoteUpdate);
-    currentSocket.on('reconnectionVoteResult', handleReconnectionVoteResult);
-    currentSocket.on('gamePausedForDisconnection', handleGamePausedForDisconnection);
-    currentSocket.on('gameResumed', handleGameResumed);
 
     // --- Cleanup for this effect ---
     return () => {
