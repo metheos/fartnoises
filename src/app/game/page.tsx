@@ -433,9 +433,7 @@ function GamePageContent() {
       addDebugLog(`Emitting startGame on socket ${socketRef.current.id}`);
       socketRef.current.emit('startGame');
     }
-  };
-
-  const selectSounds = (sound1: string, sound2: string) => {
+  };  const selectSounds = (sound1: string, sound2: string) => {
     setSelectedSounds([sound1, sound2]);
   };
 
@@ -835,33 +833,28 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
       }
     }
   }, [room.gameState, room.currentRound, player.id, soundEffects]);
-
   useEffect(() => {
     if (selectedSounds) {
       setSound1(selectedSounds[0]);
       setSound2(selectedSounds[1]);
+    } else {
+      // Reset local state when selectedSounds is null
+      setSound1('');
+      setSound2('');
     }
-  }, [selectedSounds]);
-
-  const handleSoundSelect = (soundId: string) => {
+  }, [selectedSounds]);  const handleSoundSelect = (soundId: string) => {
     if (sound1 === soundId) {
       // Deselect sound1
       setSound1('');
-      if (sound2) {
-        onSelectSounds('', sound2);
-      }
+      onSelectSounds('', sound2);
     } else if (sound2 === soundId) {
       // Deselect sound2
       setSound2('');
-      if (sound1) {
-        onSelectSounds(sound1, '');
-      }
+      onSelectSounds(sound1, '');
     } else if (!sound1) {
       // Select as sound1
       setSound1(soundId);
-      if (sound2) {
-        onSelectSounds(soundId, sound2);
-      }
+      onSelectSounds(soundId, sound2);
     } else if (!sound2) {
       // Select as sound2
       setSound2(soundId);
@@ -1005,15 +998,13 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                 )}
               </div>
             </div>
-          )}
-
-          {/* Submit button */}
+          )}          {/* Submit button */}
           <button 
             onClick={onSubmitSounds}
-            disabled={!sound1 || !sound2 || timeLeft <= 0}
+            disabled={!selectedSounds || selectedSounds[0] === '' || selectedSounds[1] === '' || (hasFirstSubmission && timeLeft <= 0)}
             className="w-full max-w-md mx-auto bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition-all text-lg disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg"
           >
-            {(!sound1 || !sound2) ? 'Select 2 Sounds' : 'Submit Sounds! 🎵'}
+            {(!selectedSounds || selectedSounds[0] === '' || selectedSounds[1] === '') ? 'Select 2 Sounds' : 'Submit Sounds! 🎵'}
           </button>
         </div>
       )}

@@ -785,35 +785,78 @@ function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffects: Soun
   return (
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
       <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Judging Time!</h3>
-        <div className="text-center mb-8">
-        <div className="text-6xl mb-4">👨‍⚖️</div>        <p className="text-2xl text-gray-800 mb-4">
+      
+      {room.currentPrompt && (
+        <div className="bg-purple-100 rounded-2xl p-6 mb-8 text-center">
+          <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
+          <p className="text-2xl text-gray-800 font-bold">&quot;{room.currentPrompt}&quot;</p>
+        </div>
+      )}
+      
+      <div className="text-center mb-8">
+        <div className="text-6xl mb-4">👨‍⚖️</div>
+        <p className="text-2xl text-gray-800 mb-4">
           <span className="font-bold text-purple-600">{judge?.name}</span> is listening to all the submissions...
         </p>
-        
-        {room.currentPrompt && (
-          <div className="bg-purple-100 rounded-2xl p-4 mb-6 inline-block">
-            <p className="text-lg text-purple-800">
-              Prompt: <span className="font-bold">&quot;{room.currentPrompt}&quot;</span>
-            </p>
-          </div>
-        )}
+        <p className="text-lg text-gray-700">
+          🎧 Judge is deciding which combination is the funniest!
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {room.submissions.map((submission, index) => (
-          <div key={index} className="bg-gray-100 rounded-2xl p-6">
-            <h4 className="text-xl font-bold text-gray-800 mb-4">Submission {index + 1}</h4>            <div className="space-y-2">
-              {submission.sounds.map((soundId, soundIndex) => {
-                const sound = soundEffects.find(s => s.id === soundId);
-                return (
-                  <div key={soundIndex} className="bg-white px-4 py-2 rounded-lg">
-                    <span className="font-bold">🔊 {sound?.name}</span>
-                  </div>
-                );
-              })}
+          <div 
+            key={index} 
+            className="relative rounded-3xl p-6 transition-all duration-500 bg-gray-100 hover:bg-gray-50 border-2 border-gray-200"
+          >
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xl font-bold text-gray-800">
+                  Combo {index + 1}
+                </h4>
+                
+                {/* Status Indicator - waiting for judge decision */}
+                <div className="w-4 h-4 rounded-full bg-purple-400 animate-pulse"></div>
+              </div>
+
+              <div className="space-y-3">
+                {submission.sounds.map((soundId, soundIndex) => {
+                  const sound = soundEffects.find(s => s.id === soundId);
+                  
+                  return (
+                    <div 
+                      key={soundIndex} 
+                      className="px-4 py-3 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">🎵</span>
+                        <span className="font-semibold">{sound?.name || soundId}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Judge consideration indicator */}
+              <div className="mt-4 text-center">
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                  <span className="text-purple-600 font-medium text-sm">UNDER REVIEW</span>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                </div>
+              </div>
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Bottom Status */}
+      <div className="mt-8 text-center">
+        <div className="bg-purple-100 rounded-2xl p-6">
+          <div className="text-4xl mb-2">🤔</div>
+          <p className="text-xl font-bold text-purple-800">Judge is deciding...</p>
+          <p className="text-purple-700">Which sound combination is the funniest?</p>
+        </div>
       </div>
     </div>
   );
