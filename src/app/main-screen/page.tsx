@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } from '@/types/game';
 import { getSoundEffects } from '@/data/gameData';
@@ -111,14 +111,13 @@ export default function MainScreen() {
     socket.on('error', (error) => {
       console.error('Socket error:', error);
       setJoinError(error.message || 'Failed to connect to room');
-    });
-
-    socket.on('roundComplete', (winnerData) => {
+    });    socket.on('roundComplete', (winnerData) => {
       console.log('Main screen roundComplete event received:', winnerData);
+      console.log('Setting roundWinner state to:', winnerData);
       if (typeof winnerData === 'object' && winnerData.winnerId) {
         setRoundWinner(winnerData);
       }
-    });    socket.on('gameStateChanged', (newState: GameState, data?: any) => {
+    });socket.on('gameStateChanged', (newState: GameState, data?: any) => {
       console.log('Main screen gameStateChanged:', newState, data);
       console.log('Current room before state change:', currentRoom?.gameState, '-> New state:', newState);
       
@@ -822,36 +821,266 @@ function ResultsDisplay({
     submissionIndex: number;
   } | null;
   soundEffects: SoundEffect[];
-}) {
-  return (
+}) {  const [isPlayingWinner, setIsPlayingWinner] = useState(false);
+  const [playbackProgress, setPlaybackProgress] = useState(0);
+  const audioCompletionSentRef = useRef(false);
+  const playbackStartedRef = useRef(false);
+
+  // Reset the completion flag when a new round winner is set
+  useEffect(() => {
+    audioCompletionSentRef.current = false;
+    playbackStartedRef.current = false;
+  }, [roundWinner?.submissionIndex, room.currentRound]);
+
+  // Clean up if game state changes away from ROUND_RESULTS while audio is playing
+  useEffect(() => {
+    if (room.gameState !== GameState.ROUND_RESULTS && isPlayingWinner) {
+      console.log('[WINNER AUDIO] Game state changed away from ROUND_RESULTS, stopping audio');
+      setIsPlayingWinner(false);
+      setPlaybackProgress(0);
+    }
+  }, [room.gameState, isPlayingWinner]);  // Automatically play the winning combination when results are shown
+  useEffect(() => {
+    if (roundWinner?.winningSubmission && soundEffects.length > 0 && !isPlayingWinner && !playbackStartedRef.current) {
+      // Small delay to let the UI render, then start playing automatically
+      console.log('[WINNER AUDIO] Scheduling winner audio playback...');
+      playbackStartedRef.current = true; // Mark as started immediately to prevent duplicates
+      
+      const playDelay = setTimeout(() => {
+        playWinningCombination();
+      }, 1000); // 1 second delay for dramatic effect
+
+      return () => clearTimeout(playDelay);
+    } else if (playbackStartedRef.current) {
+      console.log('[WINNER AUDIO] Playback already started for this round, skipping');
+    }
+  }, [roundWinner?.winningSubmission, soundEffects.length, isPlayingWinner]);  const playWinningCombination = async () => {
+    if (!roundWinner?.winningSubmission || isPlayingWinner) {
+      console.log('[WINNER AUDIO] Skipping playback - already playing or no winner');
+      return;
+    }
+    
+    // Double-check that we haven't already started
+    if (playbackStartedRef.current && isPlayingWinner) {
+      console.log('[WINNER AUDIO] Playback already in progress, aborting duplicate');
+      return;
+    }
+    
+    console.log('[WINNER AUDIO] Starting winner audio playback');
+    setIsPlayingWinner(true);
+    setPlaybackProgress(0);
+    
+    try {
+      // Create and play audio elements for the winning sounds
+      const sounds = roundWinner.winningSubmission.sounds;
+      const audioElements: HTMLAudioElement[] = [];
+      
+      // Prepare audio elements - using the same approach as PlaybackSubmissionsDisplay
+      sounds.forEach((soundId: string) => {
+        const sound = soundEffects.find(s => s.id === soundId);
+        if (sound) {
+          const soundUrl = `/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`;
+          const audio = new Audio(soundUrl);
+          audio.volume = 0.7; // Same volume as main playback
+          audio.preload = 'auto';
+          audioElements.push(audio);
+          
+          // Add error handling
+          audio.onerror = () => {
+            console.error(`Failed to load sound: ${sound.name} (${soundUrl})`);
+          };
+          
+          console.log(`[WINNER AUDIO] Prepared audio for ${sound.name}: ${soundUrl}`);
+        }
+      });      // Play sounds sequentially with progress updates - same as main playback
+      const playNextSound = (soundIndex: number) => {        if (soundIndex >= audioElements.length) {
+          console.log(`[WINNER AUDIO] All sounds finished`);
+          setIsPlayingWinner(false);
+          setPlaybackProgress(0);
+          
+          // Notify server that winner audio is complete after a brief delay
+          // Only send this event once per round to prevent race conditions
+          setTimeout(() => {
+            if (socket && socket.connected && !audioCompletionSentRef.current) {
+              console.log('[WINNER AUDIO] Notifying server: winner audio complete');
+              audioCompletionSentRef.current = true; // Mark as sent
+              socket.emit('winnerAudioComplete');
+            } else if (audioCompletionSentRef.current) {
+              console.log('[WINNER AUDIO] Audio completion already sent, skipping duplicate');
+            }
+          }, 2000); // 2 second pause after audio ends
+          
+          return;
+        }
+
+        const audio = audioElements[soundIndex];
+        console.log(`[WINNER AUDIO] Playing sound ${soundIndex + 1} of ${audioElements.length}`);
+        
+        // Update progress based on current sound
+        const updateProgress = () => {
+          if (audio.duration > 0) {
+            const currentSoundProgress = audio.currentTime / audio.duration;
+            const overallProgress = (soundIndex + currentSoundProgress) / audioElements.length;
+            setPlaybackProgress(overallProgress);
+          }
+        };
+
+        // Set up progress tracking
+        const progressInterval = setInterval(updateProgress, 100);
+        
+        // Set up event listener for when this sound ends
+        const onEnded = () => {
+          audio.removeEventListener('ended', onEnded);
+          clearInterval(progressInterval);
+          console.log(`[WINNER AUDIO] Sound ${soundIndex + 1} finished, moving to next`);
+          
+          // Wait a brief moment between sounds, then play the next one
+          setTimeout(() => {
+            playNextSound(soundIndex + 1);
+          }, 300); // 300ms pause between sounds
+        };
+        
+        audio.addEventListener('ended', onEnded);
+        
+        // Start playing this sound
+        audio.play().catch(error => {
+          console.error(`Failed to play winner audio ${soundIndex}:`, error);
+          clearInterval(progressInterval);
+          // If this sound fails, try the next one
+          setTimeout(() => {
+            playNextSound(soundIndex + 1);
+          }, 500);
+        });
+      };
+
+      // Start with the first sound after a brief delay
+      setTimeout(() => {
+        playNextSound(0);
+      }, 200);
+      
+    } catch (error) {
+      console.error('Error playing winning combination:', error);
+      setIsPlayingWinner(false);
+      setPlaybackProgress(0);
+    }
+  };return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-800 mb-6">Round Results!</h3>
-      <div className="text-6xl mb-6">🎉</div>
+      <h3 className="text-3xl font-bold text-gray-800 mb-6">🎉 Round Results! 🎉</h3>
       
       {roundWinner && (
         <div className="mb-8">
-          <div className="bg-yellow-100 border-4 border-yellow-400 rounded-2xl p-8 mb-6">
-            <h4 className="text-4xl font-bold text-yellow-800 mb-4">
-              🏆 {roundWinner.winnerName} Wins!
-            </h4>
-            {roundWinner.winningSubmission && (
-              <div className="text-lg text-yellow-700">
-                <p className="mb-4 font-semibold">Winning Combination:</p>                <div className="flex justify-center space-x-4">
-                  {roundWinner.winningSubmission.sounds.map((soundId: string, index: number) => {
-                    const sound = soundEffects.find(s => s.id === soundId);
-                    return (
-                      <div key={index} className="bg-yellow-50 px-6 py-3 rounded-xl border-2 border-yellow-300">
-                        <div className="text-xl font-bold">{sound ? sound.name : soundId}</div>
+          {/* Winning Sound Combination Card - Similar to playback style */}          {roundWinner.winningSubmission && (
+            <div className="mb-8">
+              <h4 className="text-2xl font-bold text-gray-800 mb-2">� {roundWinner.winnerName} Wins! 🏆</h4>
+              <p className="text-lg text-gray-600 mb-6">Round {room.currentRound} • Prompt: &quot;{room.currentPrompt}&quot;</p>
+                <div className={`relative rounded-3xl p-8 transition-all duration-500 max-w-md mx-auto ${
+                isPlayingWinner 
+                  ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
+                  : 'bg-gradient-to-br from-yellow-200 to-yellow-300'
+              }`}>
+                
+                {/* Progress Indicator */}
+                {isPlayingWinner && (
+                  <div className="absolute -top-2 -right-2 w-16 h-16">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        className="text-white opacity-30"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        fill="transparent"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className="text-white"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        fill="transparent"
+                        strokeLinecap="round"
+                        strokeDasharray={`${playbackProgress * 100}, 100`}
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-white text-xs font-bold">
+                        {Math.round(playbackProgress * 100)}%
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pulsing Animation for Playing */}
+                {isPlayingWinner && (
+                  <>
+                    <div className="absolute inset-0 rounded-3xl bg-white opacity-20 animate-pulse"></div>
+                    <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-purple-400 to-pink-500 opacity-75 blur animate-pulse"></div>
+                  </>
+                )}
+
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-6">
+                    <h5 className={`text-2xl font-bold ${
+                      isPlayingWinner ? 'text-white' : 'text-yellow-800'
+                    }`}>
+                      🏆 Winner 🏆
+                    </h5>
+                  </div>
+
+                  <div className="space-y-4">
+                    {roundWinner.winningSubmission.sounds.map((soundId: string, index: number) => {
+                      const sound = soundEffects.find(s => s.id === soundId);
+                      return (
+                        <div 
+                          key={index} 
+                          className={`px-6 py-4 rounded-xl transition-all duration-300 ${
+                            isPlayingWinner 
+                              ? 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
+                              : 'bg-white text-gray-800 shadow-md'
+                          }`}
+                        >
+                          <div className="flex items-center justify-center space-x-3">
+                            <span className="text-2xl">🔊</span>
+                            <span className="text-xl font-bold">{sound?.name || soundId}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Waveform Animation for Playing */}
+                  {isPlayingWinner && (
+                    <div className="mt-6 flex justify-center space-x-1">
+                      <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                      <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                      <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                      <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                      <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                      <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                      <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                      <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                    </div>
+                  )}                  {/* Play Status */}
+                  <div className="mt-6 text-center">
+                    {isPlayingWinner ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
+                        <span className="text-white font-bold text-lg">PLAYING NOW</span>
+                        <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center space-x-2 text-yellow-800">
+                        <span className="text-2xl">🎵</span>
+                        <span className="font-bold text-lg">Winner's Sounds</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
-        <p className="text-xl text-gray-800">
+      
+      <p className="text-xl text-gray-800">
         Round {room.currentRound} complete! Getting ready for the next round...
       </p>
     </div>

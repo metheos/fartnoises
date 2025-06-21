@@ -212,12 +212,15 @@ function GamePageContent() {
       } else {
         addDebugLog('playerJoined: Received invalid room data.');
       }
-    };
-
-    const handleGameStateChanged = (state: GameState, data?: any) => {
+    };    const handleGameStateChanged = (state: GameState, data?: any) => {
       addDebugLog(`gameStateChanged event: ${state}, data: ${JSON.stringify(data)}. Socket: ${currentSocket.id}`);
       if (state === GameState.JUDGE_SELECTION) {
         setRoundWinner(null);
+      }
+      // Reset sound selection when starting a new sound selection phase
+      if (state === GameState.SOUND_SELECTION) {
+        setSelectedSounds(null);
+        addDebugLog('Reset selectedSounds for new round');
       }
       setRoom((currentRoomVal) => {
         if (currentRoomVal) {
@@ -770,6 +773,18 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   const [sound1, setSound1] = useState<string>('');
   const [sound2, setSound2] = useState<string>('');
 
+  // Reset sound selection when entering a new sound selection phase
+  useEffect(() => {
+    if (room.gameState === GameState.SOUND_SELECTION) {
+      // Check if this is a new round by seeing if we haven't submitted in this round yet
+      const hasSubmittedThisRound = room.submissions.some(s => s.playerId === player.id);
+      if (!hasSubmittedThisRound) {
+        setSound1('');
+        setSound2('');
+      }
+    }
+  }, [room.gameState, room.currentRound, room.submissions, player.id]);
+
   useEffect(() => {
     if (selectedSounds) {
       setSound1(selectedSounds[0]);
@@ -921,6 +936,75 @@ function ResultsComponent({ room, player, roundWinner, soundEffects }: {
   roundWinner: { winnerId: string; winnerName: string; winningSubmission: any; submissionIndex: number } | null;
   soundEffects: SoundEffect[];
 }) {
+  const [isPlayingWinner, setIsPlayingWinner] = useState(false);
+  const [playbackProgress, setPlaybackProgress] = useState(0);
+
+  const playWinningCombination = async () => {
+    if (!roundWinner?.winningSubmission || isPlayingWinner) return;
+    
+    setIsPlayingWinner(true);
+    setPlaybackProgress(0);
+    
+    try {
+      // Create and play audio elements for the winning sounds
+      const sounds = roundWinner.winningSubmission.sounds;
+      const audioElements: HTMLAudioElement[] = [];
+      
+      // Prepare audio elements
+      sounds.forEach((soundId: string) => {
+        const sound = soundEffects.find(s => s.id === soundId);
+        if (sound) {
+          const soundUrl = `/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`;
+          const audio = new Audio(soundUrl);
+          audio.volume = 0.8;
+          audioElements.push(audio);
+        }
+      });
+
+      // Play sounds sequentially with progress updates
+      const playNextSound = async (soundIndex: number) => {
+        if (soundIndex >= audioElements.length) {
+          setIsPlayingWinner(false);
+          setPlaybackProgress(0);
+          return;
+        }
+
+        const audio = audioElements[soundIndex];
+        const progressTimer = setInterval(() => {
+          if (audio.duration) {
+            const progress = audio.currentTime / audio.duration;
+            setPlaybackProgress((soundIndex + progress) / audioElements.length);
+          }
+        }, 100);
+
+        return new Promise<void>((resolve) => {
+          audio.onended = () => {
+            clearInterval(progressTimer);
+            setTimeout(() => {
+              playNextSound(soundIndex + 1).then(resolve);
+            }, 300); // Brief pause between sounds
+          };
+          
+          audio.onerror = () => {
+            clearInterval(progressTimer);
+            console.error(`Failed to play sound ${soundIndex}`);
+            setTimeout(() => {
+              playNextSound(soundIndex + 1).then(resolve);
+            }, 300);
+          };
+          
+          audio.play().catch(console.error);
+        });
+      };
+
+      await playNextSound(0);
+    } catch (error) {
+      console.error('Error playing winning combination:', error);
+      setIsPlayingWinner(false);
+      setPlaybackProgress(0);
+    }
+  };
+
   if (!roundWinner) {
     return (
       <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
@@ -929,20 +1013,129 @@ function ResultsComponent({ room, player, roundWinner, soundEffects }: {
       </div>
     );
   }
+  
   const winnerPlayerDetails = room.players.find(p => p.id === roundWinner.winnerId);
 
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-      <h2 className="text-2xl font-bold text-purple-600 mb-4">Round Over!</h2>
-      <p className="text-3xl font-bold mb-2">
-        Winner: <span className={winnerPlayerDetails ? getPlayerColorClass(winnerPlayerDetails.color) : 'text-gray-800'}>{roundWinner.winnerName}</span>!
-      </p>      <p className="text-gray-700 mb-4">With the submission: 
-        <span className="font-semibold">{soundEffects.find(s=>s.id === roundWinner.winningSubmission.sounds[0])?.name || 'Sound 1'}</span> + 
-        <span className="font-semibold">{soundEffects.find(s=>s.id === roundWinner.winningSubmission.sounds[1])?.name || 'Sound 2'}</span>
-      </p>
-      <p className="text-gray-800 mb-6">Prompt was: <span className="font-italic">{room.currentPrompt}</span></p>
+      <h2 className="text-2xl font-bold text-purple-600 mb-6">🎉 Round Over! 🎉</h2>
       
-      <h3 className="text-xl font-semibold text-gray-800 mb-3">Scores:</h3>
+      {/* Winner Announcement */}
+      <div className="bg-gradient-to-br from-yellow-100 to-orange-100 border-4 border-yellow-400 rounded-2xl p-6 mb-6">
+        <p className="text-3xl font-bold mb-2">
+          Winner: <span className={winnerPlayerDetails ? getPlayerColorClass(winnerPlayerDetails.color) : 'text-gray-800'}>{roundWinner.winnerName}</span>! 🏆
+        </p>
+        <p className="text-lg text-yellow-700">
+          Prompt: &quot;{room.currentPrompt}&quot;
+        </p>
+      </div>
+
+      {/* Winning Sound Combination Card */}
+      {roundWinner.winningSubmission && (
+        <div className="mb-6">
+          <h3 className="text-xl font-bold text-gray-800 mb-4">🎵 Winning Combination 🎵</h3>
+          
+          <div className={`relative rounded-3xl p-6 transition-all duration-500 max-w-sm mx-auto ${
+            isPlayingWinner 
+              ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
+              : 'bg-gradient-to-br from-yellow-200 to-yellow-300 hover:scale-102 cursor-pointer'
+          }`}
+          onClick={playWinningCombination}>
+            
+            {/* Progress Indicator */}
+            {isPlayingWinner && (
+              <div className="absolute -top-2 -right-2 w-12 h-12">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-white opacity-30"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="transparent"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-white"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="transparent"
+                    strokeLinecap="round"
+                    strokeDasharray={`${playbackProgress * 100}, 100`}
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-white text-xs font-bold">
+                    {Math.round(playbackProgress * 100)}%
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Pulsing Animation for Playing */}
+            {isPlayingWinner && (
+              <>
+                <div className="absolute inset-0 rounded-3xl bg-white opacity-20 animate-pulse"></div>
+                <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-purple-400 to-pink-500 opacity-75 blur animate-pulse"></div>
+              </>
+            )}
+
+            <div className="relative z-10">
+              <div className="space-y-3">
+                {roundWinner.winningSubmission.sounds.map((soundId: string, index: number) => {
+                  const sound = soundEffects.find(s => s.id === soundId);
+                  return (
+                    <div 
+                      key={index} 
+                      className={`px-4 py-3 rounded-xl transition-all duration-300 ${
+                        isPlayingWinner 
+                          ? 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
+                          : 'bg-white text-gray-800 shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <span className="text-lg">🔊</span>
+                        <span className="font-bold">{sound?.name || soundId}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Waveform Animation for Playing */}
+              {isPlayingWinner && (
+                <div className="mt-4 flex justify-center space-x-1">
+                  <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                  <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                  <div className="w-1 h-2 bg-white rounded-full animate-pulse"></div>
+                  <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                  <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                  <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                  <div className="w-1 h-2 bg-white rounded-full animate-pulse"></div>
+                  <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                </div>
+              )}
+
+              {/* Play Button/Status */}
+              <div className="mt-4 text-center">
+                {isPlayingWinner ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                    <span className="text-white font-bold text-sm">PLAYING</span>
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center space-x-2 text-yellow-800">
+                    <span className="text-lg">▶️</span>
+                    <span className="font-semibold">Tap to Play</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <h3 className="text-lg font-semibold text-gray-800 mb-3">Scores:</h3>
       <ul className="space-y-1 max-w-sm mx-auto text-left">
         {room.players.sort((a, b) => b.score - a.score).map(p => (
           <li key={p.id} className={`p-2 rounded flex justify-between items-center ${getPlayerColorClass(p.color)} text-white shadow`}>

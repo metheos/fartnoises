@@ -149,4 +149,5 @@ export interface ClientToServerEvents {
   voteOnReconnection: (continueWithoutPlayer: boolean) => void;
   restartGame: () => void;
   submissionPlaybackComplete: (submissionIndex: number) => void;
+  winnerAudioComplete: () => void;
 }

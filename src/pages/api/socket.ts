@@ -1106,97 +1106,110 @@ export default function SocketHandler(
               gameWinners[0].name
             );
           } else {
-            // Start next round
-            setTimeout(() => {
-              room.currentRound += 1;
-              room.currentJudge = selectNextJudge(room);
-              room.gameState = GameState.JUDGE_SELECTION;
-              room.currentPrompt = null;
-              room.submissions = [];
-              room.soundSelectionTimerStarted = false;
-
-              io.to(roomCode).emit("judgeSelected", room.currentJudge);
-              io.to(roomCode).emit(
-                "gameStateChanged",
-                GameState.JUDGE_SELECTION,
-                { judgeId: room.currentJudge }
-              );
-
-              // Auto-transition to prompt selection
-              setTimeout(() => {
-                if (room.gameState === GameState.JUDGE_SELECTION) {
-                  room.gameState = GameState.PROMPT_SELECTION;
-                  const prompts = getRandomPrompts(3);
-                  room.availablePrompts = prompts;
-
-                  io.to(roomCode).emit(
-                    "gameStateChanged",
-                    GameState.PROMPT_SELECTION,
-                    {
-                      prompts,
-                      judgeId: room.currentJudge,
-                      timeLimit: GAME_CONFIG.PROMPT_SELECTION_TIME,
-                    }
-                  );
-
-                  // Start countdown timer for prompt selection
-                  startTimer(
-                    roomCode,
-                    GAME_CONFIG.PROMPT_SELECTION_TIME,
-                    () => {
-                      // Auto-select first prompt if no selection made
-                      if (room.gameState === GameState.PROMPT_SELECTION) {
-                        const firstPrompt = prompts[0];
-                        room.currentPrompt = firstPrompt.text;
-                        room.gameState = GameState.SOUND_SELECTION;
-                        room.submissions = [];
-                        room.soundSelectionTimerStarted = false;
-
-                        const soundOptions = getRandomSounds(12);
-
-                        io.to(roomCode).emit("roomUpdated", room);
-                        io.to(roomCode).emit(
-                          "promptSelected",
-                          firstPrompt.text
-                        );
-                        io.to(roomCode).emit(
-                          "gameStateChanged",
-                          GameState.SOUND_SELECTION,
-                          {
-                            prompt: firstPrompt.text,
-                            sounds: soundOptions,
-                            timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
-                          }
-                        );
-
-                        // Note: Sound selection timer will start when first player submits
-                        console.log(
-                          `[TIMER] Transitioned to sound selection (flow 2), waiting for first submission to start timer`
-                        );
-                      }
-                    },
-                    (timeLeft) => {
-                      console.log(
-                        `[TIMER] Sending timeUpdate for prompt selection (flow 2): ${timeLeft}s remaining in room ${roomCode}, game state: ${room.gameState}`
-                      );
-                      // Only send timeUpdate if we're still in prompt selection
-                      if (room.gameState === GameState.PROMPT_SELECTION) {
-                        io.to(roomCode).emit("timeUpdate", { timeLeft });
-                      } else {
-                        console.log(
-                          `[TIMER] Suppressing timeUpdate for prompt selection (flow 2): game state is now ${room.gameState}`
-                        );
-                      }
-                    }
-                  );
-                }
-              }, 3000);
-            }, 5000);
+            // Don't automatically start next round - wait for client to finish playing winner audio
+            console.log(
+              "Round results displayed, waiting for client audio completion..."
+            );
+            // The next round will be triggered when client emits 'winnerAudioComplete'
           }
         } catch (error) {
           console.error("Error selecting winner:", error);
         }
-      }); // Main screen handlers
+      });
+
+      // Handle winner audio completion to trigger next round
+      socket.on("winnerAudioComplete", () => {
+        try {
+          const roomCode = playerRooms.get(socket.id);
+          if (!roomCode) return;
+
+          const room = rooms.get(roomCode);
+          if (!room || room.gameState !== GameState.ROUND_RESULTS) return;
+
+          console.log(
+            "Winner audio complete, starting next round after brief delay..."
+          );
+
+          // Start next round after a brief pause
+          setTimeout(() => {
+            room.currentRound += 1;
+            room.currentJudge = selectNextJudge(room);
+            room.gameState = GameState.JUDGE_SELECTION;
+            room.currentPrompt = null;
+            room.submissions = [];
+            room.soundSelectionTimerStarted = false;
+
+            io.to(roomCode).emit("judgeSelected", room.currentJudge);
+            io.to(roomCode).emit(
+              "gameStateChanged",
+              GameState.JUDGE_SELECTION,
+              { judgeId: room.currentJudge }
+            );
+
+            // Auto-transition to prompt selection
+            setTimeout(() => {
+              if (room.gameState === GameState.JUDGE_SELECTION) {
+                room.gameState = GameState.PROMPT_SELECTION;
+                const prompts = getRandomPrompts(3);
+                room.availablePrompts = prompts;
+
+                io.to(roomCode).emit(
+                  "gameStateChanged",
+                  GameState.PROMPT_SELECTION,
+                  {
+                    prompts,
+                    judgeId: room.currentJudge,
+                    timeLimit: GAME_CONFIG.PROMPT_SELECTION_TIME,
+                  }
+                );
+
+                // Start countdown timer for prompt selection
+                startTimer(
+                  roomCode,
+                  GAME_CONFIG.PROMPT_SELECTION_TIME,
+                  () => {
+                    // Auto-select first prompt if no selection made
+                    if (room.gameState === GameState.PROMPT_SELECTION) {
+                      const firstPrompt = prompts[0];
+                      room.currentPrompt = firstPrompt.text;
+                      room.gameState = GameState.SOUND_SELECTION;
+                      room.submissions = [];
+                      room.soundSelectionTimerStarted = false;
+
+                      const soundOptions = getRandomSounds(12);
+
+                      io.to(roomCode).emit("roomUpdated", room);
+                      io.to(roomCode).emit("promptSelected", firstPrompt.text);
+                      io.to(roomCode).emit(
+                        "gameStateChanged",
+                        GameState.SOUND_SELECTION,
+                        {
+                          prompt: firstPrompt.text,
+                          sounds: soundOptions,
+                          timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
+                        }
+                      );
+
+                      console.log(
+                        `[TIMER] Transitioned to sound selection (post-audio), waiting for first submission to start timer`
+                      );
+                    }
+                  },
+                  (timeLeft) => {
+                    if (room.gameState === GameState.PROMPT_SELECTION) {
+                      io.to(roomCode).emit("timeUpdate", { timeLeft });
+                    }
+                  }
+                );
+              }
+            }, 3000);
+          }, 2000); // 2 second pause after audio completes
+        } catch (error) {
+          console.error("Error processing winner audio completion:", error);
+        }
+      });
+
+      // Main screen handlers
       socket.on("requestMainScreenUpdate", () => {
         try {
           const roomsArray = Array.from(rooms.values())
@@ -1223,6 +1236,9 @@ export default function SocketHandler(
               `[VIEWER] Main screen joining room ${normalizedRoomCode} as viewer`
             );
             socket.join(normalizedRoomCode);
+
+            // Add viewer to playerRooms map so they can emit events for this room
+            playerRooms.set(socket.id, normalizedRoomCode);
 
             // Verify the join worked
             const roomMembers =
