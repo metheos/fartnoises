@@ -557,8 +557,11 @@ function handlePlayerReconnection(
   // If no more disconnected players, resume the game
   if (room.disconnectedPlayers.length === 0 && room.pausedForDisconnection) {
     // Restore the previous game state instead of defaulting to SOUND_SELECTION
-    const gameStateToRestore = room.previousGameState || GameState.SOUND_SELECTION;
-    console.log(`Restoring game state to: ${gameStateToRestore} (was paused at: ${room.previousGameState})`);
+    const gameStateToRestore =
+      room.previousGameState || GameState.SOUND_SELECTION;
+    console.log(
+      `Restoring game state to: ${gameStateToRestore} (was paused at: ${room.previousGameState})`
+    );
     resumeGame(io, roomCode, gameStateToRestore);
   }
 

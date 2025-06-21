@@ -819,18 +819,23 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   const isJudge = player.id === room.currentJudge;
   const [sound1, setSound1] = useState<string>('');
   const [sound2, setSound2] = useState<string>('');
+  const [playerSoundSet, setPlayerSoundSet] = useState<SoundEffect[]>([]);
 
-  // Reset sound selection when entering a new sound selection phase
+  // Generate random sound set for this player when component mounts or when entering new round
   useEffect(() => {
-    if (room.gameState === GameState.SOUND_SELECTION) {
+    if (soundEffects.length > 0 && room.gameState === GameState.SOUND_SELECTION) {
       // Check if this is a new round by seeing if we haven't submitted in this round yet
       const hasSubmittedThisRound = room.submissions.some(s => s.playerId === player.id);
       if (!hasSubmittedThisRound) {
+        // Generate random set of 8 sounds for this player
+        const shuffled = [...soundEffects].sort(() => Math.random() - 0.5);
+        const randomSounds = shuffled.slice(0, Math.min(8, soundEffects.length));
+        setPlayerSoundSet(randomSounds);
         setSound1('');
         setSound2('');
       }
     }
-  }, [room.gameState, room.currentRound, room.submissions, player.id]);
+  }, [room.gameState, room.currentRound, room.submissions, player.id, soundEffects]);
 
   useEffect(() => {
     if (selectedSounds) {
@@ -839,13 +844,33 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
     }
   }, [selectedSounds]);
 
-  const handleSoundChange = (index: number, soundId: string) => {
-    const newSound1 = index === 0 ? soundId : sound1;
-    const newSound2 = index === 1 ? soundId : sound2;
-    setSound1(newSound1);
-    setSound2(newSound2);
-    if (newSound1 && newSound2) {
-      onSelectSounds(newSound1, newSound2);
+  const handleSoundSelect = (soundId: string) => {
+    if (sound1 === soundId) {
+      // Deselect sound1
+      setSound1('');
+      if (sound2) {
+        onSelectSounds('', sound2);
+      }
+    } else if (sound2 === soundId) {
+      // Deselect sound2
+      setSound2('');
+      if (sound1) {
+        onSelectSounds(sound1, '');
+      }
+    } else if (!sound1) {
+      // Select as sound1
+      setSound1(soundId);
+      if (sound2) {
+        onSelectSounds(soundId, sound2);
+      }
+    } else if (!sound2) {
+      // Select as sound2
+      setSound2(soundId);
+      onSelectSounds(sound1, soundId);
+    } else {
+      // Both slots filled, replace sound1
+      setSound1(soundId);
+      onSelectSounds(soundId, sound2);
     }
   };
   
@@ -853,6 +878,16 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
     const sound = soundEffects.find(s => s.id === soundId);
     if (sound) {
       audioSystem.playSound(sound.id);
+    }
+  };
+
+  const getSoundButtonStyle = (soundId: string) => {
+    if (sound1 === soundId) {
+      return 'bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-700 shadow-lg transform scale-105';
+    } else if (sound2 === soundId) {
+      return 'bg-gradient-to-br from-green-500 to-green-600 text-white border-green-700 shadow-lg transform scale-105';
+    } else {
+      return 'bg-gradient-to-br from-purple-100 to-pink-100 text-gray-800 border-purple-200 hover:from-purple-200 hover:to-pink-200 hover:scale-102';
     }
   };
 
@@ -879,43 +914,107 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
       ) : (
         <p className="text-blue-600 font-semibold mb-4">⏳ Timer will start when first player submits</p>
       )}
-      
-      {hasSubmitted ? (
-        <p className="text-green-600 text-xl">Sounds submitted! Waiting for others...</p>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-            <div>
-              <label htmlFor="sound1" className="block text-sm font-medium text-gray-700 mb-1">Sound 1</label>
-              <select 
-                id="sound1" 
-                value={sound1}
-                onChange={(e) => handleSoundChange(0, e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500"              >
-                <option value="">Select first sound</option>
-                {soundEffects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              {sound1 && <button onClick={() => playSound(sound1)} className="mt-2 text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Preview</button>}
-            </div>
-            <div>
-              <label htmlFor="sound2" className="block text-sm font-medium text-gray-700 mb-1">Sound 2</label>
-              <select 
-                id="sound2" 
-                value={sound2}
-                onChange={(e) => handleSoundChange(1, e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500"              >
-                <option value="">Select second sound</option>
-                {soundEffects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              {sound2 && <button onClick={() => playSound(sound2)} className="mt-2 text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Preview</button>}
+        {hasSubmitted ? (
+        <div className="text-center">
+          <p className="text-green-600 text-xl mb-4">✅ Sounds submitted! Waiting for others...</p>
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 max-w-md mx-auto">
+            <p className="text-green-800 font-semibold mb-2">Your Submission:</p>
+            <div className="flex gap-2 justify-center">
+              <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                {playerSoundSet.find(s => s.id === sound1)?.name || 'Sound 1'}
+              </span>
+              <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                {playerSoundSet.find(s => s.id === sound2)?.name || 'Sound 2'}
+              </span>
             </div>
           </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Instructions */}
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 max-w-2xl mx-auto">
+            <p className="text-gray-800 text-center mb-2">
+              <span className="font-semibold">Choose 2 sounds</span> that best match the prompt!
+            </p>
+            <div className="flex gap-4 justify-center text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                <span>Sound 1</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-500 rounded"></div>
+                <span>Sound 2</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sound Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto">
+            {playerSoundSet.map((sound) => (
+              <div key={sound.id} className="relative">
+                <button
+                  onClick={() => handleSoundSelect(sound.id)}
+                  className={`w-full p-4 border-2 rounded-xl font-semibold transition-all duration-200 min-h-[80px] ${getSoundButtonStyle(sound.id)}`}
+                >
+                  <div className="text-center">
+                    <div className="text-sm font-bold mb-1">{sound.name}</div>
+                    {(sound1 === sound.id || sound2 === sound.id) && (
+                      <div className="text-xs opacity-90">
+                        {sound1 === sound.id ? '🔵 Sound 1' : '🟢 Sound 2'}
+                      </div>
+                    )}
+                  </div>
+                </button>
+                
+                {/* Preview button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    playSound(sound.id);
+                  }}
+                  className="absolute top-1 right-1 w-6 h-6 bg-white bg-opacity-90 rounded-full flex items-center justify-center text-xs hover:bg-opacity-100 transition-all shadow-sm"
+                  title="Preview sound"
+                >
+                  🔊
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Selected sounds display */}
+          {(sound1 || sound2) && (
+            <div className="bg-gray-50 rounded-xl p-4 max-w-md mx-auto">
+              <p className="text-gray-800 font-semibold mb-2 text-center">Selected Sounds:</p>
+              <div className="flex gap-2 justify-center">
+                {sound1 ? (
+                  <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    🔵 {playerSoundSet.find(s => s.id === sound1)?.name}
+                  </span>
+                ) : (
+                  <span className="bg-gray-300 text-gray-600 px-3 py-1 rounded-full text-sm">
+                    Choose Sound 1
+                  </span>
+                )}
+                {sound2 ? (
+                  <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    🟢 {playerSoundSet.find(s => s.id === sound2)?.name}
+                  </span>
+                ) : (
+                  <span className="bg-gray-300 text-gray-600 px-3 py-1 rounded-full text-sm">
+                    Choose Sound 2
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Submit button */}
           <button 
             onClick={onSubmitSounds}
             disabled={!sound1 || !sound2 || timeLeft <= 0}
-            className="w-full bg-green-500 text-white px-8 py-4 rounded-xl font-bold hover:bg-green-600 transition-colors text-lg disabled:bg-gray-400"
+            className="w-full max-w-md mx-auto bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition-all text-lg disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg"
           >
-            Submit Sounds
+            {(!sound1 || !sound2) ? 'Select 2 Sounds' : 'Submit Sounds! 🎵'}
           </button>
         </div>
       )}
