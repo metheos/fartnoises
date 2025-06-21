@@ -351,11 +351,11 @@ function handlePlayerDisconnection(
 
   room.disconnectedPlayers.push(disconnectedPlayer);
   room.players = room.players.filter((p) => p.id !== socketId);
-
   // Pause the game and notify players
   const previousGameState = room.gameState;
   room.gameState = GameState.PAUSED_FOR_DISCONNECTION;
   room.pausedForDisconnection = true;
+  room.previousGameState = previousGameState; // Store the previous state for restoration
   room.disconnectionTimestamp = Date.now();
 
   // Clear any existing game timers
@@ -492,11 +492,11 @@ function resumeGame(
 ) {
   const room = rooms.get(roomCode);
   if (!room) return;
-
   // Clear disconnection state
   room.gameState = previousGameState;
   room.pausedForDisconnection = false;
   room.disconnectionTimestamp = undefined;
+  room.previousGameState = undefined; // Clear the stored previous state
   room.reconnectionVote = null;
 
   // Handle judge reassignment if needed
@@ -551,16 +551,15 @@ function handlePlayerReconnection(
     isVIP: disconnectedPlayer.isVIP,
     isDisconnected: false,
   };
-
   room.players.push(reconnectedPlayer);
   playerRooms.set(socket.id, roomCode);
-
+  socket.join(roomCode); // CRITICAL: Join the socket to the room for broadcasts
   // If no more disconnected players, resume the game
   if (room.disconnectedPlayers.length === 0 && room.pausedForDisconnection) {
-    const previousGameState = room.gameState; // This should be PAUSED_FOR_DISCONNECTION
-    // We need to restore the actual previous game state - this would require tracking it
-    // For now, let's assume we can determine it from context or add tracking
-    resumeGame(io, roomCode, GameState.SOUND_SELECTION); // Default to sound selection for now
+    // Restore the previous game state instead of defaulting to SOUND_SELECTION
+    const gameStateToRestore = room.previousGameState || GameState.SOUND_SELECTION;
+    console.log(`Restoring game state to: ${gameStateToRestore} (was paused at: ${room.previousGameState})`);
+    resumeGame(io, roomCode, gameStateToRestore);
   }
 
   // Notify everyone about the reconnection

@@ -131,9 +131,7 @@ function GamePageContent() {
     // --- Define all event handlers ---
     const handleConnect = () => {
       addDebugLog(`Socket connected: ${currentSocket.id}. Attempted Logic: ${hasAttemptedConnectionLogic.current}, Current room state: ${room ? room.code : 'null'}`);
-      setIsConnected(true);
-
-      if (!hasAttemptedConnectionLogic.current && !room) { // Check !room to ensure we are not already in a room from a previous state
+      setIsConnected(true);      if (!hasAttemptedConnectionLogic.current && !room) { // Check !room to ensure we are not already in a room from a previous state
         addDebugLog('Attempting connection logic (create/join).');
         hasAttemptedConnectionLogic.current = true; // Mark that we are attempting it
 
@@ -144,17 +142,46 @@ function GamePageContent() {
             // State updates handled by 'roomCreated'
           });
         } else if (mode === 'join' && roomCode) {
-          addDebugLog(`Emitting joinRoom for room: ${roomCode}, player: ${playerName} on socket ${currentSocket.id}`);
-          currentSocket.emit('joinRoom', roomCode, playerName, (success: boolean, joinedRoomData?: Room) => {
-            if (!success) {
-              addDebugLog(`joinRoom failed for room: ${roomCode}.`);
-              setError('Failed to join room. Room may be full, not exist, or game in progress.');
-              hasAttemptedConnectionLogic.current = false; // Allow retry if join failed? Or handle error more gracefully.
-            } else {
-              addDebugLog(`joinRoom callback successful for room: ${roomCode}. Waiting for roomJoined event.`);
-              // State updates handled by 'roomJoined'
-            }
-          });
+          // Check if this might be a reconnection attempt
+          const originalPlayerId = localStorage.getItem('originalPlayerId');
+          const hasReconnectionData = originalPlayerId && originalPlayerId !== currentSocket.id;
+          
+          if (hasReconnectionData) {
+            // Attempt reconnection first
+            addDebugLog(`Attempting reconnection for room: ${roomCode}, player: ${playerName}, originalId: ${originalPlayerId}`);
+            currentSocket.emit('reconnectToRoom', roomCode, playerName, originalPlayerId, (success: boolean, reconnectedRoom?: Room) => {
+              if (success && reconnectedRoom) {
+                addDebugLog(`Reconnection successful for room: ${roomCode}`);
+                // State updates handled by 'roomJoined' event that should follow
+              } else {
+                addDebugLog(`Reconnection failed, falling back to regular join for room: ${roomCode}`);
+                // Fall back to regular join
+                currentSocket.emit('joinRoom', roomCode, playerName, (joinSuccess: boolean, joinedRoomData?: Room) => {
+                  if (!joinSuccess) {
+                    addDebugLog(`Both reconnection and join failed for room: ${roomCode}`);
+                    setError('Failed to join room. Room may be full, not exist, or game in progress.');
+                    hasAttemptedConnectionLogic.current = false;
+                  } else {
+                    addDebugLog(`Regular join successful after reconnection failure for room: ${roomCode}`);
+                    // State updates handled by 'roomJoined'
+                  }
+                });
+              }
+            });
+          } else {
+            // No reconnection data, proceed with regular join
+            addDebugLog(`Emitting joinRoom for room: ${roomCode}, player: ${playerName} on socket ${currentSocket.id}`);
+            currentSocket.emit('joinRoom', roomCode, playerName, (success: boolean, joinedRoomData?: Room) => {
+              if (!success) {
+                addDebugLog(`joinRoom failed for room: ${roomCode}.`);
+                setError('Failed to join room. Room may be full, not exist, or game in progress.');
+                hasAttemptedConnectionLogic.current = false; // Allow retry if join failed? Or handle error more gracefully.
+              } else {
+                addDebugLog(`joinRoom callback successful for room: ${roomCode}. Waiting for roomJoined event.`);
+                // State updates handled by 'roomJoined'
+              }
+            });
+          }
         }
       } else {
         addDebugLog(`Socket connected, but connection logic already attempted or in room. Attempted: ${hasAttemptedConnectionLogic.current}, Room: ${room?.code}`);
@@ -480,24 +507,44 @@ function GamePageContent() {
       </div>
     );
   }
-
   if (error) {
+    // Check if this might be a reconnection scenario
+    const couldBeReconnection = roomCode && playerName && localStorage.getItem('originalPlayerId');
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-400 via-pink-500 to-orange-400 flex items-center justify-center p-4">
         <div className="bg-white rounded-3xl p-8 text-center max-w-md w-full">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Oops!</h2>
           <p className="text-gray-800 mb-6">{error}</p>
-          <button
-            onClick={() => router.push('/')}
-
-            className="bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-600 transition-colors"
-          >
-            Back to Home
-          </button>
+          
+          <div className="space-y-3">
+            {couldBeReconnection && !isReconnecting && (
+              <button
+                onClick={attemptReconnection}
+                className="w-full bg-green-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-600 transition-colors"
+              >
+                Try Reconnecting
+              </button>
+            )}
+            
+            {isReconnecting && (
+              <div className="mb-4">
+                <div className="animate-spin w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+                <p className="text-gray-600">Attempting to reconnect...</p>
+              </div>
+            )}
+            
+            <button
+              onClick={() => router.push('/')}
+              className="w-full bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-600 transition-colors"
+            >
+              Back to Home
+            </button>
+          </div>
         </div>
       </div>
     );
-  }  if (!room || !player) {
+  }if (!room || !player) {
     // Add detailed debugging information
     const debugInfo = {
       hasRoom: !!room,
