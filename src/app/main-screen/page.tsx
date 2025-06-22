@@ -777,6 +777,8 @@ export function PlaybackSubmissionsDisplay({
   soundEffects: SoundEffect[];
   socket: Socket;
 }) {  const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
+  const [currentPlayingSoundIndex, setCurrentPlayingSoundIndex] = useState<number>(-1);
+  const [revealedSounds, setRevealedSounds] = useState<Set<string>>(new Set());
   const [isPlaying, setIsPlaying] = useState(false);
   const [promptPlaying, setPromptPlaying] = useState(false);
   const hasStartedPlaybackRef = useRef(false);
@@ -819,13 +821,12 @@ export function PlaybackSubmissionsDisplay({
 
   // This effect handles playing each submission when the server sends it.
   useEffect(() => {
-    if (!socket) return;
-
-    const handlePlaySubmission = async (submission: SoundSubmission | null) => {
+    if (!socket) return;    const handlePlaySubmission = async (submission: SoundSubmission | null) => {
       // A null submission from the server indicates the end of playback.
       if (!submission) {
         console.log('Received null submission, playback is complete.');
         setCurrentPlayingSubmission(null);
+        setCurrentPlayingSoundIndex(-1);
         setIsPlaying(false);
         // The server will now transition the game to the JUDGING state.
         // No further action is needed on the client side here.
@@ -834,14 +835,48 @@ export function PlaybackSubmissionsDisplay({
 
       console.log('Main screen received playSubmission event:', submission);
       setCurrentPlayingSubmission(submission);
+      setCurrentPlayingSoundIndex(-1); // Reset to -1 before starting
       setIsPlaying(true);
 
       try {
-        // Play the two sounds for this submission sequentially.
-        await audioSystem.playSoundsSequentially(submission.sounds);
+        // Play the two sounds for this submission sequentially with sound index tracking.
+        const sounds = submission.sounds;        for (let i = 0; i < sounds.length; i++) {
+          console.log(`Playing sound ${i + 1} of ${sounds.length}: ${sounds[i]}`);
+          setCurrentPlayingSoundIndex(i);
+          
+          // Play this individual sound
+          const sound = soundEffects.find(s => s.id === sounds[i]);
+          if (sound) {
+            const soundUrl = `/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`;
+            const audio = new Audio(soundUrl);
+            audio.volume = 0.7;
+            
+            // Wait for this sound to complete before moving to the next
+            await new Promise<void>((resolve, reject) => {
+              audio.onended = () => {
+                console.log(`Sound ${i + 1} finished playing`);
+                // Add this sound to the revealed set so it stays visible
+                setRevealedSounds(prev => new Set(prev).add(sounds[i]));
+                resolve();
+              };
+              audio.onerror = () => {
+                console.error(`Error playing sound: ${sound.name}`);
+                reject(new Error(`Failed to play sound: ${sound.name}`));
+              };
+              audio.play().catch(reject);
+            });
+            
+            // Small pause between sounds within the same submission
+            if (i < sounds.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 300));
+            }
+          }
+        }
       } catch (error) {
         console.error('Error playing submission sounds:', error);
-      }      setIsPlaying(false);
+      }      
+      setCurrentPlayingSoundIndex(-1); // Reset when submission is done
+      setIsPlaying(false);
       
       // Add a delay between submissions for better pacing
       console.log('Playback finished for submission, waiting before requesting next.');
@@ -905,7 +940,7 @@ export function PlaybackSubmissionsDisplay({
             >
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-xl font-bold text-gray-800">
-                  {player ? `${player.name}'s Combo` : `Combo ${index + 1}`}
+                  {`Combo ${index + 1}`}
                 </h4>
                 {isCurrentlyPlaying && (
                   <div className="flex items-center space-x-2 text-green-600 font-semibold">
@@ -913,19 +948,39 @@ export function PlaybackSubmissionsDisplay({
                     <span>Playing</span>
                   </div>
                 )}
-              </div>
-
-              <div className="space-y-3">
+              </div>              <div className="space-y-3">
                 {submission.sounds.map((soundId, soundIndex) => {
                   const sound = soundEffects.find(s => s.id === soundId);
+                  const isCurrentSound = isCurrentlyPlaying && currentPlayingSoundIndex === soundIndex;
+                  const hasBeenRevealed = revealedSounds.has(soundId);
+                  
                   return (
                     <div
                       key={soundIndex}
-                      className="px-4 py-3 rounded-xl bg-white text-gray-800 shadow-sm"
+                      className={`px-4 py-3 rounded-xl transition-all duration-300 ${
+                        isCurrentSound 
+                          ? 'bg-yellow-200 text-gray-900 shadow-lg scale-105 ring-2 ring-yellow-400' 
+                          : hasBeenRevealed 
+                            ? 'bg-green-100 text-gray-800 shadow-sm'
+                            : 'bg-white text-gray-800 shadow-sm'
+                      }`}
                     >
                       <div className="flex items-center space-x-2">
-                        <span className="text-lg">🎵</span>
-                        <span className="font-semibold">{sound?.name || soundId}</span>
+                        <span className="text-lg">
+                          {isCurrentSound ? '🔊' : hasBeenRevealed ? '✅' : '🎵'}
+                        </span>                        <span className={`font-semibold ${
+                          isCurrentSound ? 'text-yellow-800' : ''
+                        }`}>
+                          {isCurrentSound || hasBeenRevealed ? (sound?.name || soundId) : '???'}
+                        </span>
+                        {isCurrentSound && (
+                          <div className="ml-auto">
+                            <div className="flex items-center space-x-1">
+                              <div className="w-2 h-2 bg-yellow-600 rounded-full animate-pulse"></div>
+                              <span className="text-yellow-700 text-sm font-bold">NOW PLAYING</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
