@@ -3,6 +3,7 @@ export interface Player {
   id: string;
   name: string;
   color: string;
+  emoji?: string; // Player's selected emoji
   score: number;
   isVIP: boolean;
   isDisconnected?: boolean; // Track disconnection status
@@ -29,23 +30,26 @@ export interface ReconnectionVote {
 export interface Room {
   code: string;
   players: Player[];
-  currentJudge: string | null;
   gameState: GameState;
-  currentPrompt: string | null;
   currentRound: number;
   maxRounds: number;
-  submissions: SoundSubmission[];
-  winner: string | null;
+  currentJudge: string | null;
+  currentPrompt: GamePrompt | null;
+  promptChoices: GamePrompt[];
   availablePrompts?: GamePrompt[];
-  usedPromptIds?: string[]; // Track prompts already used in this game session
-  isPlayingBack?: boolean; // Flag to prevent transitions during playback
-  soundSelectionTimerStarted: boolean; // Flag to track if countdown has started for sound selection  // Disconnection handling
+  submissions: SoundSubmission[];
+  lastWinner: string | null;
+  lastWinningSubmission: SoundSubmission | null;
+  winner: string | null;
+  currentSubmissionIndex?: number;
+  usedPromptIds?: string[];
+  soundSelectionTimerStarted?: boolean;
+  isPlayingBack?: boolean;
   disconnectedPlayers?: DisconnectedPlayer[];
   pausedForDisconnection?: boolean;
+  previousGameState?: GameState;
   disconnectionTimestamp?: number;
-  previousGameState?: GameState; // Store the game state before disconnection
   reconnectionVote?: ReconnectionVote | null;
-  reconnectionVoteTimeout?: number;
 }
 
 export interface SoundSubmission {

@@ -166,106 +166,6 @@ function clearTimer(roomCode: string) {
   }
 }
 
-// Orchestrated playback sequence for submissions
-async function startPlaybackSequence(
-  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
-  roomCode: string,
-  room: Room
-) {
-  const submissions = room.submissions;
-  const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100ms
-  const TIMEOUT_DURATION = 15000; // 15 second fallback timeout per submission
-
-  console.log(
-    `[PLAYBACK] Starting playback sequence for room ${roomCode} with ${submissions.length} submissions`
-  );
-  console.log(`[PLAYBACK] Current room state: ${room.gameState}`);
-  console.log(
-    `[PLAYBACK] Submissions:`,
-    submissions.map((s) => ({ playerId: s.playerId, sounds: s.sounds.length }))
-  );
-
-  // Check who is in the socket room
-  const roomMembers = io.sockets.adapter.rooms.get(roomCode);
-  console.log(
-    `[PLAYBACK] Room ${roomCode} has ${
-      roomMembers?.size || 0
-    } socket connections`
-  );
-  if (roomMembers) {
-    console.log(`[PLAYBACK] Socket IDs in room:`, Array.from(roomMembers));
-  }
-
-  // Wait a moment before starting
-  console.log(`[PLAYBACK] Waiting 2 seconds before starting playback...`);
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
-  // Create a promise-based system for each submission
-  for (let i = 0; i < submissions.length; i++) {
-    // Check if room is still in playback state
-    const currentRoom = rooms.get(roomCode);
-    console.log(
-      `[PLAYBACK] Loop iteration ${i}: Room state is ${currentRoom?.gameState}, expected PLAYBACK`
-    );
-    if (!currentRoom || currentRoom.gameState !== GameState.PLAYBACK) {
-      console.log(
-        `[PLAYBACK] Playback sequence cancelled for room ${roomCode} - state changed to ${currentRoom?.gameState}`
-      );
-      return;
-    }
-
-    console.log(
-      `[PLAYBACK] Playing submission ${i + 1} of ${
-        submissions.length
-      } for room ${roomCode}`
-    );
-
-    // Start playing this submission
-    console.log(
-      `[PLAYBACK] Emitting submissionPlayback event for submission ${i}`
-    );
-    io.to(roomCode).emit("submissionPlayback", {
-      submissionIndex: i,
-      submission: submissions[i],
-    });
-
-    // Wait for client to notify us when this submission is complete
-    console.log(`[PLAYBACK] Waiting for submission ${i} to complete...`);
-    await waitForSubmissionComplete(io, roomCode, i, TIMEOUT_DURATION);
-
-    // Brief pause between submissions
-    if (i < submissions.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-
-  // All submissions played
-  console.log(`[PLAYBACK] Playback sequence completed for room ${roomCode}`);
-  io.to(roomCode).emit("playbackComplete");
-
-  // Clear the playback flag
-  room.isPlayingBack = false;
-
-  // Transition to judging phase after a brief delay
-  setTimeout(() => {
-    const currentRoom = rooms.get(roomCode);
-    if (currentRoom && currentRoom.gameState === GameState.PLAYBACK) {
-      console.log(`[PLAYBACK] Transitioning room ${roomCode} to JUDGING phase`);
-      currentRoom.gameState = GameState.JUDGING;
-      io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
-        submissions: currentRoom.submissions,
-        judgeId: currentRoom.currentJudge,
-      });
-      io.to(roomCode).emit("roomUpdated", currentRoom);
-      console.log(`Room ${roomCode} transitioned to JUDGING phase`);
-    } else {
-      console.log(
-        `[PLAYBACK] Cannot transition room ${roomCode} - state is ${currentRoom?.gameState}`
-      );
-    }
-  }, 1500); // 1.5 second delay before judging
-}
-
 // Helper function for starting the delayed sound selection timer
 // This should only be called after the first player submits their sounds
 function startDelayedSoundSelectionTimer(
@@ -642,62 +542,7 @@ function clearDisconnectionTimer(roomCode: string) {
   }
 }
 
-// Helper function to wait for client to complete submission playback
-function waitForSubmissionComplete(
-  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
-  roomCode: string,
-  submissionIndex: number,
-  timeoutDuration: number
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let completed = false;
-    let timeoutId: NodeJS.Timeout;
-
-    // Set up timeout fallback
-    timeoutId = setTimeout(() => {
-      if (!completed) {
-        completed = true;
-        console.log(
-          `[PLAYBACK] Timeout reached for submission ${submissionIndex} in room ${roomCode}, continuing...`
-        );
-        // Remove the listener before resolving
-        serverEvents.off(
-          `submissionComplete_${roomCode}_${submissionIndex}`,
-          handleSubmissionComplete
-        );
-        resolve();
-      }
-    }, timeoutDuration);
-
-    // Listen for completion from any client in the room
-    const handleSubmissionComplete = () => {
-      if (!completed) {
-        completed = true;
-        clearTimeout(timeoutId);
-        console.log(
-          `[PLAYBACK] Received completion notification for submission ${submissionIndex} in room ${roomCode}`
-        );
-
-        // Remove the listener to prevent memory leaks
-        serverEvents.off(
-          `submissionComplete_${roomCode}_${submissionIndex}`,
-          handleSubmissionComplete
-        );
-        resolve();
-      }
-    }; // Listen for the specific submission completion event
-    const eventName = `submissionComplete_${roomCode}_${submissionIndex}`;
-    serverEvents.on(eventName, handleSubmissionComplete);
-
-    console.log(`[PLAYBACK] Waiting for event: ${eventName}`);
-    console.log(
-      `[PLAYBACK] EventEmitter listener count for ${eventName}: ${serverEvents.listenerCount(
-        eventName
-      )}`
-    );
-  });
-}
-
+// Socket handler function
 export default function SocketHandler(
   req: NextApiRequest,
   res: SocketApiResponse
@@ -744,6 +589,9 @@ export default function SocketHandler(
             winner: null,
             usedPromptIds: [], // Track prompts used during this game session
             soundSelectionTimerStarted: false,
+            promptChoices: [],
+            lastWinner: null,
+            lastWinningSubmission: null,
           };
           rooms.set(roomCode, room);
           playerRooms.set(socket.id, roomCode);
@@ -861,7 +709,7 @@ export default function SocketHandler(
                     clearTimer(roomCode);
 
                     const firstPrompt = prompts[0];
-                    room.currentPrompt = firstPrompt.text;
+                    room.currentPrompt = firstPrompt;
 
                     // Track this prompt as used to avoid repeating it in future rounds
                     if (!room.usedPromptIds) {
@@ -876,13 +724,12 @@ export default function SocketHandler(
                     const soundOptions = await getRandomSounds(12);
 
                     io.to(roomCode).emit("roomUpdated", room);
-                    io.to(roomCode).emit("promptSelected", firstPrompt.text);
+                    io.to(roomCode).emit("promptSelected", firstPrompt);
                     io.to(roomCode).emit(
                       "gameStateChanged",
                       GameState.SOUND_SELECTION,
                       {
-                        prompt: firstPrompt.text,
-                        promptAudio: firstPrompt.audioFile, // Include audio file for main screen
+                        prompt: firstPrompt,
                         sounds: soundOptions,
                         timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                       }
@@ -963,7 +810,7 @@ export default function SocketHandler(
           console.log(
             `🎯 SERVER: All validations passed, updating room state to SOUND_SELECTION`
           );
-          room.currentPrompt = prompt.text;
+          room.currentPrompt = prompt; // Store the full prompt object
 
           // Track this prompt as used to avoid repeating it in future rounds
           if (!room.usedPromptIds) {
@@ -975,14 +822,13 @@ export default function SocketHandler(
           room.submissions = [];
           room.soundSelectionTimerStarted = false;
 
-          const soundOptions = getRandomSounds(12);
+          const soundOptions = await getRandomSounds(12);
 
           console.log(`🎯 SERVER: Emitting room updates for ${roomCode}`);
           io.to(roomCode).emit("roomUpdated", room);
-          io.to(roomCode).emit("promptSelected", prompt.text);
+          io.to(roomCode).emit("promptSelected", prompt); // Send the full prompt object
           io.to(roomCode).emit("gameStateChanged", GameState.SOUND_SELECTION, {
-            prompt: prompt.text,
-            promptAudio: prompt.audioFile, // Include audio file for main screen
+            prompt: prompt, // Send the full prompt object
             sounds: soundOptions,
             timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
           });
@@ -1039,35 +885,70 @@ export default function SocketHandler(
             // Clear the sound selection timer since all players submitted
             clearTimer(roomCode);
             room.gameState = GameState.PLAYBACK;
+            room.currentSubmissionIndex = 0; // Initialize for client-driven playback
             console.log(
               `[SUBMISSION] All submissions received for room ${roomCode}, transitioning to PLAYBACK`
             );
+
+            // Notify clients to start the playback sequence
             io.to(roomCode).emit("gameStateChanged", GameState.PLAYBACK, {
               submissions: room.submissions,
             });
-            io.to(roomCode).emit("roomUpdated", room); // Start orchestrated playback of all submissions
-            console.log(
-              `[SUBMISSION] Calling startPlaybackSequence for room ${roomCode}`
-            );
+            io.to(roomCode).emit("roomUpdated", room);
 
-            // Set a flag to prevent other transitions during playback
-            room.isPlayingBack = true;
-
-            startPlaybackSequence(io, roomCode, room).catch((error) => {
-              console.error(
-                `[PLAYBACK] Error in playback sequence for room ${roomCode}:`,
-                error
-              );
-              // Clean up flag on error
-              if (room) {
-                room.isPlayingBack = false;
-              }
-            });
+            // The client (main screen) will now drive the playback by emitting 'requestNextSubmission'
           }
         } catch (error) {
           console.error("Error submitting sounds:", error);
         }
       });
+
+      socket.on("requestNextSubmission", () => {
+        const roomCode = playerRooms.get(socket.id);
+        if (!roomCode) return;
+
+        // Security: Only the main screen (viewer) should control playback
+        if (!(socket as any).isViewer) {
+          console.log(
+            `[SECURITY] Player socket ${socket.id} attempted to control playback. Ignoring.`
+          );
+          return;
+        }
+
+        const room = rooms.get(roomCode);
+        if (!room || room.gameState !== GameState.PLAYBACK) return;
+
+        const index = room.currentSubmissionIndex || 0;
+
+        if (index < room.submissions.length) {
+          console.log(
+            `[PLAYBACK] Playing submission ${index + 1} of ${
+              room.submissions.length
+            }`
+          );
+          io.to(roomCode).emit(
+            "playSubmission",
+            room.submissions[index],
+            index
+          );
+          room.currentSubmissionIndex = index + 1;
+        } else {
+          // All submissions played, move to judging
+          console.log(
+            `[PLAYBACK] All submissions played for room ${roomCode}, transitioning to JUDGING`
+          );
+          room.gameState = GameState.JUDGING;
+          room.isPlayingBack = false; // Reset playback flag
+          room.currentSubmissionIndex = 0; // Reset for next round
+
+          io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
+            submissions: room.submissions,
+            judgeId: room.currentJudge,
+          });
+          io.to(roomCode).emit("roomUpdated", room);
+        }
+      });
+
       socket.on("selectWinner", (submissionIndex) => {
         try {
           const roomCode = playerRooms.get(socket.id);
@@ -1203,9 +1084,9 @@ export default function SocketHandler(
                     // Auto-select first prompt if no selection made
                     if (room.gameState === GameState.PROMPT_SELECTION) {
                       const firstPrompt = prompts[0];
-                      room.currentPrompt = firstPrompt.text;
+                      room.currentPrompt = firstPrompt;
 
-                      // Track this prompt as used to avoid repeating it in future rounds
+                      // Track this prompt as used to avoid repeating in future rounds
                       if (!room.usedPromptIds) {
                         room.usedPromptIds = [];
                       }
@@ -1218,12 +1099,12 @@ export default function SocketHandler(
                       const soundOptions = await getRandomSounds(12);
 
                       io.to(roomCode).emit("roomUpdated", room);
-                      io.to(roomCode).emit("promptSelected", firstPrompt.text);
+                      io.to(roomCode).emit("promptSelected", firstPrompt);
                       io.to(roomCode).emit(
                         "gameStateChanged",
                         GameState.SOUND_SELECTION,
                         {
-                          prompt: firstPrompt.text,
+                          prompt: firstPrompt,
                           promptAudio: firstPrompt.audioFile, // Include audio file for main screen
                           sounds: soundOptions,
                           timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
@@ -1292,6 +1173,7 @@ export default function SocketHandler(
               `[VIEWER] Socket ${socket.id} is now in room ${normalizedRoomCode}`
             );
 
+            (socket as any).isViewer = true; // Mark this socket as a viewer
             socket.emit("roomJoined", room);
           } else {
             console.log(
@@ -1438,71 +1320,6 @@ export default function SocketHandler(
           );
         } catch (error) {
           console.error("Error handling reconnection vote:", error);
-        }
-      }); // Handle submission playback completion from main screen
-      socket.on("submissionPlaybackComplete", (submissionIndex) => {
-        try {
-          const roomCode = playerRooms.get(socket.id);
-          let targetRoomCode = roomCode;
-          if (!roomCode) {
-            console.log(
-              `[PLAYBACK] Submission completion from unknown socket: ${socket.id}`
-            );
-            // This might be from the main screen viewer, which doesn't have a playerRooms entry
-            // Try to find the room code another way - check all rooms to see which one is in PLAYBACK state
-            for (const [code, room] of rooms.entries()) {
-              if (room.gameState === GameState.PLAYBACK) {
-                targetRoomCode = code;
-                console.log(
-                  `[PLAYBACK] Found room ${code} in PLAYBACK state for submission ${submissionIndex}`
-                );
-                break;
-              }
-            }
-
-            if (!targetRoomCode) {
-              console.log(
-                `[PLAYBACK] No room found in PLAYBACK state for submission ${submissionIndex}`
-              );
-              return;
-            }
-
-            console.log(
-              `[PLAYBACK] Using found room code ${targetRoomCode} for submission ${submissionIndex}`
-            );
-          } else {
-            console.log(
-              `[PLAYBACK] Using player room code ${targetRoomCode} for submission ${submissionIndex}`
-            );
-          }
-
-          // targetRoomCode is guaranteed to be a string at this point
-          const room = rooms.get(targetRoomCode!);
-
-          if (!room) {
-            console.error(
-              `[PLAYBACK] Room ${targetRoomCode} not found for submission completion`
-            );
-            return;
-          }
-
-          console.log(
-            `[PLAYBACK] Received submission completion for submission ${submissionIndex} in room ${targetRoomCode}`
-          ); // Emit to our internal EventEmitter for the waitForSubmissionComplete function
-          const eventName = `submissionComplete_${targetRoomCode}_${submissionIndex}`;
-          console.log(`[PLAYBACK] Emitting internal event: ${eventName}`);
-          console.log(
-            `[PLAYBACK] Current EventEmitter listener count for ${eventName}: ${serverEvents.listenerCount(
-              eventName
-            )}`
-          );
-          serverEvents.emit(eventName);
-          console.log(`[PLAYBACK] Event ${eventName} emitted successfully`);
-        } catch (error) {
-          console.error(
-            "Error handling submission playback completion:",
-            error
-          );
         }
       });
     });

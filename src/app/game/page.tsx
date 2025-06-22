@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react'; // Added useMemo
 import { useRouter, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
-import { Player, Room, GameState, SoundEffect } from '@/types/game';
+import { Player, Room, GameState, SoundEffect, GamePrompt } from '@/types/game';
 import { getSoundEffects } from '@/data/gameData';
 import { audioSystem } from '@/utils/audioSystem';
 
@@ -264,9 +264,9 @@ function GamePageContent() {
       });
     };
 
-    const handlePromptSelected = (promptText: string) => {
-      addDebugLog(`promptSelected event: ${promptText}. Socket: ${currentSocket.id}`);
-      setRoom((currentRoomVal) => currentRoomVal ? { ...currentRoomVal, currentPrompt: promptText } : null);
+    const handlePromptSelected = (prompt: GamePrompt) => {
+      addDebugLog(`promptSelected event: ${prompt.text}. Socket: ${currentSocket.id}`);
+      setRoom((currentRoomVal) => currentRoomVal ? { ...currentRoomVal, currentPrompt: prompt } : null);
     };
 
     const handleJudgeSelected = (judgeId: string) => {
@@ -595,14 +595,16 @@ function GamePageContent() {
               <p className="text-lg font-bold text-purple-600">{player.name}</p>
               <p className="text-sm text-gray-700">Score: {player.score}</p>
             </div>
-          </div>        </div>        {/* Debug Info */}
+          </div>        </div>        
+          {/* Debug Info
         <div className="bg-white rounded-xl p-4 mb-4 text-sm text-gray-900">
           <p><strong>Current Game State:</strong> {room.gameState}</p>
           <p><strong>Players:</strong> {room.players.length}</p>
           <p><strong>Current Round:</strong> {room.currentRound}</p>
           <p><strong>Is VIP:</strong> {player.isVIP ? 'Yes' : 'No'}</p>
           <p><strong>Current Judge:</strong> {room.currentJudge || 'None'}</p>
-        </div>{/* Game State Components */}
+        </div> */}
+        {/* Game State Components */}
         {room.gameState === GameState.LOBBY && (
           <LobbyComponent 
             room={room} 
@@ -888,7 +890,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
       <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
         <h2 className="text-2xl font-bold text-purple-600 mb-4">Sound Selection</h2>
         <p className="text-gray-800">Players are selecting their sounds...</p>
-        <p className="text-gray-800 mt-2">Prompt: <span className="font-semibold">{room.currentPrompt}</span></p>
+        <p className="text-gray-800 mt-2">Prompt: <span className="font-semibold">{room.currentPrompt?.text}</span></p>
       </div>
     );
   }
@@ -898,7 +900,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Select Your Sounds!</h2>
-      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold">{room.currentPrompt}</span></p>
+      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold">{room.currentPrompt?.text}</span></p>
       
       {/* Only show timer after first submission */}
       {hasFirstSubmission ? (
@@ -1031,7 +1033,7 @@ function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: {
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Judging Time!</h2>
-      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold">{room.currentPrompt}</span></p>
+      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold">{room.currentPrompt?.text}</span></p>
       {isJudge ? (
         <p className="text-gray-800 mb-4">Listen to the submissions and pick the funniest!</p>
       ) : (
@@ -1162,7 +1164,7 @@ function ResultsComponent({ room, player, roundWinner, soundEffects }: {
           Winner: <span className={winnerPlayerDetails ? getPlayerColorClass(winnerPlayerDetails.color) : 'text-gray-800'}>{roundWinner.winnerName}</span>! 🏆
         </p>
         <p className="text-lg text-yellow-700">
-          Prompt: &quot;{room.currentPrompt}&quot;
+          Prompt: &quot;{room.currentPrompt?.text}&quot;
         </p>
       </div>
 

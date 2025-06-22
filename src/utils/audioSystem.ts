@@ -4,6 +4,7 @@ export class AudioSystem {
   private audioContext: AudioContext | null = null;
   private loadedSounds: Map<string, AudioBuffer> = new Map();
   private failedSounds: Set<string> = new Set();
+  private activeSources: Set<AudioBufferSourceNode> = new Set();
 
   static getInstance(): AudioSystem {
     if (!AudioSystem.instance) {
@@ -101,11 +102,42 @@ export class AudioSystem {
       source.buffer = audioBuffer;
       source.connect(this.audioContext!.destination);
 
-      // Resolve the promise when the sound finishes
-      source.onended = () => resolve();
+      // Track this source so we can stop it if needed
+      this.activeSources.add(source);
+
+      // Resolve the promise and clean up when the sound finishes
+      source.onended = () => {
+        this.activeSources.delete(source);
+        resolve();
+      };
 
       source.start();
     });
+  }
+
+  async playSoundsSequentially(soundIds: string[]): Promise<void> {
+    for (const soundId of soundIds) {
+      try {
+        await this.playSound(soundId);
+        // No extra delay needed here as playSound now resolves on completion
+      } catch (error) {
+        console.error(`Error playing sound ${soundId} in sequence:`, error);
+        // Decide if you want to continue or stop on error
+      }
+    }
+  }
+
+  stopAllSounds(): void {
+    if (!this.audioContext) return;
+    console.log(`Stopping ${this.activeSources.size} active sounds.`);
+    this.activeSources.forEach((source) => {
+      try {
+        source.stop();
+      } catch (e) {
+        // Ignore errors if the source is already stopped
+      }
+    });
+    this.activeSources.clear();
   }
 
   async playSoundSequence(
@@ -188,7 +220,7 @@ export class AudioSystem {
     try {
       // Check if already loaded
       if (this.loadedSounds.has(promptId)) {
-        this.playSound(promptId);
+        await this.playSound(promptId);
         return;
       }
 
@@ -208,10 +240,8 @@ export class AudioSystem {
       }
 
       const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
-      this.loadedSounds.set(promptId, audioBuffer);
-
-      // Play the audio immediately after loading
-      this.playSound(promptId);
+      this.loadedSounds.set(promptId, audioBuffer); // Play the audio immediately after loading
+      await this.playSound(promptId);
 
       console.log(`✅ Played prompt audio: ${audioFileName}`);
     } catch (error) {

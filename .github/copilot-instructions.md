@@ -48,14 +48,11 @@ Always check if the edit maintains the project's coding style
 Edit sequence:
 [First specific change] - Purpose: [why]
 [Second specific change] - Purpose: [why]
-Do you approve this plan? I'll proceed with Edit [number] after your confirmation.
-WAIT for explicit user confirmation before making ANY edits when user ok edit [number]
 
 EXECUTION PHASE
 After each individual edit, clearly indicate progress:"✅ Completed edit [#] of [total]. Ready for next edit?"
 If you discover additional needed changes during editing:
 STOP and update the plan
-Get approval before continuing
 
 REFACTORING GUIDANCE
 When refactoring large files:
