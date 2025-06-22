@@ -282,8 +282,7 @@ export async function loadEarwaxSounds(): Promise<SoundEffect[]> {
       }
     );
 
-    console.log(`Found ${validSounds.length} valid, safe sound entries`);
-    // Convert to our SoundEffect format
+    console.log(`Found ${validSounds.length} valid, safe sound entries`); // Convert to our SoundEffect format
     const soundEffects: SoundEffect[] = validSounds.map((sound) => {
       const cleanName = cleanSoundName(sound.name);
       const category = determineCategory(sound);
@@ -297,18 +296,36 @@ export async function loadEarwaxSounds(): Promise<SoundEffect[]> {
       };
     });
 
-    // Sort by name for easier browsing
-    soundEffects.sort((a, b) => a.name.localeCompare(b.name));
+    // Remove duplicates by name (keep first occurrence)
+    const seenNames = new Set<string>();
+    const uniqueSoundEffects = soundEffects.filter((sound) => {
+      if (seenNames.has(sound.name)) {
+        console.log(`Removing duplicate: "${sound.name}" (ID: ${sound.id})`);
+        return false;
+      }
+      seenNames.add(sound.name);
+      return true;
+    });
 
-    console.log(`✅ Loaded ${soundEffects.length} sound effects`);
-    const categories = [...new Set(soundEffects.map((s) => s.category))].sort();
+    console.log(
+      `Removed ${
+        soundEffects.length - uniqueSoundEffects.length
+      } duplicate sound names`
+    );
+
+    // Sort by name for easier browsing
+    uniqueSoundEffects.sort((a, b) => a.name.localeCompare(b.name));
+    console.log(`✅ Loaded ${uniqueSoundEffects.length} unique sound effects`);
+    const categories = [
+      ...new Set(uniqueSoundEffects.map((s) => s.category)),
+    ].sort();
     console.log(`Categories: ${categories.join(", ")}`);
 
     // Update cache
-    soundCache = soundEffects;
+    soundCache = uniqueSoundEffects;
     cacheTimestamp = now;
 
-    return soundEffects;
+    return uniqueSoundEffects;
   } catch (error) {
     console.error("❌ Error loading sounds:", error);
 
@@ -331,13 +348,26 @@ export async function getRandomSounds(
   category?: string
 ): Promise<SoundEffect[]> {
   const allSounds = await loadEarwaxSounds();
-  const filteredSounds = category
+  const sourceSounds = category
     ? allSounds.filter((sound) => sound.category === category)
     : allSounds;
 
-  // Shuffle and take the requested count
-  const shuffled = [...filteredSounds].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+  if (sourceSounds.length === 0) {
+    return [];
+  }
+
+  const requestedCount = Math.min(count, sourceSounds.length);
+  const uniqueIndices = new Set<number>();
+  const maxIndex = sourceSounds.length - 1;
+
+  // Keep adding random indices until we have the desired count
+  while (uniqueIndices.size < requestedCount) {
+    const randomIndex = Math.floor(Math.random() * (maxIndex + 1));
+    uniqueIndices.add(randomIndex);
+  }
+
+  // Map the unique indices back to the source sounds array
+  return Array.from(uniqueIndices).map((index) => sourceSounds[index]);
 }
 
 // Clear cache (useful for development or when we know the file has changed)

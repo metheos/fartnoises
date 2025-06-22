@@ -16,7 +16,10 @@ import {
   PLAYER_COLORS,
   GAME_CONFIG,
 } from "@/data/gameData";
-import { getRandomPrompts as getRandomPromptsFromLoader } from "@/utils/soundLoader";
+import {
+  getRandomPrompts as getRandomPromptsFromLoader,
+  getRandomSounds as getRandomSoundsFromLoader,
+} from "@/utils/soundLoader";
 
 interface SocketServer extends NetServer {
   io?: SocketIOServer<ClientToServerEvents, ServerToClientEvents>;
@@ -93,25 +96,7 @@ async function getRandomPrompts(
 }
 
 async function getRandomSounds(count: number = 10) {
-  try {
-    const soundEffects = await getSoundEffects();
-
-    // Generate unique random indices
-    const maxIndex = soundEffects.length - 1;
-    const requestedCount = Math.min(count, soundEffects.length);
-    const uniqueIndices = new Set<number>();
-
-    while (uniqueIndices.size < requestedCount) {
-      const randomIndex = Math.floor(Math.random() * (maxIndex + 1));
-      uniqueIndices.add(randomIndex);
-    }
-
-    // Select sound effects using the unique indices
-    return Array.from(uniqueIndices).map((index) => soundEffects[index]);
-  } catch (error) {
-    console.error("Failed to load sounds for random selection:", error);
-    return [];
-  }
+  return await getRandomSoundsFromLoader(count);
 }
 
 // Timer utility functions
