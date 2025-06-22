@@ -895,6 +895,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
     );
   }
   const hasSubmitted = room.submissions.some(s => s.playerId === player.id);
+  const submission = hasSubmitted ? room.submissions.find(s => s.playerId === player.id) : null;
   const hasFirstSubmission = room.submissions.length > 0;
 
   return (
@@ -908,17 +909,17 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
       ) : (
         <p className="text-blue-600 font-semibold mb-4">⏳ Timer will start when first player submits</p>
       )}
-        {hasSubmitted ? (
+        {hasSubmitted && submission ? (
         <div className="text-center">
           <p className="text-green-600 text-xl mb-4">✅ Sounds submitted! Waiting for others...</p>
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 max-w-md mx-auto">
             <p className="text-green-800 font-semibold mb-2">Your Submission:</p>
             <div className="flex gap-2 justify-center">
               <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                {playerSoundSet.find(s => s.id === sound1)?.name || 'Sound 1'}
+                {soundEffects.find(s => s.id === submission.sounds[0])?.name || 'Sound 1'}
               </span>
               <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                {playerSoundSet.find(s => s.id === sound2)?.name || 'Sound 2'}
+                {soundEffects.find(s => s.id === submission.sounds[1])?.name || 'Sound 2'}
               </span>
             </div>
           </div>

@@ -940,7 +940,7 @@ export function PlaybackSubmissionsDisplay({
             >
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-xl font-bold text-gray-800">
-                  {`Combo ${index + 1}`}
+                  {`Submission ${index + 1}`}
                 </h4>
                 {isCurrentlyPlaying && (
                   <div className="flex items-center space-x-2 text-green-600 font-semibold">
@@ -999,7 +999,7 @@ export function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffect
   
   return (
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Judging Time!</h3>
+      {/* <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Judging Time!</h3> */}
       
       {room.currentPrompt && (
         <div className="bg-purple-100 rounded-2xl p-6 mb-8 text-center">
@@ -1017,7 +1017,7 @@ export function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffect
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-xl font-bold text-gray-800">
-                  Combo {index + 1}
+                  Submission {index + 1}
                 </h4>
                 
                 {/* Status Indicator - waiting for judge decision */}
@@ -1434,7 +1434,7 @@ export const getGameStateDisplay = (gameState: GameState): string => {
     [GameState.JUDGE_SELECTION]: 'Selecting Judge',
     [GameState.PROMPT_SELECTION]: 'Judge is Choosing',
     [GameState.SOUND_SELECTION]: 'Choosing Sounds',
-    [GameState.PLAYBACK]: 'Listening to Combos',
+    [GameState.PLAYBACK]: 'Listening to Submissions',
     [GameState.JUDGING]: 'Judge is Deciding',
     [GameState.ROUND_RESULTS]: 'Round Results',
     [GameState.GAME_OVER]: 'Game Over',
