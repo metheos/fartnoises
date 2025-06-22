@@ -982,21 +982,17 @@ export default function SocketHandler(
           });
           io.to(roomCode).emit("roomUpdated", room); // Check if game is complete
           const maxScore = Math.max(...room.players.map((p) => p.score));
-          const gameWinners = room.players.filter((p) => p.score === maxScore);
-
-          console.log(
+          const gameWinners = room.players.filter((p) => p.score === maxScore);          console.log(
             `🏁 Game completion check: currentRound=${
               room.currentRound
             }, maxRounds=${
               room.maxRounds
-            }, maxScore=${maxScore}, scoreThreshold=${Math.ceil(
-              room.maxRounds / 2
-            )}`
+            }, maxScore=${maxScore}, scoreThreshold=${GAME_CONFIG.MAX_SCORE}`
           );
 
           if (
             room.currentRound >= room.maxRounds ||
-            maxScore >= Math.ceil(room.maxRounds / 2)
+            maxScore >= GAME_CONFIG.MAX_SCORE
           ) {
             console.log(
               `🎉 Game ending: Round ${room.currentRound}/${room.maxRounds} or score ${maxScore} reached threshold`

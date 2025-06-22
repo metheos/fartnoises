@@ -37,6 +37,7 @@ export const GAME_CONFIG = {
   MIN_PLAYERS: 3,
   MAX_PLAYERS: 8,
   DEFAULT_MAX_ROUNDS: 10,
+  MAX_SCORE: 4, // Score needed to win the game
   SOUND_SELECTION_TIME: 45, // seconds
   PROMPT_SELECTION_TIME: 30, // seconds
   ROOM_CODE_LENGTH: 4,

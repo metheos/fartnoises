@@ -841,12 +841,13 @@ export function PlaybackSubmissionsDisplay({
         await audioSystem.playSoundsSequentially(submission.sounds);
       } catch (error) {
         console.error('Error playing submission sounds:', error);
-      }
-
-      setIsPlaying(false);
+      }      setIsPlaying(false);
       
-      // After playing, request the next submission to continue the loop.
-      console.log('Playback finished for submission, requesting next.');
+      // Add a delay between submissions for better pacing
+      console.log('Playback finished for submission, waiting before requesting next.');
+      await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 second delay
+      
+      console.log('Requesting next submission after delay.');
       socket.emit('requestNextSubmission', { roomCode: room.code });
     };
 
