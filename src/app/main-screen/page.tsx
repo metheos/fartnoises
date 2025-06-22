@@ -87,7 +87,7 @@ export default function MainScreen() {
     });    socket.on('roomUpdated', (updatedRoom) => {
       console.log('Main screen received room update:', updatedRoom);
       setCurrentRoom(prev => {
-        // Only update if we're currently watching this room
+        // Only update if we're currently watching this room  
         if (prev && updatedRoom.code === prev.code) {
           console.log('Main screen updating current room from roomUpdated event:', updatedRoom);
           console.log('Previous game state:', prev.gameState, '-> New game state:', updatedRoom.gameState);
@@ -317,14 +317,15 @@ export default function MainScreen() {
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        {/* <div className="text-center mb-8">
           <h1 className="text-8xl font-black text-white mb-4 transform -rotate-2 drop-shadow-lg">
             fartnoises
           </h1>
           <p className="text-white text-2xl font-bold opacity-90">
             The Silly Sound Game • Main Screen Display
           </p>
-        </div>        {currentRoom ? (
+        </div>         */}
+        {/* {currentRoom ? (
           <div className="mb-4">
             <button
               onClick={leaveRoom}
@@ -333,7 +334,7 @@ export default function MainScreen() {
               ← Leave Room {currentRoom.code}
             </button>
           </div>
-        ) : null}
+        ) : null} */}
 
         {currentRoom ? (
           <MainScreenGameDisplay room={currentRoom} roundWinner={roundWinner} soundEffects={soundEffects} />
@@ -347,7 +348,8 @@ export default function MainScreen() {
           />
         )}
 
-        {/* Room List Footer */}        <div className="mt-8 bg-white bg-opacity-80 rounded-3xl p-6">
+        {/* Room List Footer */}        
+        {/* <div className="mt-8 bg-white bg-opacity-80 rounded-3xl p-6">
           <h3 className="text-gray-800 text-xl font-bold mb-4 text-center">Active Rooms</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {rooms.length === 0 ? (              <div className="col-span-full text-center text-gray-800">
@@ -375,7 +377,7 @@ export default function MainScreen() {
               ))
             )}
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
@@ -405,8 +407,8 @@ export function WaitingForGameScreen({
       </p>
       
       {/* Manual Room Entry */}      <div className="bg-purple-100 rounded-2xl p-6 mb-8">
-        <h3 className="text-2xl font-bold text-gray-900 mb-4">Watch a Specific Game</h3>
-        <p className="text-gray-800 mb-4">Enter a 4-letter room code to watch that game:</p>
+        <h3 className="text-2xl font-bold text-gray-900 mb-4">Enter Room Code to Watch</h3>
+        {/* <p className="text-gray-800 mb-4">Enter a 4-letter room code to watch that game:</p> */}
         
         <div className="flex justify-center items-center space-x-4">          <input
             type="text"
@@ -505,7 +507,7 @@ export function MainScreenGameDisplay({
       </div>
 
       {/* Players Display */}
-      <div className="bg-white rounded-3xl p-8 shadow-2xl">
+      {/* <div className="bg-white rounded-3xl p-8 shadow-2xl">
         <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Players</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
           {room.players.map((player) => (
@@ -528,7 +530,8 @@ export function MainScreenGameDisplay({
             </div>
           ))}
         </div>
-      </div>      {/* Game State Display */}
+      </div>       */}
+      {/* Game State Display */}
       {room.gameState === GameState.LOBBY && (
         <LobbyDisplay room={room} />
       )}
@@ -713,7 +716,7 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
         {room.currentPrompt && (
         <div className="bg-purple-100 rounded-2xl p-6 mb-8">
           <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
-          <p className="text-2xl text-gray-800 font-bold">\"{room.currentPrompt.text}\"</p>
+          <p className="text-2xl text-gray-800 font-bold">{room.currentPrompt.text}</p>
         </div>
       )}
 
@@ -877,7 +880,7 @@ export function PlaybackSubmissionsDisplay({
       {room.currentPrompt && (
         <div className={`bg-purple-100 rounded-2xl p-6 mb-8 text-center transition-all duration-300 ${promptPlaying ? 'ring-4 ring-purple-500' : ''}`}>
           <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
-          <p className="text-2xl text-gray-800 font-bold">\"{room.currentPrompt.text}\"</p>
+          <p className="text-2xl text-gray-800 font-bold">{room.currentPrompt.text}</p>
           {promptPlaying && (
             <div className="mt-2 text-purple-600 font-semibold flex items-center justify-center space-x-2">
               <span className="animate-pulse">🔊</span>
@@ -945,7 +948,7 @@ export function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffect
       {room.currentPrompt && (
         <div className="bg-purple-100 rounded-2xl p-6 mb-8 text-center">
           <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
-          <p className="text-2xl text-gray-800 font-bold">\"{room.currentPrompt.text}\"</p>
+          <p className="text-2xl text-gray-800 font-bold">{room.currentPrompt.text}</p>
         </div>
       )}
       
