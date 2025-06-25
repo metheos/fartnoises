@@ -37,7 +37,7 @@ function cleanSoundName(name: string): string {
   let cleaned = decodeUnicode(name);
 
   // Remove extra quotes and normalize
-  cleaned = cleaned.replace(/["'"]/g, '"');
+  cleaned = cleaned.replace(/^["']+|["']+$/g, "").trim();
 
   // Capitalize first letter of each word for consistency
   cleaned = cleaned.replace(/\b\w/g, (match) => match.toUpperCase());
@@ -473,10 +473,29 @@ export async function loadEarwaxPrompts(): Promise<GamePrompt[]> {
   }
 }
 
+// Function to process prompt text for special tags
+function processPromptText(text: string, playerNames: string[] = []): string {
+  let processedText = text;
+
+  // Replace <ANY> tags with random player names
+  if (playerNames.length > 0) {
+    processedText = processedText.replace(/<ANY>/g, () => {
+      const randomIndex = Math.floor(Math.random() * playerNames.length);
+      return playerNames[randomIndex];
+    });
+  }
+
+  // Keep <i></i> tags as HTML for React rendering
+  // No need to convert them - React can handle HTML tags directly
+
+  return processedText;
+}
+
 // Get random prompts
 export async function getRandomPrompts(
   count: number = 6,
-  excludePromptIds: string[] = []
+  excludePromptIds: string[] = [],
+  playerNames: string[] = []
 ): Promise<GamePrompt[]> {
   const allPrompts = await loadEarwaxPrompts();
 
@@ -499,8 +518,14 @@ export async function getRandomPrompts(
     uniqueIndices.add(randomIndex);
   }
 
-  // Select prompts using the unique indices
-  return Array.from(uniqueIndices).map((index) => promptsToSelectFrom[index]);
+  // Select prompts using the unique indices and process their text
+  return Array.from(uniqueIndices).map((index) => {
+    const prompt = promptsToSelectFrom[index];
+    return {
+      ...prompt,
+      text: processPromptText(prompt.text, playerNames),
+    };
+  });
 }
 
 // Clear prompt cache (useful for development)

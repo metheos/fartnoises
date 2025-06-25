@@ -49,48 +49,71 @@ export default function Home() {
           {!mode ? (
             <>
               {/* Player Name Input */}
+              <div className="mb-4">
+              <label className="block text-gray-700 text-lg font-bold mb-2">
+                Your Name
+              </label>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Enter your name..."
+                className="w-full px-6 py-4 text-lg text-gray-800 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none transition-colors placeholder:text-gray-600"
+                maxLength={20}
+              />
+              </div>
+
+              {/* Room Code Input */}
               <div className="mb-8">
-                <label className="block text-gray-700 text-lg font-bold mb-4">
-                  What&apos;s your name?
-                </label>                <input
-                  type="text"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Enter your name..."
-                  className="w-full px-6 py-4 text-lg text-gray-800 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none transition-colors placeholder:text-gray-600"
-                  maxLength={20}
-                />
+              <label className="block text-gray-700 text-lg font-bold mb-2">
+                Room Code <span className="font-normal text-gray-500">(to join)</span>
+              </label>
+              <input
+                type="text"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                placeholder="4-LETTER-CODE"
+                className="w-full px-6 py-4 text-lg text-gray-800 text-center font-mono tracking-widest border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors uppercase placeholder:text-gray-500"
+                maxLength={4}
+              />
               </div>
 
               {/* Action Buttons */}
               <div className="space-y-4">
-                <button
-                  onClick={() => setMode('create')}
-                  disabled={!playerName.trim()}
-                  className="w-full bg-gradient-to-r from-green-400 to-green-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-green-500 hover:to-green-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100"
-                >
-                  🎮 Create New Room
-                </button>
-                
-                <button
-                  onClick={() => setMode('join')}
-                  disabled={!playerName.trim()}
-                  className="w-full bg-gradient-to-r from-blue-400 to-blue-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-blue-500 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100"
-                >
-                  🚪 Join Existing Room
-                </button>
+              <button
+                onClick={() => handleSubmit('join')}
+                disabled={!playerName.trim() || roomCode.trim().length !== 4}
+                className="w-full bg-gradient-to-r from-blue-400 to-blue-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-blue-500 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                🚀 Join Game
+              </button>
+              
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-gray-300"></div>
+                <span className="flex-shrink mx-4 text-gray-500 font-semibold">OR</span>
+                <div className="flex-grow border-t border-gray-300"></div>
+              </div>
+
+              <button
+                onClick={() => handleSubmit('create')}
+                disabled={!playerName.trim()}
+                className="w-full bg-gradient-to-r from-green-400 to-green-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-green-500 hover:to-green-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                🎮 Create New Room
+              </button>
               </div>
 
               {/* Main Screen Button */}
               <div className="mt-8 pt-6 border-t border-gray-200">
-                <button
-                  onClick={goToMainScreen}
-                  className="w-full bg-gradient-to-r from-purple-400 to-purple-600 text-white py-3 px-6 rounded-xl font-bold hover:from-purple-500 hover:to-purple-700 transition-all duration-200"
-                >
-                  📺 Main Screen Mode
-                </button>                <p className="text-sm text-gray-700 text-center mt-2">
-                  For TV/shared display
-                </p>
+              <button
+                onClick={goToMainScreen}
+                className="w-full bg-gradient-to-r from-purple-400 to-purple-600 text-white py-3 px-6 rounded-xl font-bold hover:from-purple-500 hover:to-purple-700 transition-all duration-200"
+              >
+                📺 Main Screen Mode
+              </button>
+              <p className="text-sm text-gray-700 text-center mt-2">
+                For TV/shared display
+              </p>
               </div>
             </>
           ) : mode === 'join' ? (

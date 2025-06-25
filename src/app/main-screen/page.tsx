@@ -606,7 +606,7 @@ export function PromptSelectionDisplay({ room }: { room: Room }) {
   
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-800 mb-6">Judge Selecting Prompt</h3>
+      {/* <h3 className="text-3xl font-bold text-gray-800 mb-6">Judge Selecting Prompt</h3> */}
       
       {/* Timer Display */}
       {timeLeft !== null && (
@@ -627,7 +627,7 @@ export function PromptSelectionDisplay({ room }: { room: Room }) {
       )}
         <div className="text-6xl mb-6">🤔</div>
       <p className="text-2xl text-gray-800 mb-4">
-        <span className="font-bold text-purple-600">{judge?.name}</span> is choosing a weird prompt...
+        <span className="font-bold text-purple-600">{judge?.name}</span> is choosing a prompt...
       </p>
       <div className="animate-pulse flex justify-center space-x-2">
         <div className="w-4 h-4 bg-purple-400 rounded-full"></div>
@@ -644,6 +644,7 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
   const submittedCount = room.submissions.length;
   const totalNeeded = otherPlayers.length;
   const hasFirstSubmission = submittedCount > 0;
+  const judge = room.players.find(p => p.id === room.currentJudge);
   
   // Debug logging
   console.log('SoundSelectionDisplay render:', {
@@ -673,7 +674,7 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
   
   return (
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Sound Selection Time!</h3>
+      {/* <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Sound Selection Time!</h3> */}
       
       {/* Timer Display - Only show after first submission */}
       {timeLeft !== null && hasFirstSubmission && (
@@ -701,7 +702,7 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
         <div className="text-center mb-6">
           <div className="text-6xl mb-4">⏳</div>
           <div className="bg-blue-100 rounded-2xl p-6">
-            <h4 className="text-2xl font-bold text-blue-800 mb-2">Waiting for First Player</h4>
+            {/* <h4 className="text-2xl font-bold text-blue-800 mb-2">Waiting for First Player</h4> */}
             <p className="text-lg text-blue-700">
               The countdown will begin once the first player submits their sounds
             </p>
@@ -716,9 +717,19 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
         {room.currentPrompt && (
         <div className="bg-purple-100 rounded-2xl p-6 mb-8">
           <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
-          <p className="text-2xl text-gray-800 font-bold">{room.currentPrompt.text}</p>
+          <p className="text-2xl text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt.text }}></p>
         </div>
       )}
+          {room.currentPrompt && (
+            <div className="text-center mb-8 -mt-4">
+          <div className="inline-block bg-yellow-100 border-2 border-yellow-300 rounded-full px-5 py-2 shadow-sm">
+            <p className="text-base font-bold text-yellow-800 flex items-center">
+              <span className="text-xl mr-2">👨‍⚖️</span>
+              <span>Judge: {judge?.name}</span>
+            </p>
+          </div>
+            </div>
+          )}
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {otherPlayers.map((player) => {
@@ -916,7 +927,7 @@ export function PlaybackSubmissionsDisplay({
       {room.currentPrompt && (
         <div className={`bg-purple-100 rounded-2xl p-6 mb-8 text-center transition-all duration-300 ${promptPlaying ? 'ring-4 ring-purple-500' : ''}`}>
           <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
-          <p className="text-2xl text-gray-800 font-bold">{room.currentPrompt.text}</p>
+          <p className="text-2xl text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt.text }}></p>
           {promptPlaying && (
             <div className="mt-2 text-purple-600 font-semibold flex items-center justify-center space-x-2">
               <span className="animate-pulse">🔊</span>
@@ -967,20 +978,20 @@ export function PlaybackSubmissionsDisplay({
                     >
                       <div className="flex items-center space-x-2">
                         <span className="text-lg">
-                          {isCurrentSound ? '🔊' : hasBeenRevealed ? '✅' : '🎵'}
+                          {isCurrentSound ? '🔊' : hasBeenRevealed ? '🎵' : '🎵'}
                         </span>                        <span className={`font-semibold ${
                           isCurrentSound ? 'text-yellow-800' : ''
                         }`}>
                           {isCurrentSound || hasBeenRevealed ? (sound?.name || soundId) : '???'}
                         </span>
-                        {isCurrentSound && (
+                        {/* {isCurrentSound && (
                           <div className="ml-auto">
                             <div className="flex items-center space-x-1">
                               <div className="w-2 h-2 bg-yellow-600 rounded-full animate-pulse"></div>
                               <span className="text-yellow-700 text-sm font-bold">NOW PLAYING</span>
                             </div>
                           </div>
-                        )}
+                        )} */}
                       </div>
                     </div>
                   );
@@ -1004,7 +1015,7 @@ export function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffect
       {room.currentPrompt && (
         <div className="bg-purple-100 rounded-2xl p-6 mb-8 text-center">
           <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
-          <p className="text-2xl text-gray-800 font-bold">{room.currentPrompt.text}</p>
+          <p className="text-2xl text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt.text }}></p>
         </div>
       )}
       
@@ -1059,8 +1070,10 @@ export function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffect
       <div className="mt-8 text-center">
         <div className="bg-purple-100 rounded-2xl p-6">
           <div className="text-4xl mb-2">🤔</div>
-          <p className="text-xl font-bold text-purple-800">Judge is deciding...</p>
-          <p className="text-purple-700">Which sound combination is the funniest?</p>
+            <p className="text-2xl text-gray-800">
+            <span className="font-bold text-purple-600">{judge?.name}</span> is deciding...
+            </p>
+          {/* <p className="text-purple-700">Which sound combination is the funniest?</p> */}
         </div>
       </div>
     </div>
@@ -1241,8 +1254,7 @@ export function ResultsDisplay({
           {roundWinner.winningSubmission && (
             <div className="mb-8">
               <h4 className="text-2xl font-bold text-gray-800 mb-2">{roundWinner.winnerName} Wins!</h4>
-                <p className="text-2xl font-extrabold text-purple-700 mb-6 drop-shadow-lg">
-                &ldquo;{room.currentPrompt?.text}&rdquo;
+                <p className="text-2xl font-extrabold text-purple-700 mb-6 drop-shadow-lg" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}>
                 </p>
                 <div className={`relative rounded-3xl p-8 transition-all duration-500 max-w-md mx-auto ${
                 isPlayingWinner 

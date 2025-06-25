@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { Player, Room, GameState, SoundEffect, GamePrompt } from '@/types/game';
 import { getSoundEffects } from '@/data/gameData';
+import { getRandomSounds } from '@/utils/soundLoader';
 import { audioSystem } from '@/utils/audioSystem';
 
 // Helper function to convert hex colors to Tailwind classes
@@ -819,19 +820,32 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   const isJudge = player.id === room.currentJudge;
   const [sound1, setSound1] = useState<string>('');
   const [sound2, setSound2] = useState<string>('');
-  const [playerSoundSet, setPlayerSoundSet] = useState<SoundEffect[]>([]);
-  // Generate random sound set for this player when component mounts or when entering new round
+  const [playerSoundSet, setPlayerSoundSet] = useState<SoundEffect[]>([]);  // Generate random sound set for this player when component mounts or when entering new round
   useEffect(() => {
+    console.log('Hello from SoundSelectionComponent useEffect');
+    console.log(soundEffects.length);
     if (soundEffects.length > 0 && room.gameState === GameState.SOUND_SELECTION) {
       // Check if this is a new round by seeing if we haven't submitted in this round yet
       const hasSubmittedThisRound = room.submissions.some(s => s.playerId === player.id);
       if (!hasSubmittedThisRound) {
-        // Generate random set of 8 sounds for this player
-        const shuffled = [...soundEffects].sort(() => Math.random() - 0.5);
-        const randomSounds = shuffled.slice(0, Math.min(8, soundEffects.length));
-        setPlayerSoundSet(randomSounds);
-        setSound1('');
-        setSound2('');
+        // Generate random set of sounds for this player using getRandomSounds
+        const loadRandomSounds = async () => {
+          try {
+            const randomSounds = await getRandomSounds(12); // Get random sounds
+            setPlayerSoundSet(randomSounds);
+            setSound1('');
+            setSound2('');
+          } catch (error) {
+            console.error('Failed to load random sounds:', error);
+            // Fallback to manual shuffling if getRandomSounds fails
+            const shuffled = [...soundEffects].sort(() => Math.random() - 0.5);
+            const fallbackSounds = shuffled.slice(0, Math.min(8, soundEffects.length));
+            setPlayerSoundSet(fallbackSounds);
+            setSound1('');
+            setSound2('');
+          }
+        };
+        loadRandomSounds();
       }
     }
   }, [room.gameState, room.currentRound, player.id, soundEffects]);
@@ -1157,16 +1171,28 @@ function ResultsComponent({ room, player, roundWinner, soundEffects }: {
 
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-      <h2 className="text-2xl font-bold text-purple-600 mb-6">🎉 Round Over! 🎉</h2>
+      {/* <h2 className="text-2xl font-bold text-purple-600 mb-6">🎉 Round Over! 🎉</h2> */}
       
       {/* Winner Announcement */}
-      <div className="bg-gradient-to-br from-yellow-100 to-orange-100 border-4 border-yellow-400 rounded-2xl p-6 mb-6">
-        <p className="text-3xl font-bold mb-2">
-          Winner: <span className={winnerPlayerDetails ? getPlayerColorClass(winnerPlayerDetails.color) : 'text-gray-800'}>{roundWinner.winnerName}</span>! 🏆
+      <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl p-8 mb-8 shadow-2xl transform transition-all duration-500 hover:scale-105">
+        {/* Decorative elements */}
+        <div className="absolute -top-4 -left-4 w-24 h-24 bg-white opacity-10 rounded-full animate-pulse"></div>
+        <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white opacity-10 rounded-full animate-pulse delay-500"></div>
+
+        <div className="relative z-10 text-center text-white">
+          <h2 className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">Round Winner!</h2>
+          <p className="text-5xl font-black mb-3 drop-shadow-lg">
+        {roundWinner.winnerName} 🏆
+          </p>
+          <div className={`inline-block px-4 py-1 rounded-full mb-4 ${winnerPlayerDetails ? getPlayerColorClass(winnerPlayerDetails.color) : 'bg-white bg-opacity-20'}`}>
+        <p className="text-lg font-semibold text-white">
+          +1 Point!
         </p>
-        <p className="text-lg text-yellow-700">
-          Prompt: &quot;{room.currentPrompt?.text}&quot;
-        </p>
+          </div>
+          <p className="text-md italic opacity-90 max-w-md mx-auto">
+        For their take on: &quot;{room.currentPrompt?.text}&quot;
+          </p>
+        </div>
       </div>
 
       {/* Winning Sound Combination Card */}
@@ -1274,15 +1300,47 @@ function ResultsComponent({ room, player, roundWinner, soundEffects }: {
         </div>
       )}
       
-      <h3 className="text-lg font-semibold text-gray-800 mb-3">Scores:</h3>
-      <ul className="space-y-1 max-w-sm mx-auto text-left">
-        {room.players.sort((a, b) => b.score - a.score).map(p => (
-          <li key={p.id} className={`p-2 rounded flex justify-between items-center ${getPlayerColorClass(p.color)} text-white shadow`}>
-            <span>{p.name} {p.id === roundWinner.winnerId && '🎉'}</span>
-            <span className="font-bold">{p.score} pts</span>
-          </li>
-        ))}
-      </ul>
+      {/* Scores List */}
+      <div className="mt-8 bg-gray-50 rounded-3xl p-6 max-w-lg mx-auto shadow-inner">
+        <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Current Standings</h3>
+        <ul className="space-y-3">
+          {room.players
+        .sort((a, b) => b.score - a.score)
+        .map((p, index) => {
+          const rank = index + 1;
+          const isRoundWinner = p.id === roundWinner.winnerId;
+          
+          let rankStyles = 'bg-gray-200 text-gray-700';
+          if (rank === 1) rankStyles = 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900 shadow-md'; // Gold
+          if (rank === 2) rankStyles = 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800 shadow-md'; // Silver
+          if (rank === 3) rankStyles = 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900 shadow-md'; // Bronze
+
+          return (
+            <li 
+          key={p.id} 
+          className={`flex items-center p-3 rounded-2xl shadow-sm transition-all duration-300 ${isRoundWinner ? 'bg-green-100 border-2 border-green-400 scale-105' : 'bg-white'}`}
+            >
+          <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center font-black text-lg mr-4 ${rankStyles}`}>
+            {rank}
+          </div>
+          {/* <div className={`w-2 h-8 rounded-full mr-4 ${getPlayerColorClass(p.color)}`}></div> */}
+          <div className="flex-grow">
+            <p className="font-bold text-gray-900 text-lg">{p.name}</p>
+          </div>
+          {isRoundWinner && (
+            <div className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full mr-4 animate-pulse">
+              +1 PT
+            </div>
+          )}
+          <div className="text-right">
+            <p className="font-black text-xl text-purple-600">{p.score}</p>
+            <p className="text-xs text-gray-500 uppercase">Points</p>
+          </div>
+            </li>
+          );
+        })}
+        </ul>
+      </div>
       {/* Next round / game over will be handled by gameState change */}
     </div>
   );
