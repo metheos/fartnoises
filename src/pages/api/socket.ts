@@ -1320,12 +1320,183 @@ export default function SocketHandler(
           });
           io.to(roomCode).emit("roomUpdated", room);
 
-          // Always transition to ROUND_RESULTS first to allow winner audio playback
-          // Game completion check will happen after winner audio completes in winnerAudioComplete handler
-          console.log(
-            `Round results displayed, waiting for client audio completion before checking game end...`
-          );
-          // The next round (or game end) will be triggered when client emits 'winnerAudioComplete'
+          // Check if there are main screens to handle audio playback
+          if (!hasMainScreens(roomCode)) {
+            // No main screens - skip audio playback and proceed immediately
+            console.log(
+              `No main screens connected. Proceeding directly to next round/game end check...`
+            );
+
+            // Simulate winnerAudioComplete logic inline
+            setTimeout(() => {
+              if (room.gameState !== GameState.ROUND_RESULTS) return;
+
+              // Check if the game should end before starting next round
+              const maxScore = Math.max(...room.players.map((p) => p.score));
+              const gameWinners = room.players.filter(
+                (p) => p.score === maxScore
+              );
+              const isEndOfRounds = room.currentRound >= room.maxRounds;
+              const isScoreLimitReached = maxScore >= GAME_CONFIG.MAX_SCORE;
+              const isTie = gameWinners.length > 1;
+
+              console.log(
+                `🏁 No-main-screen game completion check: currentRound=${room.currentRound}, maxRounds=${room.maxRounds}, maxScore=${maxScore}, scoreThreshold=${GAME_CONFIG.MAX_SCORE}, isTie=${isTie}`
+              );
+
+              // Game ends if end condition is met AND there is a single winner.
+              if ((isEndOfRounds || isScoreLimitReached) && !isTie) {
+                console.log(
+                  `🎉 Game ending (no main screen): Round ${room.currentRound}/${room.maxRounds} or score ${maxScore} reached threshold with a single winner.`
+                );
+
+                room.gameState = GameState.GAME_OVER;
+                room.winner = gameWinners[0].id;
+                io.to(roomCode).emit("roomUpdated", room);
+                io.to(roomCode).emit("gameStateChanged", GameState.GAME_OVER, {
+                  winner: gameWinners[0],
+                  finalScores: room.players.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    score: p.score,
+                  })),
+                });
+                io.to(roomCode).emit(
+                  "gameComplete",
+                  gameWinners[0].id,
+                  gameWinners[0].name
+                );
+                return; // Exit early - don't start next round
+              } else if ((isEndOfRounds || isScoreLimitReached) && isTie) {
+                console.log(
+                  `👔 Tie detected at game end (no main screen). Entering sudden death. Players: ${gameWinners
+                    .map((p) => p.name)
+                    .join(", ")}`
+                );
+                io.to(roomCode).emit("tieBreakerRound", {
+                  tiedPlayers: gameWinners.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                  })),
+                });
+                // Continue to next round for tie-breaker
+              }
+
+              // Start next round (only if game didn't end)
+              console.log(
+                `Starting next round ${
+                  room.currentRound + 1
+                } (no main screen)...`
+              );
+              room.currentRound += 1;
+              room.currentJudge = selectNextJudge(room);
+              room.gameState = GameState.JUDGE_SELECTION;
+              room.currentPrompt = null;
+              room.submissions = [];
+              room.randomizedSubmissions = []; // Clear randomized submissions for new round
+              room.submissionSeed = undefined; // Clear the seed
+              room.soundSelectionTimerStarted = false;
+              room.judgeSelectionTimerStarted = false;
+
+              // Clear previous round winner information
+              room.lastWinner = null;
+              room.lastWinningSubmission = null;
+
+              io.to(roomCode).emit("judgeSelected", room.currentJudge);
+              io.to(roomCode).emit(
+                "gameStateChanged",
+                GameState.JUDGE_SELECTION,
+                { judgeId: room.currentJudge }
+              );
+
+              // Auto-transition to prompt selection
+              room.judgeSelectionTimerStarted = true;
+              setTimeout(async () => {
+                if (room.gameState === GameState.JUDGE_SELECTION) {
+                  room.judgeSelectionTimerStarted = false;
+                  room.gameState = GameState.PROMPT_SELECTION;
+                  console.log(
+                    "Generating prompts for players:",
+                    room.players.map((p) => p.name)
+                  );
+                  const prompts = await getRandomPrompts(
+                    6,
+                    room.usedPromptIds || [],
+                    room.players.map((p) => p.name)
+                  );
+                  console.log(
+                    "Generated prompts:",
+                    prompts.map((p) => ({ id: p.id, text: p.text }))
+                  );
+                  room.availablePrompts = prompts;
+
+                  io.to(roomCode).emit(
+                    "gameStateChanged",
+                    GameState.PROMPT_SELECTION,
+                    {
+                      prompts,
+                      judgeId: room.currentJudge,
+                      timeLimit: GAME_CONFIG.PROMPT_SELECTION_TIME,
+                    }
+                  );
+
+                  // Start countdown timer for prompt selection
+                  startTimer(
+                    roomCode,
+                    GAME_CONFIG.PROMPT_SELECTION_TIME,
+                    async () => {
+                      // Auto-select first prompt if no selection made
+                      if (room.gameState === GameState.PROMPT_SELECTION) {
+                        const firstPrompt = prompts[0];
+                        processAndAssignPrompt(room, firstPrompt);
+
+                        // Track this prompt as used to avoid repeating in future rounds
+                        if (!room.usedPromptIds) {
+                          room.usedPromptIds = [];
+                        }
+                        room.usedPromptIds.push(firstPrompt.id);
+
+                        room.gameState = GameState.SOUND_SELECTION;
+                        room.submissions = [];
+                        room.randomizedSubmissions = []; // Clear randomized submissions for new round
+                        room.submissionSeed = undefined; // Clear the seed
+                        room.soundSelectionTimerStarted = false;
+
+                        const soundOptions = await getRandomSounds(12);
+
+                        io.to(roomCode).emit("roomUpdated", room);
+                        io.to(roomCode).emit("promptSelected", firstPrompt);
+                        io.to(roomCode).emit(
+                          "gameStateChanged",
+                          GameState.SOUND_SELECTION,
+                          {
+                            prompt: firstPrompt,
+                            sounds: soundOptions,
+                            timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
+                          }
+                        );
+
+                        console.log(
+                          `[TIMER] Transitioned to sound selection (no main screen), waiting for first submission to start timer`
+                        );
+                      }
+                    },
+                    (timeLeft) => {
+                      if (room.gameState === GameState.PROMPT_SELECTION) {
+                        io.to(roomCode).emit("timeUpdate", { timeLeft });
+                      }
+                    }
+                  );
+                }
+              }, 3000);
+            }, 2000); // 2 second pause to show results
+          } else {
+            // Main screens present - wait for winnerAudioComplete signal
+            console.log(
+              `Main screens connected. Round results displayed, waiting for client audio completion before checking game end...`
+            );
+            // The next round (or game end) will be triggered when client emits 'winnerAudioComplete'
+          }
         } catch (error) {
           console.error("Error selecting winner:", error);
         }
