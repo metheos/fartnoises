@@ -132,9 +132,15 @@ function cleanSoundName(name: string): string {
         index > 0 &&
         /["'""''‚„«»‹›「」『』]$/.test(cleaned.split(" ")[index - 1]);
 
-      // Always capitalize first word, words after quotes, or words not in articles list
+      // Check if this word itself starts with a quote mark
+      const startsWithQuote = /^["'""''‚„«»‹›「」『』]/.test(word);
+
+      // Always capitalize first word, words after quotes, words starting with quotes, or words not in articles list
       const shouldCapitalize =
-        index === 0 || startsAfterQuote || !articles.has(word.toLowerCase());
+        index === 0 ||
+        startsAfterQuote ||
+        startsWithQuote ||
+        !articles.has(word.toLowerCase());
 
       if (shouldCapitalize) {
         return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
