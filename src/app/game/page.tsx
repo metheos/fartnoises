@@ -1189,7 +1189,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                     <div className="text-sm font-bold mb-1">{sound.name}</div>
                     {selectedSoundsLocal.includes(sound.id) && (
                       <div className="text-xs opacity-90">
-                        {selectedSoundsLocal.indexOf(sound.id) === 0 ? '🔵 Sound 1' : '🟢 Sound 2'}
+                        {/* {selectedSoundsLocal.indexOf(sound.id) === 0 ? '🔵 Sound 1' : '🟢 Sound 2'} */}
                       </div>
                     )}
                   </div>
@@ -1211,28 +1211,110 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
           </div>
 
           {/* Selected sounds display */}
-          {selectedSoundsLocal.length > 0 && (
-            <div className="bg-gray-50 rounded-xl p-4 max-w-md mx-auto">
-              <p className="text-gray-800 font-semibold mb-2 text-center">Selected Sounds:</p>
-              <div className="flex gap-2 justify-center">
-                {selectedSoundsLocal.map((soundId, index) => (
-                  <span 
-                    key={soundId}
-                    className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
-                      index === 0 ? 'bg-blue-500' : 'bg-green-500'
-                    }`}
+          <div className="bg-gradient-to-br from-purple-50 via-white to-pink-50 rounded-2xl p-6 max-w-2xl mx-auto border border-purple-100 shadow-lg">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-lg">🎵</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-800">Your Sound Combo</h3>
+            </div>
+            
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+              {/* Sound 1 Slot */}
+              <div className="relative">
+                <div className={`w-48 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
+                  selectedSoundsLocal.length > 0 
+                    ? 'border-blue-400 bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg transform scale-105' 
+                    : 'border-blue-300 bg-blue-50 hover:border-blue-400 hover:bg-blue-100'
+                }`}>
+                  {selectedSoundsLocal.length > 0 ? (
+                    <div className="text-center text-white">
+                      {/* <div className="text-sm font-bold opacity-90 mb-1">🔵 SOUND 1</div> */}
+                      <div className="text-lg font-bold">
+                        {playerSoundSet.find(s => s.id === selectedSoundsLocal[0])?.name || 'Unknown'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-blue-600">
+                      <div className="text-2xl mb-1">🔵</div>
+                      <div className="text-sm font-semibold">Select First Sound</div>
+                    </div>
+                  )}
+                </div>
+                {selectedSoundsLocal.length > 0 && (
+                  <button
+                    onClick={() => playSound(selectedSoundsLocal[0])}
+                    className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all hover:scale-110 border-2 border-blue-200"
+                    title="Preview sound"
                   >
-                    {index === 0 ? '🔵' : '🟢'} {playerSoundSet.find(s => s.id === soundId)?.name}
-                  </span>
-                ))}
-                {selectedSoundsLocal.length < 2 && (
-                  <span className="bg-gray-300 text-gray-600 px-3 py-1 rounded-full text-sm">
-                    {selectedSoundsLocal.length === 0 ? 'Choose 1-2 sounds' : 'Add 2nd sound (optional)'}
-                  </span>
+                    <span className="text-blue-600 text-sm">🔊</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Plus/Connection Symbol */}
+              <div className="flex items-center justify-center">
+                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-bold text-xl">
+                  +
+                </div>
+              </div>
+
+              {/* Sound 2 Slot */}
+              <div className="relative">
+                <div className={`w-48 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
+                  selectedSoundsLocal.length > 1 
+                    ? 'border-green-400 bg-gradient-to-br from-green-500 to-green-600 shadow-lg transform scale-105' 
+                    : 'border-green-300 bg-green-50 hover:border-green-400 hover:bg-green-100'
+                }`}>
+                  {selectedSoundsLocal.length > 1 ? (
+                    <div className="text-center text-white">
+                      {/* <div className="text-sm font-bold opacity-90 mb-1">🟢 SOUND 2</div> */}
+                      <div className="text-lg font-bold">
+                        {playerSoundSet.find(s => s.id === selectedSoundsLocal[1])?.name || 'Unknown'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-green-600">
+                      <div className="text-2xl mb-1">🟢</div>
+                      <div className="text-sm font-semibold">
+                        {selectedSoundsLocal.length === 0 ? 'Select Second Sound' : 'Add Second Sound'}
+                      </div>
+                      <div className="text-xs opacity-75 mt-1">(Optional)</div>
+                    </div>
+                  )}
+                </div>
+                {selectedSoundsLocal.length > 1 && (
+                  <button
+                    onClick={() => playSound(selectedSoundsLocal[1])}
+                    className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all hover:scale-110 border-2 border-green-200"
+                    title="Preview sound"
+                  >
+                    <span className="text-green-600 text-sm">🔊</span>
+                  </button>
                 )}
               </div>
             </div>
-          )}          {/* Submit button */}
+
+            {/* Preview Combo Button */}
+            {selectedSoundsLocal.length > 0 && (
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => {
+                    // Play both selected sounds in sequence
+                    if (selectedSoundsLocal.length === 1) {
+                      playSound(selectedSoundsLocal[0]);
+                    } else if (selectedSoundsLocal.length === 2) {
+                      playSound(selectedSoundsLocal[0]);
+                      setTimeout(() => playSound(selectedSoundsLocal[1]), 800);
+                    }
+                  }}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-xl font-bold hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  🎧 Preview Your Combo
+                </button>
+              </div>
+            )}
+          </div>          {/* Submit button */}
           <button 
             onClick={onSubmitSounds}
             disabled={selectedSoundsLocal.length === 0 || (hasFirstSubmission && timeLeft <= 0)}
