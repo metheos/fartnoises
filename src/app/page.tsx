@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function Home() {
@@ -8,6 +8,15 @@ export default function Home() {
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState<'create' | 'join' | null>(null);
   const router = useRouter();
+
+  // Clear any game persistence data when the home page loads
+  // This ensures a fresh start when users return to the home screen
+  useEffect(() => {
+    // Clear localStorage data that might cause unwanted reconnection attempts
+    localStorage.removeItem('originalPlayerId');
+    localStorage.removeItem('lastKnownRoomCode');
+    console.log('Home page loaded: Cleared game persistence data for fresh start');
+  }, []);
   const handleSubmit = (selectedMode: 'create' | 'join') => {
     if (!playerName.trim()) return;
     
@@ -72,6 +81,11 @@ export default function Home() {
                 type="text"
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && playerName.trim() && roomCode.trim().length === 4) {
+                    handleSubmit('join');
+                  }
+                }}
                 placeholder="4-LETTER-CODE"
                 className="w-full px-6 py-4 text-lg text-gray-800 text-center font-mono tracking-widest border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors uppercase placeholder:text-gray-500"
                 maxLength={4}

@@ -414,6 +414,11 @@ export function WaitingForGameScreen({
             type="text"
             value={roomCodeInput}
             onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && roomCodeInput.length === 4) {
+                onJoinRoom();
+              }
+            }}
             placeholder="ABCD"
             maxLength={4}
             className="text-2xl font-mono font-bold text-center w-32 h-16 border-2 border-purple-300 rounded-xl focus:border-purple-500 focus:outline-none placeholder:text-gray-700 text-gray-900 bg-white"
@@ -922,7 +927,7 @@ export function PlaybackSubmissionsDisplay({
 
   return (
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Playback Time!</h3>
+      {/* <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Playback Time!</h3> */}
 
       {room.currentPrompt && (
         <div className={`bg-purple-100 rounded-2xl p-6 mb-8 text-center transition-all duration-300 ${promptPlaying ? 'ring-4 ring-purple-500' : ''}`}>
@@ -1245,22 +1250,23 @@ export function ResultsDisplay({
   };
   
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-800 mb-6">🎉 Round Results! 🎉</h3>
+    <div className="bg-white rounded-3xl p-12 shadow-2xl">
+      <h3 className="text-3xl font-bold text-gray-800 mb-8 text-center">🎉 Round Results! 🎉</h3>
       
       {roundWinner && (
-        <div className="mb-8">
-          {/* Winning Sound Combination Card - Similar to playback style */}
-          {roundWinner.winningSubmission && (
-            <div className="mb-8">
-              <h4 className="text-2xl font-bold text-gray-800 mb-2">{roundWinner.winnerName} Wins!</h4>
-                <p className="text-2xl font-extrabold text-purple-700 mb-6 drop-shadow-lg" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-8">
+          {/* Left Column - Winning Sound Combination Card */}
+          <div className="text-center">
+            {roundWinner.winningSubmission && (
+              <div>
+                {/* <h4 className="text-2xl font-bold text-gray-800 mb-2">{roundWinner.winnerName} Wins!</h4> */}
+                <p className="text-xl font-extrabold text-purple-700 mb-6 drop-shadow-lg" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}>
                 </p>
-                <div className={`relative rounded-3xl p-8 transition-all duration-500 max-w-md mx-auto ${
-                isPlayingWinner 
-                  ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
-                  : 'bg-gradient-to-br from-yellow-200 to-yellow-300'
-              }`}>
+                <div className={`relative rounded-3xl p-8 transition-all duration-500 ${
+                  isPlayingWinner 
+                    ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
+                    : 'bg-gradient-to-br from-yellow-200 to-yellow-300'
+                }`}>
                 
                 {/* Progress Indicator */}
                 {isPlayingWinner && (
@@ -1359,15 +1365,64 @@ export function ResultsDisplay({
                     )}
                   </div>
                 </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Right Column - Scores List */}
+          <div className="text-center">
+          <p className="text-xl font-extrabold text-purple-700 mb-6 drop-shadow-lg">&nbsp;</p>
+          <div className="bg-gray-50 rounded-3xl p-6 shadow-inner">
+            <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Current Standings</h3>
+            <ul className="space-y-3">
+              {room.players
+                .sort((a, b) => b.score - a.score)
+                .map((p, index) => {
+                  const rank = index + 1;
+                  const isRoundWinner = p.id === roundWinner.winnerId;
+                  
+                  let rankStyles = 'bg-gray-200 text-gray-700';
+                  if (rank === 1) rankStyles = 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900 shadow-md'; // Gold
+                  if (rank === 2) rankStyles = 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800 shadow-md'; // Silver
+                  if (rank === 3) rankStyles = 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900 shadow-md'; // Bronze
+
+                  return (
+                    <li 
+                      key={p.id} 
+                      className={`flex items-center p-3 rounded-2xl shadow-sm transition-all duration-300 ${
+                        isRoundWinner ? 'bg-green-100 border-2 border-green-400 scale-105' : 'bg-white'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center font-black text-lg mr-4 ${rankStyles}`}>
+                        {rank}
+                      </div>
+                      <div className="flex-grow">
+                        <p className="font-bold text-gray-900 text-lg">{p.name}</p>
+                      </div>
+                      {isRoundWinner && (
+                        <div className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full mr-4 animate-pulse">
+                          +1 PT
+                        </div>
+                      )}
+                      <div className="text-right">
+                        <p className="font-black text-xl text-purple-600">{p.score}</p>
+                        <p className="text-xs text-gray-500 uppercase">Points</p>
+                      </div>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+          </div>
         </div>
       )}
       
-      <p className="text-xl text-gray-800">
-        Round {room.currentRound} complete! Getting ready for the next round...
-      </p>
+      <div className="text-center">
+        <p className="text-xl text-gray-800">
+          Round {room.currentRound} complete! Getting ready for the next round...
+        </p>
+      </div>
     </div>
   );
 }

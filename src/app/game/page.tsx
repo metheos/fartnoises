@@ -136,13 +136,15 @@ function GamePageContent() {
         addDebugLog('Attempting connection logic (create/join).');
         hasAttemptedConnectionLogic.current = true; // Mark that we are attempting it
 
-        // Check if this might be a reconnection attempt (for any mode)
+        // Check if this might be a reconnection attempt (only for join mode)
+        // For create/host mode, we always want to create a fresh room
         const originalPlayerId = localStorage.getItem('originalPlayerId');
         const lastKnownRoomCode = localStorage.getItem('lastKnownRoomCode');
         const hasReconnectionData = originalPlayerId && originalPlayerId !== currentSocket.id && lastKnownRoomCode;
+        const shouldAttemptReconnection = hasReconnectionData && mode === 'join';
 
-        if (hasReconnectionData) {
-          // Always try reconnection first if we have the data, regardless of mode
+        if (shouldAttemptReconnection) {
+          // Only try reconnection for join mode
           addDebugLog(`Attempting reconnection for room: ${lastKnownRoomCode}, player: ${playerName}, originalId: ${originalPlayerId}`);
           currentSocket.emit('reconnectToRoom', lastKnownRoomCode, playerName, originalPlayerId, (success: boolean, reconnectedRoom?: Room) => {
             if (success && reconnectedRoom) {
@@ -156,7 +158,13 @@ function GamePageContent() {
             }
           });
         } else {
-          // No reconnection data, proceed with original mode
+          // No reconnection attempt needed (create/host mode) or no reconnection data
+          if (hasReconnectionData && (mode === 'create' || mode === 'host')) {
+            addDebugLog(`Create/host mode detected, clearing old reconnection data and creating fresh room`);
+            // Clear old reconnection data since we're explicitly creating a new room
+            localStorage.removeItem('originalPlayerId');
+            localStorage.removeItem('lastKnownRoomCode');
+          }
           proceedWithOriginalMode();
         }
 
@@ -777,7 +785,7 @@ function JudgeSelectionComponent({ room, player }: { room: Room; player: Player 
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Judge Selection</h2>
       {judge ? (
-        <p className="text-gray-800 text-xl">The judge for this round is: <span className={`font-bold ${getPlayerColorClass(judge.color)} p-1 rounded`}>{judge.name}</span></p>
+        <p className="text-gray-800 text-xl">The judge for this round is: <span className={`font-bold text-white ${getPlayerColorClass(judge.color)} p-1 rounded`}>{judge.name}</span></p>
       ) : (
         <p className="text-gray-800">Waiting for judge selection...</p>
       )}
@@ -792,6 +800,10 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
   onSelectPrompt: (promptId: string) => void; 
 }) {
   const isJudge = player.id === room.currentJudge;
+  
+  // Debug logging to see what prompts we're receiving
+  console.log('PromptSelectionComponent - Available prompts:', room.availablePrompts);
+  
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Prompt Selection</h2>
@@ -799,14 +811,14 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
         <>
           <p className="text-gray-800 mb-4">Choose a prompt for this round:</p>
           <div className="space-y-3">
-            {room.availablePrompts?.map((prompt, index) => (
+            {room.availablePrompts?.map((prompt) => (
               <button 
                 key={prompt.id}
                 onClick={() => onSelectPrompt(prompt.id)}
                 className="w-full bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors"
-              >
-                {prompt.text}
-              </button>
+                aria-label={`Select prompt: ${prompt.text.replace(/<[^>]*>/g, '')}`}
+                dangerouslySetInnerHTML={{ __html: prompt.text }}
+              />
             ))}
           </div>
         </>
@@ -913,7 +925,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
       <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
         <h2 className="text-2xl font-bold text-purple-600 mb-4">Sound Selection</h2>
         <p className="text-gray-800">Players are selecting their sounds...</p>
-        <p className="text-gray-800 mt-2">Prompt: <span className="font-semibold">{room.currentPrompt?.text}</span></p>
+        <p className="text-gray-800 mt-2">Prompt: <span className="font-semibold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></span></p>
       </div>
     );
   }
@@ -924,7 +936,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Select Your Sounds!</h2>
-      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold">{room.currentPrompt?.text}</span></p>
+      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></span></p>
       
       {/* Only show timer after first submission */}
       {hasFirstSubmission ? (
@@ -1199,7 +1211,7 @@ function ResultsComponent({ room, player, roundWinner, soundEffects }: {
         </p>
           </div>
           <p className="text-md italic opacity-90 max-w-md mx-auto">
-        For their take on: &quot;{room.currentPrompt?.text}&quot;
+        For their take on: &quot;<span dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}/>&quot;
           </p>
         </div>
       </div>
@@ -1362,10 +1374,34 @@ function GameOverComponent({ room, player }: { room: Room; player: Player }) {
       <h2 className="text-4xl font-black text-purple-700 mb-6">Game Over!</h2>
       {overallWinner && (
         <p className="text-2xl font-bold mb-4">
-          The Grand Winner is <span className={getPlayerColorClass(overallWinner.color)}>{overallWinner.name}</span> with {overallWinner.score} points!
+          The Grand Winner is <span>{overallWinner.name}</span> with {overallWinner.score} points!
         </p>
       )}
-      <h3 className="text-xl font-semibold text-gray-800 mb-3">Final Scores:</h3>
+      
+      <div className="bg-gray-100 rounded-2xl p-6">
+        <h4 className="text-2xl font-bold text-gray-800 mb-4">Final Scores</h4>
+        <div className="space-y-3">
+          {room.players.sort((a, b) => b.score - a.score).map((player, index) => (
+            <div 
+              key={player.id} 
+              className={`flex justify-between items-center p-4 rounded-xl ${
+                index === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-white'
+              }`}
+            >
+              <div className="flex items-center space-x-4">
+                <span className="text-2xl text-gray-800 font-bold">{index + 1}.</span>
+                <div 
+                  className={`w-8 h-8 rounded-full ${getPlayerColorClass(player.color)}`}
+                ></div>
+                <span className="text-xl font-bold text-gray-900">{player.name}</span>
+              </div>
+              <span className="text-2xl font-bold text-purple-600">{player.score}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* <h3 className="text-xl font-semibold text-gray-800 mb-3">Final Scores:</h3>
       <ul className="space-y-1 max-w-sm mx-auto text-left mb-8">
         {room.players.sort((a, b) => b.score - a.score).map(p => (
           <li key={p.id} className={`p-2 rounded flex justify-between items-center ${getPlayerColorClass(p.color)} text-white shadow`}>
@@ -1373,7 +1409,7 @@ function GameOverComponent({ room, player }: { room: Room; player: Player }) {
             <span className="font-bold">{p.score} pts</span>
           </li>
         ))}
-      </ul>
+      </ul> */}
       <button 
         onClick={() => {
           // Clear reconnection data when starting a new game

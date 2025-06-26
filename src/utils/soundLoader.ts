@@ -1,5 +1,6 @@
 // Dynamic sound loader for EarwaxAudio.jet
 import { SoundEffect, GamePrompt } from "@/types/game";
+import { processPromptText } from "@/data/gameData";
 
 interface EarwaxSound {
   id?: number | string;
@@ -471,24 +472,6 @@ export async function loadEarwaxPrompts(): Promise<GamePrompt[]> {
     // Return empty array on error to prevent app crash
     return [];
   }
-}
-
-// Function to process prompt text for special tags
-function processPromptText(text: string, playerNames: string[] = []): string {
-  let processedText = text;
-
-  // Replace <ANY> tags with random player names
-  if (playerNames.length > 0) {
-    processedText = processedText.replace(/<ANY>/g, () => {
-      const randomIndex = Math.floor(Math.random() * playerNames.length);
-      return playerNames[randomIndex];
-    });
-  }
-
-  // Keep <i></i> tags as HTML for React rendering
-  // No need to convert them - React can handle HTML tags directly
-
-  return processedText;
 }
 
 // Get random prompts

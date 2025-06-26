@@ -16,8 +16,47 @@ export async function getSoundEffects(): Promise<SoundEffect[]> {
 // Legacy GAME_PROMPTS array removed - now using dynamic loader from soundLoader.ts
 
 // Function to get game prompts (use this instead of the static array)
-export async function getGamePrompts(): Promise<GamePrompt[]> {
-  return await loadEarwaxPrompts();
+export async function getGamePrompts(
+  playerNames: string[] = []
+): Promise<GamePrompt[]> {
+  const prompts = await loadEarwaxPrompts();
+
+  // Process prompt text for each prompt if player names are provided
+  if (playerNames.length > 0) {
+    return prompts.map((prompt) => ({
+      ...prompt,
+      text: processPromptText(prompt.text, playerNames),
+    }));
+  }
+
+  return prompts;
+}
+
+// Function to process prompt text for special tags (imported from soundLoader)
+export function processPromptText(
+  text: string,
+  playerNames: string[] = []
+): string {
+  let processedText = text;
+
+  console.log("processPromptText called with:", { text, playerNames });
+
+  // Replace <ANY> tags with random player names
+  if (playerNames.length > 0) {
+    processedText = processedText.replace(/<ANY>/g, () => {
+      const randomIndex = Math.floor(Math.random() * playerNames.length);
+      const selectedName = playerNames[randomIndex];
+      console.log("Replacing <ANY> with:", selectedName);
+      return selectedName;
+    });
+  } else {
+    console.log("No player names provided, <ANY> tags will remain unchanged");
+  }
+
+  console.log("processPromptText result:", processedText);
+
+  // Keep <i></i> tags as HTML for React rendering
+  return processedText;
 }
 
 // Player colors for avatars

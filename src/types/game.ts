@@ -44,6 +44,7 @@ export interface Room {
   currentSubmissionIndex?: number;
   usedPromptIds?: string[];
   soundSelectionTimerStarted?: boolean;
+  judgeSelectionTimerStarted?: boolean;
   isPlayingBack?: boolean;
   disconnectedPlayers?: DisconnectedPlayer[];
   pausedForDisconnection?: boolean;
@@ -116,7 +117,7 @@ export interface ServerToClientEvents {
   error: (data: { message: string }) => void;
   soundSubmitted: (submission: SoundSubmission) => void;
   judgeSelected: (judgeId: string) => void;
-  promptSelected: (prompt: string) => void;
+  promptSelected: (prompt: GamePrompt) => void;
   roundComplete: (winnerId: string, winnerName: string) => void;
   gameComplete: (winnerId: string, winnerName: string) => void;
   timeUpdate: (data: { timeLeft: number }) => void;

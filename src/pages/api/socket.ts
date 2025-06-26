@@ -15,6 +15,7 @@ import {
   getSoundEffects,
   PLAYER_COLORS,
   GAME_CONFIG,
+  processPromptText,
 } from "@/data/gameData";
 import {
   getRandomPrompts as getRandomPromptsFromLoader,
@@ -47,6 +48,21 @@ const serverEvents = new EventEmitter();
 // Constants for disconnection handling
 const RECONNECTION_GRACE_PERIOD = 30000; // 30 seconds
 const RECONNECTION_VOTE_TIMEOUT = 20000; // 20 seconds to vote
+
+// Helper function to ensure prompts are always processed with player names
+function processAndAssignPrompt(room: Room, prompt: any): void {
+  if (!prompt) {
+    room.currentPrompt = null;
+    return;
+  }
+
+  // Process the prompt text with current player names
+  const playerNames = room.players.map((p) => p.name);
+  room.currentPrompt = {
+    ...prompt,
+    text: processPromptText(prompt.text, playerNames),
+  };
+}
 
 // Helper function to broadcast the list of rooms
 function broadcastRoomListUpdate(
@@ -90,9 +106,10 @@ function selectNextJudge(room: Room): string {
 
 async function getRandomPrompts(
   count: number = 6,
-  excludePromptIds: string[] = []
+  excludePromptIds: string[] = [],
+  playerNames: string[] = []
 ) {
-  return await getRandomPromptsFromLoader(count, excludePromptIds);
+  return await getRandomPromptsFromLoader(count, excludePromptIds, playerNames);
 }
 
 async function getRandomSounds(count: number = 10) {
@@ -416,6 +433,79 @@ function resumeGame(
     if (room.soundSelectionTimerStarted) {
       startDelayedSoundSelectionTimer(roomCode, room, io);
     }
+  } else if (previousGameState === GameState.JUDGE_SELECTION) {
+    // Only restart timer if it hasn't been started yet (similar to sound selection logic)
+    if (!room.judgeSelectionTimerStarted) {
+      room.judgeSelectionTimerStarted = true;
+      // Auto-transition from judge selection to prompt selection (same as original game start logic)
+      setTimeout(async () => {
+        const currentRoom = rooms.get(roomCode);
+        if (
+          currentRoom &&
+          currentRoom.gameState === GameState.JUDGE_SELECTION
+        ) {
+          currentRoom.judgeSelectionTimerStarted = false;
+          currentRoom.gameState = GameState.PROMPT_SELECTION;
+          console.log(
+            "Generating prompts for players:",
+            currentRoom.players.map((p) => p.name)
+          );
+          const prompts = await getRandomPrompts(
+            6,
+            currentRoom.usedPromptIds || [],
+            currentRoom.players.map((p) => p.name)
+          );
+          console.log(
+            "Generated prompts:",
+            prompts.map((p) => ({ id: p.id, text: p.text }))
+          );
+          currentRoom.availablePrompts = prompts;
+
+          io.to(roomCode).emit("roomUpdated", currentRoom);
+          io.to(roomCode).emit("gameStateChanged", GameState.PROMPT_SELECTION, {
+            prompts: prompts,
+            judgeId: currentRoom.currentJudge,
+            timeLimit: GAME_CONFIG.PROMPT_SELECTION_TIME,
+          });
+
+          // Start countdown timer for prompt selection (same as original logic)
+          startTimer(
+            roomCode,
+            GAME_CONFIG.PROMPT_SELECTION_TIME,
+            async () => {
+              // Auto-select first prompt if no selection made
+              const timerRoom = rooms.get(roomCode);
+              if (
+                timerRoom &&
+                timerRoom.gameState === GameState.PROMPT_SELECTION &&
+                timerRoom.availablePrompts &&
+                timerRoom.availablePrompts.length > 0
+              ) {
+                // Auto-select the first prompt
+                const selectedPrompt = timerRoom.availablePrompts[0];
+                timerRoom.currentPrompt = selectedPrompt;
+                timerRoom.gameState = GameState.SOUND_SELECTION;
+
+                io.to(roomCode).emit("promptSelected", selectedPrompt);
+                io.to(roomCode).emit(
+                  "gameStateChanged",
+                  GameState.SOUND_SELECTION,
+                  {
+                    prompt: selectedPrompt,
+                    sounds: [], // Will be populated with random sounds
+                    timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
+                  }
+                );
+                io.to(roomCode).emit("roomUpdated", timerRoom);
+              }
+            },
+            (timeLeft) => {
+              io.to(roomCode).emit("timeUpdate", { timeLeft });
+            }
+          );
+        }
+      }, 3000); // 3 second delay (same as original logic)
+    }
   }
   // Note: Add other timer restarts as needed based on game state
 }
@@ -574,6 +664,7 @@ export default function SocketHandler(
             winner: null,
             usedPromptIds: [], // Track prompts used during this game session
             soundSelectionTimerStarted: false,
+            judgeSelectionTimerStarted: false,
             promptChoices: [],
             lastWinner: null,
             lastWinningSubmission: null,
@@ -656,18 +747,30 @@ export default function SocketHandler(
           room.gameState = GameState.JUDGE_SELECTION;
           room.currentJudge = selectNextJudge(room);
           room.currentRound = 1;
+          room.judgeSelectionTimerStarted = false;
 
           io.to(roomCode).emit("roomUpdated", room);
           io.to(roomCode).emit("judgeSelected", room.currentJudge);
           io.to(roomCode).emit("gameStateChanged", GameState.JUDGE_SELECTION, {
             judgeId: room.currentJudge,
           }); // Auto-transition to prompt selection after a delay
+          room.judgeSelectionTimerStarted = true;
           setTimeout(async () => {
             if (room.gameState === GameState.JUDGE_SELECTION) {
+              room.judgeSelectionTimerStarted = false;
               room.gameState = GameState.PROMPT_SELECTION;
+              console.log(
+                "Generating prompts for players:",
+                room.players.map((p) => p.name)
+              );
               const prompts = await getRandomPrompts(
                 6,
-                room.usedPromptIds || []
+                room.usedPromptIds || [],
+                room.players.map((p) => p.name)
+              );
+              console.log(
+                "Generated prompts:",
+                prompts.map((p) => ({ id: p.id, text: p.text }))
               );
               room.availablePrompts = prompts;
 
@@ -694,9 +797,9 @@ export default function SocketHandler(
                     clearTimer(roomCode);
 
                     const firstPrompt = prompts[0];
-                    room.currentPrompt = firstPrompt;
+                    processAndAssignPrompt(room, firstPrompt);
 
-                    // Track this prompt as used to avoid repeating it in future rounds
+                    // Track this prompt as used to avoid repeating in future rounds
                     if (!room.usedPromptIds) {
                       room.usedPromptIds = [];
                     }
@@ -780,7 +883,9 @@ export default function SocketHandler(
           if (room.availablePrompts) {
             prompt = room.availablePrompts.find((p) => p.id === promptId);
           } else {
-            const allPrompts = await getGamePrompts();
+            const allPrompts = await getGamePrompts(
+              room.players.map((p) => p.name)
+            );
             prompt = allPrompts.find((p) => p.id === promptId);
           }
 
@@ -795,9 +900,9 @@ export default function SocketHandler(
           console.log(
             `🎯 SERVER: All validations passed, updating room state to SOUND_SELECTION`
           );
-          room.currentPrompt = prompt; // Store the full prompt object
+          processAndAssignPrompt(room, prompt); // Store the full prompt object with processed text
 
-          // Track this prompt as used to avoid repeating it in future rounds
+          // Track this prompt as used to avoid repeating in future rounds
           if (!room.usedPromptIds) {
             room.usedPromptIds = [];
           }
@@ -1077,6 +1182,7 @@ export default function SocketHandler(
             room.currentPrompt = null;
             room.submissions = [];
             room.soundSelectionTimerStarted = false;
+            room.judgeSelectionTimerStarted = false;
 
             io.to(roomCode).emit("judgeSelected", room.currentJudge);
             io.to(roomCode).emit(
@@ -1084,12 +1190,23 @@ export default function SocketHandler(
               GameState.JUDGE_SELECTION,
               { judgeId: room.currentJudge }
             ); // Auto-transition to prompt selection
+            room.judgeSelectionTimerStarted = true;
             setTimeout(async () => {
               if (room.gameState === GameState.JUDGE_SELECTION) {
+                room.judgeSelectionTimerStarted = false;
                 room.gameState = GameState.PROMPT_SELECTION;
+                console.log(
+                  "Generating prompts for players:",
+                  room.players.map((p) => p.name)
+                );
                 const prompts = await getRandomPrompts(
                   6,
-                  room.usedPromptIds || []
+                  room.usedPromptIds || [],
+                  room.players.map((p) => p.name)
+                );
+                console.log(
+                  "Generated prompts:",
+                  prompts.map((p) => ({ id: p.id, text: p.text }))
                 );
                 room.availablePrompts = prompts;
 
@@ -1111,7 +1228,7 @@ export default function SocketHandler(
                     // Auto-select first prompt if no selection made
                     if (room.gameState === GameState.PROMPT_SELECTION) {
                       const firstPrompt = prompts[0];
-                      room.currentPrompt = firstPrompt;
+                      processAndAssignPrompt(room, firstPrompt);
 
                       // Track this prompt as used to avoid repeating in future rounds
                       if (!room.usedPromptIds) {
