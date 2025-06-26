@@ -1044,7 +1044,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
         // Generate random set of sounds for this player using getRandomSounds
         const loadRandomSounds = async () => {
           try {
-            const randomSounds = await getRandomSounds(12); // Get random sounds
+            const randomSounds = await getRandomSounds(10); // Get random sounds
             setPlayerSoundSet(randomSounds);
             setSelectedSoundsLocal([]);
           } catch (error) {

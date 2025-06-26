@@ -1012,7 +1012,7 @@ export default function SocketHandler(
                     room.submissionSeed = undefined; // Clear the seed
                     room.soundSelectionTimerStarted = false;
 
-                    const soundOptions = await getRandomSounds(12);
+                    const soundOptions = await getRandomSounds(10);
 
                     io.to(roomCode).emit("roomUpdated", room);
                     io.to(roomCode).emit("promptSelected", firstPrompt);
@@ -1117,7 +1117,7 @@ export default function SocketHandler(
           room.submissionSeed = undefined; // Clear the seed
           room.soundSelectionTimerStarted = false;
 
-          const soundOptions = await getRandomSounds(12);
+          const soundOptions = await getRandomSounds(10);
 
           console.log(`🎯 SERVER: Emitting room updates for ${roomCode}`);
           io.to(roomCode).emit("roomUpdated", room);
@@ -1519,7 +1519,7 @@ export default function SocketHandler(
                         room.submissionSeed = undefined; // Clear the seed
                         room.soundSelectionTimerStarted = false;
 
-                        const soundOptions = await getRandomSounds(12);
+                        const soundOptions = await getRandomSounds(10);
 
                         io.to(roomCode).emit("roomUpdated", room);
                         io.to(roomCode).emit("promptSelected", firstPrompt);
@@ -1720,7 +1720,7 @@ export default function SocketHandler(
                       room.submissionSeed = undefined; // Clear the seed
                       room.soundSelectionTimerStarted = false;
 
-                      const soundOptions = await getRandomSounds(12);
+                      const soundOptions = await getRandomSounds(10);
 
                       io.to(roomCode).emit("roomUpdated", room);
                       io.to(roomCode).emit("promptSelected", firstPrompt);
