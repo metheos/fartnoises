@@ -50,6 +50,7 @@ const baseMockRoom: Omit<Room, 'gameState'> = {
   currentPrompt: { id: 'p1', text: 'The sound of a robot trying to love.', category: 'Modern Life' },
   currentRound: 2,
   maxRounds: 5,
+  maxScore: 3,
   submissions: [],
   winner: null,
   availablePrompts: mockAvailablePrompts,

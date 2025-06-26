@@ -127,8 +127,13 @@ export const PLAYER_EMOJIS = [
 export const GAME_CONFIG = {
   MIN_PLAYERS: 3,
   MAX_PLAYERS: 8,
-  DEFAULT_MAX_ROUNDS: 1,
-  MAX_SCORE: 1, // Score needed to win the game
+  DEFAULT_MAX_ROUNDS: 8,
+  MAX_SCORE: 3, // Default score needed to win the game
+  // Game settings validation ranges for VIP configuration
+  MIN_ROUNDS: 1,
+  MAX_ROUNDS_LIMIT: 20,
+  MIN_SCORE: 1,
+  MAX_SCORE_LIMIT: 10,
   SOUND_SELECTION_TIME: 45, // seconds
   PROMPT_SELECTION_TIME: 30, // seconds
   ROOM_CODE_LENGTH: 4,

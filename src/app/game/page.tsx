@@ -372,6 +372,20 @@ function GamePageContent() {
       addDebugLog('Game resumed after disconnection');
       setGamePaused(null);
       setReconnectionVote(null);
+    };
+
+    const handleGameSettingsUpdated = ({ maxRounds, maxScore }: { maxRounds: number; maxScore: number }) => {
+      addDebugLog(`Game settings updated: maxRounds=${maxRounds}, maxScore=${maxScore}`);
+      setRoom((currentRoomVal) => {
+        if (currentRoomVal) {
+          return {
+            ...currentRoomVal,
+            maxRounds,
+            maxScore
+          };
+        }
+        return currentRoomVal;
+      });
     };    // --- Register event listeners ---
     // Ensure listeners are not duplicated if effect re-runs for other reasons (though deps aim to prevent this)
     // This pattern of defining handlers inside effect and using them is fine.
@@ -390,6 +404,7 @@ function GamePageContent() {
     currentSocket.on('reconnectionVoteResult', handleReconnectionVoteResult);
     currentSocket.on('gamePausedForDisconnection', handleGamePausedForDisconnection);
     currentSocket.on('gameResumed', handleGameResumed);
+    currentSocket.on('gameSettingsUpdated', handleGameSettingsUpdated);
     currentSocket.on('gameStateChanged', handleGameStateChanged);
     currentSocket.on('promptSelected', handlePromptSelected);
     currentSocket.on('judgeSelected', handleJudgeSelected);
@@ -421,6 +436,7 @@ function GamePageContent() {
       currentSocket.off('reconnectionVoteResult', handleReconnectionVoteResult);
       currentSocket.off('gamePausedForDisconnection', handleGamePausedForDisconnection);
       currentSocket.off('gameResumed', handleGameResumed);
+      currentSocket.off('gameSettingsUpdated', handleGameSettingsUpdated);
       // DO NOT disconnect socketRef.current here. That's for the unmount effect.
     };
   }, [mode, playerName, roomCode]); // Removed 'router' from dependencies
@@ -521,6 +537,17 @@ function GamePageContent() {
           setError('Failed to reconnect. The game may have continued without you.');
         }
       });
+    }
+  };
+
+  const updateGameSetting = (setting: 'maxScore' | 'maxRounds', value: number) => {
+    if (socketRef.current && room && player?.isVIP) {
+      addDebugLog(`Updating ${setting} to ${value}`);
+      const settings = {
+        maxScore: setting === 'maxScore' ? value : room.maxScore,
+        maxRounds: setting === 'maxRounds' ? value : room.maxRounds,
+      };
+      socketRef.current.emit('updateGameSettings', settings);
     }
   };
   if (!isConnected && !error) { // Show connecting screen only if not yet connected and no error
@@ -642,7 +669,8 @@ function GamePageContent() {
           <LobbyComponent 
             room={room} 
             player={player} 
-            onStartGame={startGame} 
+            onStartGame={startGame}
+            onUpdateGameSetting={updateGameSetting}
           />
         )}
 
@@ -761,10 +789,11 @@ function GamePageContent() {
 }
 
 // Component implementations will follow...
-function LobbyComponent({ room, player, onStartGame }: { 
+function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting }: { 
   room: Room; 
   player: Player; 
-  onStartGame: () => void; 
+  onStartGame: () => void;
+  onUpdateGameSetting: (setting: 'maxScore' | 'maxRounds', value: number) => void;
 }) {
   // Basic Lobby UI
   return (
@@ -772,6 +801,71 @@ function LobbyComponent({ room, player, onStartGame }: {
       {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Lobby</h2> */}
       {/* <p className="text-gray-800 mb-2">Room Code: <span className="font-mono font-bold">{room.code}</span></p> */}
       {/* <p className="text-gray-800 mb-4">Players in lobby: {room.players.length}</p> */}
+      
+      {/* Game Settings Display for non-VIP players */}
+      {!player.isVIP && (
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-4 mb-6 max-w-sm mx-auto">
+          <div className="flex justify-between items-center">
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-600">Score to Win</p>
+              <p className="text-2xl font-bold text-purple-600">{room.maxScore}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-600">Max Rounds</p>
+              <p className="text-2xl font-bold text-purple-600">{room.maxRounds}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Game Settings Controls for VIP players */}
+      {player.isVIP && (
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-4 mb-6 max-w-sm mx-auto border border-yellow-200">
+          <div className="flex justify-between items-center">
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-600">Score to Win</p>
+              <div className="flex items-center justify-center gap-2 mt-1">
+                <button
+                  onClick={() => onUpdateGameSetting('maxScore', Math.max(1, room.maxScore - 1))}
+                  className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold hover:bg-purple-600 transition-colors text-lg"
+                  disabled={room.maxScore <= 1}
+                >
+                  −
+                </button>
+                <p className="text-2xl font-bold text-purple-600 min-w-[3rem] text-center">{room.maxScore}</p>
+                <button
+                  onClick={() => onUpdateGameSetting('maxScore', Math.min(10, room.maxScore + 1))}
+                  className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold hover:bg-purple-600 transition-colors text-lg"
+                  disabled={room.maxScore >= 10}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-600">Max Rounds</p>
+              <div className="flex items-center justify-center gap-2 mt-1">
+                <button
+                  onClick={() => onUpdateGameSetting('maxRounds', Math.max(1, room.maxRounds - 1))}
+                  className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold hover:bg-purple-600 transition-colors text-lg"
+                  disabled={room.maxRounds <= 1}
+                >
+                  −
+                </button>
+                <p className="text-2xl font-bold text-purple-600 min-w-[3rem] text-center">{room.maxRounds}</p>
+                <button
+                  onClick={() => onUpdateGameSetting('maxRounds', Math.min(20, room.maxRounds + 1))}
+                  className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold hover:bg-purple-600 transition-colors text-lg"
+                  disabled={room.maxRounds >= 20}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <ul className="mb-8 text-left max-w-xs mx-auto space-y-3">
         {room.players.map((p, idx) => (
           <li

@@ -331,6 +331,22 @@ export default function MainScreen() {
       // This might be emitted by the server when a game begins
     });
 
+    // Handle game settings updates
+    socket.on('gameSettingsUpdated', (settings: { maxRounds: number; maxScore: number }) => {
+      console.log('Main screen: Game settings updated:', settings);
+      // Update current room with new settings
+      setCurrentRoom(prev => {
+        if (prev) {
+          return {
+            ...prev,
+            maxRounds: settings.maxRounds,
+            maxScore: settings.maxScore
+          };
+        }
+        return prev;
+      });
+    });
+
     socket.on('disconnect', () => {
       setIsConnected(false);
       console.log('Main screen disconnected from server');
@@ -716,15 +732,37 @@ export function MainScreenGameDisplay({
 export function LobbyDisplay({ room }: { room: Room }) {
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
-      <p className="text-2xl text-gray-800 mb-4 font-bold">
-      {room.players.length < 3
-        ? `Only ${room.players.length} joined...`
-        : (
-          <span className="inline-block text-4xl font-black bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 bg-clip-text text-transparent transform rotate-3 drop-shadow-lg animate-pulse">
-        {`${room.players.length} players ready!`}
-          </span>
-        )}
-      </p>
+      {/* Game Settings Display with Main Status */}
+      <div className="flex items-center justify-between mb-4">
+        {/* Score to Win (Left) */}
+        <div className="flex flex-col items-center">
+          <div className="text-lg font-bold text-purple-600 mb-1">Score to Win</div>
+          <div className="bg-purple-100 rounded-lg px-4 py-2 border-2 border-purple-300">
+            <span className="text-2xl font-black text-purple-700">{room.maxScore}</span>
+          </div>
+        </div>
+
+        {/* Main Status (Center) */}
+        <div className="flex-1 px-8">
+          <p className="text-2xl text-gray-800 font-bold">
+            {room.players.length < 3
+              ? `Only ${room.players.length} joined...`
+              : (
+                <span className="inline-block text-4xl font-black bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 bg-clip-text text-transparent transform rotate-3 drop-shadow-lg animate-pulse">
+                  {`${room.players.length} players ready!`}
+                </span>
+              )}
+          </p>
+        </div>
+
+        {/* Max Rounds (Right) */}
+        <div className="flex flex-col items-center">
+          <div className="text-lg font-bold text-blue-600 mb-1">Max Rounds</div>
+          <div className="bg-blue-100 rounded-lg px-4 py-2 border-2 border-blue-300">
+            <span className="text-2xl font-black text-blue-700">{room.maxRounds}</span>
+          </div>
+        </div>
+      </div>
       <p className="text-xl text-purple-600 mb-6">
       {room.players.length < 3
         ? "Need at least 3 players to play!"

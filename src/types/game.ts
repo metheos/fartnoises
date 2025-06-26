@@ -33,6 +33,7 @@ export interface Room {
   gameState: GameState;
   currentRound: number;
   maxRounds: number;
+  maxScore: number; // Added configurable max score
   currentJudge: string | null;
   currentPrompt: GamePrompt | null;
   promptChoices: GamePrompt[];
@@ -122,6 +123,10 @@ export interface ServerToClientEvents {
   promptSelected: (prompt: GamePrompt) => void;
   roundComplete: (winnerId: string, winnerName: string) => void;
   gameComplete: (winnerId: string, winnerName: string) => void;
+  gameSettingsUpdated: (settings: {
+    maxRounds: number;
+    maxScore: number;
+  }) => void; // Added for game settings updates
   timeUpdate: (data: { timeLeft: number }) => void;
   submissionPlayback: (data: {
     submissionIndex: number;
@@ -159,6 +164,10 @@ export interface ClientToServerEvents {
   ) => void;
   leaveRoom: () => void;
   startGame: () => void;
+  updateGameSettings: (settings: {
+    maxRounds: number;
+    maxScore: number;
+  }) => void; // Added for VIP to update game settings
   selectPrompt: (promptId: string) => void;
   submitSounds: (sounds: string[]) => void;
   selectWinner: (submissionId: string) => void;

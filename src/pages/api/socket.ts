@@ -800,6 +800,7 @@ export default function SocketHandler(
             currentPrompt: null,
             currentRound: 0,
             maxRounds: GAME_CONFIG.DEFAULT_MAX_ROUNDS,
+            maxScore: GAME_CONFIG.MAX_SCORE, // Add configurable max score
             submissions: [],
             winner: null,
             usedPromptIds: [], // Track prompts used during this game session
@@ -868,6 +869,62 @@ export default function SocketHandler(
         } catch (error) {
           console.error("Error joining room:", error);
           callback(false);
+        }
+      });
+
+      socket.on("updateGameSettings", (settings) => {
+        try {
+          const roomCode = playerRooms.get(socket.id);
+          if (!roomCode) return;
+
+          const room = rooms.get(roomCode);
+          if (!room) return;
+
+          const player = room.players.find((p) => p.id === socket.id);
+          if (!player?.isVIP) {
+            socket.emit("error", {
+              message: "Only the VIP can change game settings",
+            });
+            return;
+          }
+
+          if (room.gameState !== GameState.LOBBY) {
+            socket.emit("error", {
+              message: "Game settings can only be changed in the lobby",
+            });
+            return;
+          }
+
+          // Validate settings
+          const { maxRounds, maxScore } = settings;
+          if (
+            !Number.isInteger(maxRounds) ||
+            maxRounds < 1 ||
+            maxRounds > 20 ||
+            !Number.isInteger(maxScore) ||
+            maxScore < 1 ||
+            maxScore > 10
+          ) {
+            socket.emit("error", {
+              message: "Invalid game settings. Rounds: 1-20, Score: 1-10",
+            });
+            return;
+          }
+
+          // Update room settings
+          room.maxRounds = maxRounds;
+          room.maxScore = maxScore;
+
+          console.log(
+            `VIP ${player.name} updated game settings for room ${roomCode}: maxRounds=${maxRounds}, maxScore=${maxScore}`
+          );
+
+          // Notify all players in the room
+          io.to(roomCode).emit("gameSettingsUpdated", { maxRounds, maxScore });
+          io.to(roomCode).emit("roomUpdated", room);
+        } catch (error) {
+          console.error("Error updating game settings:", error);
+          socket.emit("error", { message: "Failed to update game settings" });
         }
       });
 
@@ -1337,11 +1394,11 @@ export default function SocketHandler(
                 (p) => p.score === maxScore
               );
               const isEndOfRounds = room.currentRound >= room.maxRounds;
-              const isScoreLimitReached = maxScore >= GAME_CONFIG.MAX_SCORE;
+              const isScoreLimitReached = maxScore >= room.maxScore;
               const isTie = gameWinners.length > 1;
 
               console.log(
-                `🏁 No-main-screen game completion check: currentRound=${room.currentRound}, maxRounds=${room.maxRounds}, maxScore=${maxScore}, scoreThreshold=${GAME_CONFIG.MAX_SCORE}, isTie=${isTie}`
+                `🏁 No-main-screen game completion check: currentRound=${room.currentRound}, maxRounds=${room.maxRounds}, maxScore=${maxScore}, scoreThreshold=${room.maxScore}, isTie=${isTie}`
               );
 
               // Game ends if end condition is met AND there is a single winner.
@@ -1536,11 +1593,11 @@ export default function SocketHandler(
           const maxScore = Math.max(...room.players.map((p) => p.score));
           const gameWinners = room.players.filter((p) => p.score === maxScore);
           const isEndOfRounds = room.currentRound >= room.maxRounds;
-          const isScoreLimitReached = maxScore >= GAME_CONFIG.MAX_SCORE;
+          const isScoreLimitReached = maxScore >= room.maxScore;
           const isTie = gameWinners.length > 1;
 
           console.log(
-            `🏁 Post-audio game completion check: currentRound=${room.currentRound}, maxRounds=${room.maxRounds}, maxScore=${maxScore}, scoreThreshold=${GAME_CONFIG.MAX_SCORE}, isTie=${isTie}`
+            `🏁 Post-audio game completion check: currentRound=${room.currentRound}, maxRounds=${room.maxRounds}, maxScore=${maxScore}, scoreThreshold=${room.maxScore}, isTie=${isTie}`
           );
 
           // Game ends if end condition is met AND there is a single winner.
