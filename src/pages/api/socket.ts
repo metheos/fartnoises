@@ -1307,6 +1307,10 @@ export default function SocketHandler(
           winner.score += 1;
           room.gameState = GameState.ROUND_RESULTS;
 
+          // Store winner information in room for persistence during reconnections
+          room.lastWinner = winner.id;
+          room.lastWinningSubmission = winningSubmission;
+
           // Send comprehensive winner information to all clients
           io.to(roomCode).emit("roundComplete", {
             winnerId: winner.id,
@@ -1314,61 +1318,14 @@ export default function SocketHandler(
             winningSubmission: winningSubmission,
             submissionIndex: parseInt(submissionIndex),
           });
-          io.to(roomCode).emit("roomUpdated", room); // Check if game is complete
-          const maxScore = Math.max(...room.players.map((p) => p.score));
-          const gameWinners = room.players.filter((p) => p.score === maxScore);
-          const isEndOfRounds = room.currentRound >= room.maxRounds;
-          const isScoreLimitReached = maxScore >= GAME_CONFIG.MAX_SCORE;
-          const isTie = gameWinners.length > 1;
+          io.to(roomCode).emit("roomUpdated", room);
 
+          // Always transition to ROUND_RESULTS first to allow winner audio playback
+          // Game completion check will happen after winner audio completes in winnerAudioComplete handler
           console.log(
-            `🏁 Game completion check: currentRound=${room.currentRound}, maxRounds=${room.maxRounds}, maxScore=${maxScore}, scoreThreshold=${GAME_CONFIG.MAX_SCORE}, isTie=${isTie}`
+            `Round results displayed, waiting for client audio completion before checking game end...`
           );
-
-          // Game ends if end condition is met AND there is a single winner.
-          if ((isEndOfRounds || isScoreLimitReached) && !isTie) {
-            console.log(
-              `🎉 Game ending: Round ${room.currentRound}/${room.maxRounds} or score ${maxScore} reached threshold with a single winner.`
-            );
-            room.gameState = GameState.GAME_OVER;
-            room.winner = gameWinners[0].id;
-            io.to(roomCode).emit("roomUpdated", room);
-            io.to(roomCode).emit("gameStateChanged", GameState.GAME_OVER, {
-              winner: gameWinners[0],
-              finalScores: room.players.map((p) => ({
-                id: p.id,
-                name: p.name,
-                score: p.score,
-              })),
-            });
-            io.to(roomCode).emit(
-              "gameComplete",
-              gameWinners[0].id,
-              gameWinners[0].name
-            );
-          } else {
-            // If it's a tie at the end of the game, announce it and continue.
-            if ((isEndOfRounds || isScoreLimitReached) && isTie) {
-              console.log(
-                `👔 Tie detected at game end. Entering sudden death. Players: ${gameWinners
-                  .map((p) => p.name)
-                  .join(", ")}`
-              );
-              // NOTE: You may need to add 'tieBreakerRound' to your ServerToClientEvents type definition
-              io.to(roomCode).emit("tieBreakerRound", {
-                tiedPlayers: gameWinners.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                })),
-              });
-            }
-
-            // In all other cases (not game over, or tie at game end), continue to the next round.
-            console.log(
-              "Round results displayed, waiting for client audio completion..."
-            );
-            // The next round will be triggered when client emits 'winnerAudioComplete'
-          }
+          // The next round (or game end) will be triggered when client emits 'winnerAudioComplete'
         } catch (error) {
           console.error("Error selecting winner:", error);
         }
@@ -1401,11 +1358,68 @@ export default function SocketHandler(
           console.log(
             `Winner audio complete from ${
               (socket as any).isViewer ? "primary main screen" : "player"
-            } ${socket.id}, starting next round after brief delay...`
+            } ${socket.id}, checking if game should continue...`
           );
 
-          // Start next round after a brief pause
+          // Check if the game should end before starting next round
+          const maxScore = Math.max(...room.players.map((p) => p.score));
+          const gameWinners = room.players.filter((p) => p.score === maxScore);
+          const isEndOfRounds = room.currentRound >= room.maxRounds;
+          const isScoreLimitReached = maxScore >= GAME_CONFIG.MAX_SCORE;
+          const isTie = gameWinners.length > 1;
+
+          console.log(
+            `🏁 Post-audio game completion check: currentRound=${room.currentRound}, maxRounds=${room.maxRounds}, maxScore=${maxScore}, scoreThreshold=${GAME_CONFIG.MAX_SCORE}, isTie=${isTie}`
+          );
+
+          // Game ends if end condition is met AND there is a single winner.
+          if ((isEndOfRounds || isScoreLimitReached) && !isTie) {
+            console.log(
+              `🎉 Game ending after winner audio: Round ${room.currentRound}/${room.maxRounds} or score ${maxScore} reached threshold with a single winner. Waiting 3 seconds before showing game over screen...`
+            );
+
+            // Add 3-second delay before transitioning to game over screen
+            setTimeout(() => {
+              room.gameState = GameState.GAME_OVER;
+              room.winner = gameWinners[0].id;
+              io.to(roomCode).emit("roomUpdated", room);
+              io.to(roomCode).emit("gameStateChanged", GameState.GAME_OVER, {
+                winner: gameWinners[0],
+                finalScores: room.players.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  score: p.score,
+                })),
+              });
+              io.to(roomCode).emit(
+                "gameComplete",
+                gameWinners[0].id,
+                gameWinners[0].name
+              );
+            }, 3000); // 3 second delay for celebration
+            return; // Exit early - don't start next round
+          } else if ((isEndOfRounds || isScoreLimitReached) && isTie) {
+            console.log(
+              `👔 Tie detected at game end (post-audio). Entering sudden death. Players: ${gameWinners
+                .map((p) => p.name)
+                .join(", ")}`
+            );
+            io.to(roomCode).emit("tieBreakerRound", {
+              tiedPlayers: gameWinners.map((p) => ({
+                id: p.id,
+                name: p.name,
+              })),
+            });
+            // Continue to next round for tie-breaker
+          }
+
+          // Start next round after a brief pause (only if game didn't end)
           setTimeout(() => {
+            console.log(
+              `Starting next round ${
+                room.currentRound + 1
+              } after winner audio completion...`
+            );
             room.currentRound += 1;
             room.currentJudge = selectNextJudge(room);
             room.gameState = GameState.JUDGE_SELECTION;
@@ -1415,6 +1429,10 @@ export default function SocketHandler(
             room.submissionSeed = undefined; // Clear the seed
             room.soundSelectionTimerStarted = false;
             room.judgeSelectionTimerStarted = false;
+
+            // Clear previous round winner information
+            room.lastWinner = null;
+            room.lastWinningSubmission = null;
 
             io.to(roomCode).emit("judgeSelected", room.currentJudge);
             io.to(roomCode).emit(

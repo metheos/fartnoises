@@ -127,8 +127,8 @@ export const PLAYER_EMOJIS = [
 export const GAME_CONFIG = {
   MIN_PLAYERS: 3,
   MAX_PLAYERS: 8,
-  DEFAULT_MAX_ROUNDS: 2,
-  MAX_SCORE: 2, // Score needed to win the game
+  DEFAULT_MAX_ROUNDS: 1,
+  MAX_SCORE: 1, // Score needed to win the game
   SOUND_SELECTION_TIME: 45, // seconds
   PROMPT_SELECTION_TIME: 30, // seconds
   ROOM_CODE_LENGTH: 4,
