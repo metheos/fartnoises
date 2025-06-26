@@ -33,12 +33,13 @@ function decodeUnicode(str: string): string {
 }
 
 // Function to clean and format sound names
-function cleanSoundName(name: string): string {
+export function cleanSoundName(name: string): string {
   // Decode Unicode first
   let cleaned = decodeUnicode(name);
 
-  // Remove extra quotes and normalize
-  cleaned = cleaned.replace(/^["']+|["']+$/g, "").trim();
+  // Remove extra quotes and normalize - DISABLED to preserve capitalization cues
+  // cleaned = cleaned.replace(/^["']+|["']+$/g, "").trim();
+  cleaned = cleaned.trim();
 
   // Convert common contractions with underscores to proper apostrophes
   // This handles cases like "It_s" -> "It's", "I_m" -> "I'm", etc.
@@ -119,31 +120,127 @@ function cleanSoundName(name: string): string {
     "as",
     "is",
     "it",
+    "who",
+    "what",
+    "when",
+    "where",
+    "why",
+    "how",
+    "that",
+    "with",
+    "from",
+    "into",
+    "onto",
+    "upon",
+    "over",
+    "under",
+    "above",
+    "below",
+    "across",
+    "through",
+    "during",
+    "before",
+    "after",
+    "until",
+    "while",
+    "within",
   ]);
 
   // Capitalize words appropriately, considering articles and quotes
-  cleaned = cleaned
-    .split(" ")
+  const words = cleaned.split(" ");
+
+  cleaned = words
     .map((word, index) => {
       if (word.length === 0) return word;
 
-      // Check if this word starts after a quote mark (including non-standard quotes)
+      // Check if this word starts after a quote mark (including ALL quote variants)
       const startsAfterQuote =
         index > 0 &&
-        /["'""''‚„«»‹›「」『』]$/.test(cleaned.split(" ")[index - 1]);
+        /[\u0022\u0027\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A\u2E42\u301D\u301E\u301F\uFF02\uFF07]$/.test(
+          words[index - 1]
+        );
 
-      // Check if this word itself starts with a quote mark
-      const startsWithQuote = /^["'""''‚„«»‹›「」『』]/.test(word);
+      // Check if this word itself starts with a quote mark (first word inside quotes)
+      // Using a more comprehensive approach to catch any quote-like character
+      const startsWithQuote =
+        /^[\u0022\u0027\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A\u2E42\u301D\u301E\u301F\uFF02\uFF07]/.test(
+          word
+        );
 
-      // Always capitalize first word, words after quotes, words starting with quotes, or words not in articles list
+      // Check if this word is entirely enclosed in quotes (like "hi")
+      const isEnclosedInQuotes =
+        /^[\u0022\u0027\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A\u2E42\u301D\u301E\u301F\uFF02\uFF07].*[\u0022\u0027\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A\u2E42\u301D\u301E\u301F\uFF02\uFF07]$/.test(
+          word
+        ) && word.length > 2;
+
+      // Strip quotes when checking against articles list
+      const wordWithoutQuotes = word
+        .replace(
+          /^[\u0022\u0027\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A\u2E42\u301D\u301E\u301F\uFF02\uFF07]+|[\u0022\u0027\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A\u2E42\u301D\u301E\u301F\uFF02\uFF07]+$/g,
+          ""
+        )
+        .toLowerCase();
+
+      // Debug logging for specific problematic words
+      if (word.includes('"') || startsWithQuote) {
+        console.log(`🔍 DEBUG: word="${word}", index=${index}`);
+        console.log(`   - startsAfterQuote: ${startsAfterQuote}`);
+        console.log(`   - startsWithQuote: ${startsWithQuote}`);
+        console.log(`   - isEnclosedInQuotes: ${isEnclosedInQuotes}`);
+        console.log(`   - wordWithoutQuotes: "${wordWithoutQuotes}"`);
+        console.log(`   - is in articles: ${articles.has(wordWithoutQuotes)}`);
+        console.log(`   - first char code: ${word.charCodeAt(0)}`);
+      }
+
+      // Capitalization rules:
+      // 1. Always capitalize first word of entire string
+      // 2. Always capitalize word immediately after a quote (like: He said "hello")
+      // 3. Always capitalize first word inside quotes (like: "hello world")
+      // 4. Always capitalize words entirely enclosed in quotes (like: "hi")
+      // 5. Don't capitalize articles unless they fall into rules 1-4
       const shouldCapitalize =
-        index === 0 ||
-        startsAfterQuote ||
-        startsWithQuote ||
-        !articles.has(word.toLowerCase());
+        index === 0 || // First word of string
+        startsAfterQuote || // Word after quote (He said "hello")
+        startsWithQuote || // First word inside quotes ("hello world")
+        isEnclosedInQuotes || // Entirely enclosed in quotes ("hi")
+        !articles.has(wordWithoutQuotes); // Not an article
+
+      if (
+        word.toLowerCase().includes("bye") ||
+        word.includes('"') ||
+        startsWithQuote
+      ) {
+        console.log(`   - shouldCapitalize: ${shouldCapitalize}`);
+        console.log(
+          `   - final result: "${
+            shouldCapitalize
+              ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+              : word.toLowerCase()
+          }"`
+        );
+      }
 
       if (shouldCapitalize) {
-        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        // Find the first alphabetic character to capitalize, preserving any leading quotes
+        let firstAlphaIndex = 0;
+        for (let i = 0; i < word.length; i++) {
+          if (/[a-zA-Z]/.test(word[i])) {
+            firstAlphaIndex = i;
+            break;
+          }
+        }
+
+        if (firstAlphaIndex > 0) {
+          // Word starts with non-alphabetic characters (like quotes)
+          return (
+            word.slice(0, firstAlphaIndex) +
+            word.charAt(firstAlphaIndex).toUpperCase() +
+            word.slice(firstAlphaIndex + 1).toLowerCase()
+          );
+        } else {
+          // Word starts with alphabetic character
+          return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        }
       } else {
         return word.toLowerCase();
       }
