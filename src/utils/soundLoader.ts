@@ -97,14 +97,26 @@ function cleanSoundName(name: string): string {
     cleaned = cleaned.replace(pattern, replacement);
   });
 
-  // Capitalize first letter of each word, but not after apostrophes within words
-  // Split by spaces, then capitalize first letter of each word segment
+  // Articles and other words that should not be capitalized (unless first word or after quote)
+  const articles = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'for', 'nor', 'so', 'yet', 'at', 'by', 'in', 'of', 'on', 'to', 'up', 'as', 'is', 'it']);
+  
+  // Capitalize words appropriately, considering articles and quotes
   cleaned = cleaned
     .split(" ")
-    .map((word) => {
+    .map((word, index) => {
       if (word.length === 0) return word;
-      // Only capitalize the very first character of each space-separated word
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      
+      // Check if this word starts after a quote mark
+      const startsAfterQuote = index > 0 && /["'""'']$/.test(cleaned.split(" ")[index - 1]);
+      
+      // Always capitalize first word, words after quotes, or words not in articles list
+      const shouldCapitalize = index === 0 || startsAfterQuote || !articles.has(word.toLowerCase());
+      
+      if (shouldCapitalize) {
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      } else {
+        return word.toLowerCase();
+      }
     })
     .join(" ");
 
