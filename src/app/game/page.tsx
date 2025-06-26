@@ -136,47 +136,44 @@ function GamePageContent() {
         addDebugLog('Attempting connection logic (create/join).');
         hasAttemptedConnectionLogic.current = true; // Mark that we are attempting it
 
-        if (mode === 'create' || mode === 'host') {
-          addDebugLog(`Emitting createRoom for player: ${playerName} on socket ${currentSocket.id}`);
-          currentSocket.emit('createRoom', playerName, (newRoomCode: string) => {
-            addDebugLog(`createRoom callback for ${playerName}, room code: ${newRoomCode}. Waiting for roomCreated event.`);
-            // State updates handled by 'roomCreated'
+        // Check if this might be a reconnection attempt (for any mode)
+        const originalPlayerId = localStorage.getItem('originalPlayerId');
+        const lastKnownRoomCode = localStorage.getItem('lastKnownRoomCode');
+        const hasReconnectionData = originalPlayerId && originalPlayerId !== currentSocket.id && lastKnownRoomCode;
+
+        if (hasReconnectionData) {
+          // Always try reconnection first if we have the data, regardless of mode
+          addDebugLog(`Attempting reconnection for room: ${lastKnownRoomCode}, player: ${playerName}, originalId: ${originalPlayerId}`);
+          currentSocket.emit('reconnectToRoom', lastKnownRoomCode, playerName, originalPlayerId, (success: boolean, reconnectedRoom?: Room) => {
+            if (success && reconnectedRoom) {
+              addDebugLog(`Reconnection successful for room: ${lastKnownRoomCode}`);
+              // State updates handled by 'roomJoined' event that should follow
+              return;
+            } else {
+              addDebugLog(`Reconnection failed, proceeding with original mode: ${mode}`);
+              // Fall back to original logic based on mode
+              proceedWithOriginalMode();
+            }
           });
-        } else if (mode === 'join' && roomCode) {
-          // Check if this might be a reconnection attempt
-          const originalPlayerId = localStorage.getItem('originalPlayerId');
-          const hasReconnectionData = originalPlayerId && originalPlayerId !== currentSocket.id;
-          
-          if (hasReconnectionData) {
-            // Attempt reconnection first
-            addDebugLog(`Attempting reconnection for room: ${roomCode}, player: ${playerName}, originalId: ${originalPlayerId}`);
-            currentSocket.emit('reconnectToRoom', roomCode, playerName, originalPlayerId, (success: boolean, reconnectedRoom?: Room) => {
-              if (success && reconnectedRoom) {
-                addDebugLog(`Reconnection successful for room: ${roomCode}`);
-                // State updates handled by 'roomJoined' event that should follow
-              } else {
-                addDebugLog(`Reconnection failed, falling back to regular join for room: ${roomCode}`);
-                // Fall back to regular join
-                currentSocket.emit('joinRoom', roomCode, playerName, (joinSuccess: boolean, joinedRoomData?: Room) => {
-                  if (!joinSuccess) {
-                    addDebugLog(`Both reconnection and join failed for room: ${roomCode}`);
-                    setError('Failed to join room. Room may be full, not exist, or game in progress.');
-                    hasAttemptedConnectionLogic.current = false;
-                  } else {
-                    addDebugLog(`Regular join successful after reconnection failure for room: ${roomCode}`);
-                    // State updates handled by 'roomJoined'
-                  }
-                });
-              }
+        } else {
+          // No reconnection data, proceed with original mode
+          proceedWithOriginalMode();
+        }
+
+        function proceedWithOriginalMode() {
+          if (mode === 'create' || mode === 'host') {
+            addDebugLog(`Emitting createRoom for player: ${playerName} on socket ${currentSocket.id}`);
+            currentSocket.emit('createRoom', playerName, (newRoomCode: string) => {
+              addDebugLog(`createRoom callback for ${playerName}, room code: ${newRoomCode}. Waiting for roomCreated event.`);
+              // State updates handled by 'roomCreated'
             });
-          } else {
-            // No reconnection data, proceed with regular join
+          } else if (mode === 'join' && roomCode) {
             addDebugLog(`Emitting joinRoom for room: ${roomCode}, player: ${playerName} on socket ${currentSocket.id}`);
             currentSocket.emit('joinRoom', roomCode, playerName, (success: boolean, joinedRoomData?: Room) => {
               if (!success) {
                 addDebugLog(`joinRoom failed for room: ${roomCode}.`);
                 setError('Failed to join room. Room may be full, not exist, or game in progress.');
-                hasAttemptedConnectionLogic.current = false; // Allow retry if join failed? Or handle error more gracefully.
+                hasAttemptedConnectionLogic.current = false;
               } else {
                 addDebugLog(`joinRoom callback successful for room: ${roomCode}. Waiting for roomJoined event.`);
                 // State updates handled by 'roomJoined'
@@ -213,13 +210,19 @@ function GamePageContent() {
       addDebugLog(`roomCreated event for room: ${newRoom?.code}. Player: ${newPlayer?.name}. Socket: ${currentSocket.id}`);
       setRoom(newRoom);
       setPlayer(newPlayer);
-      // router.replace(`/game?mode=join&playerName=${playerName}&roomCode=${newRoom.code}`, { scroll: false }); // Update URL
+      // Store room code for future reconnection attempts
+      localStorage.setItem('lastKnownRoomCode', newRoom.code);
+      // Update URL to change from mode=host to mode=join with room code
+      // This prevents issues when the host refreshes the page
+      router.replace(`/game?mode=join&playerName=${playerName}&roomCode=${newRoom.code}`, { scroll: false });
     };
 
     const handleRoomJoined = ({ room: newRoom, player: newPlayer }: { room: Room; player: Player }) => {
       addDebugLog(`roomJoined event for room: ${newRoom?.code}. Player: ${newPlayer?.name}. Socket: ${currentSocket.id}`);
       setRoom(newRoom);
       setPlayer(newPlayer);
+      // Store room code for future reconnection attempts
+      localStorage.setItem('lastKnownRoomCode', newRoom.code);
     };
 
     const handleRoomUpdated = (updatedRoom: Room) => {
@@ -534,7 +537,12 @@ function GamePageContent() {
             )}
             
             <button
-              onClick={() => router.push('/')}
+              onClick={() => {
+                // Clear reconnection data when going back to home
+                localStorage.removeItem('originalPlayerId');
+                localStorage.removeItem('lastKnownRoomCode');
+                router.push('/');
+              }}
               className="w-full bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-600 transition-colors"
             >
               Back to Home
@@ -748,7 +756,7 @@ function LobbyComponent({ room, player, onStartGame }: {
           </li>
         ))}
       </ul>
-      {player.isVIP && room.players.length >= 1 && (
+      {player.isVIP && room.players.length >= 3 && (
         <button 
           onClick={onStartGame} 
           className="bg-green-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-600 transition-colors text-lg"
@@ -756,8 +764,9 @@ function LobbyComponent({ room, player, onStartGame }: {
           Start Game
         </button>
       )}
-      {!player.isVIP && <p className="text-gray-700">Waiting for the host ({room.players.find(p => p.isVIP)?.name || 'VIP'}) to start the game...</p>}
-      {player.isVIP && room.players.length < 1 && <p className="text-gray-700">Waiting for at least 1 player to join before starting.</p>}
+      {!player.isVIP && room.players.length >= 3 && <p className="text-gray-700">Waiting for the host ({room.players.find(p => p.isVIP)?.name || 'VIP'}) to start the game...</p>}
+      {player.isVIP && room.players.length < 3 && <p className="text-gray-700">Need at least 3 players to start the game. ({room.players.length}/3)</p>}
+      {!player.isVIP && room.players.length < 3 && <p className="text-gray-700">Need at least 3 players to start. Waiting for more players to join... ({room.players.length}/3)</p>}
     </div>
   );
 }
@@ -1366,7 +1375,12 @@ function GameOverComponent({ room, player }: { room: Room; player: Player }) {
         ))}
       </ul>
       <button 
-        onClick={() => window.location.href = '/'} // Simple redirect to home
+        onClick={() => {
+          // Clear reconnection data when starting a new game
+          localStorage.removeItem('originalPlayerId');
+          localStorage.removeItem('lastKnownRoomCode');
+          window.location.href = '/';
+        }}
         className="bg-blue-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-600 transition-colors text-lg"
       >
         Play Again?

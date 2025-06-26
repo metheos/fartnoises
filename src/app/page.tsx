@@ -132,6 +132,11 @@ export default function Home() {
                   type="text"
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && roomCode.trim() && roomCode.trim().length === 4) {
+                      handleSubmit('join');
+                    }
+                  }}
                   placeholder="4-letter code..."
                   className="w-full px-6 py-4 text-lg text-gray-800 text-center font-mono border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors uppercase placeholder:text-gray-600"
                   maxLength={4}
