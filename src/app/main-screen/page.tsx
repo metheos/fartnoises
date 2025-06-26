@@ -1468,13 +1468,21 @@ export function ResultsDisplay({
       const initialScores: { [playerId: string]: number } = {};
       room.players.forEach((player: Player) => {
         if (player.id === roundWinner.winnerId) {
-          // For the winner, start from previous score (current - 1) to show the increment
+          // For the winner, always start from current score - 1 to show the increment
+          // The winner's current score should be at least 1 (they just won a point)
           initialScores[player.id] = Math.max(0, player.score - 1);
         } else {
           // For non-winners, start from current score (no change)
           initialScores[player.id] = player.score;
         }
       });
+      
+      console.log('[SCORE ANIMATION] Initializing animated scores:', {
+        roundWinner: roundWinner.winnerId,
+        initialScores,
+        currentScores: room.players.reduce((acc, p) => ({ ...acc, [p.id]: p.score }), {})
+      });
+      
       setAnimatedScores(initialScores);
     }
   }, [roundWinner?.winnerId, room.currentRound]); // Trigger when winner changes or new round
@@ -1559,8 +1567,17 @@ export function ResultsDisplay({
             // Start score counting animation after +1PT appears - ONLY for winner
             setTimeout(() => {
               // Only animate the winner's score
-              const winnerStartScore = animatedScores[roundWinner.winnerId] || 0;
-              const winnerEndScore = room.players.find(p => p.id === roundWinner.winnerId)?.score || 0;
+              // Use the initialScores directly instead of reading from state to avoid closure issues
+              const winnerPlayer = room.players.find(p => p.id === roundWinner.winnerId);
+              const winnerStartScore = winnerPlayer ? Math.max(0, winnerPlayer.score - 1) : 0;
+              const winnerEndScore = winnerPlayer?.score || 0;
+              
+              console.log('[SCORE ANIMATION] Starting winner score animation:', {
+                winnerId: roundWinner.winnerId,
+                startScore: winnerStartScore,
+                endScore: winnerEndScore,
+                playerCurrentScore: winnerPlayer?.score
+              });
               
               // Animate the score increment for the winner only
               const duration = 1500; // 1.5 seconds for count-up
