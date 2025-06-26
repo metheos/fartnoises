@@ -101,7 +101,7 @@ export default function DebugPage() {
   const renderView = () => {
     switch (view) {
       case 'WAITING':
-        return <WaitingForGameScreen rooms={[]} onJoinRoom={() => {}} onRefreshRooms={() => {}} roomCodeInput="" setRoomCodeInput={() => {}} joinError="" />;
+        return <WaitingForGameScreen onJoinRoom={() => {}} roomCodeInput="" setRoomCodeInput={() => {}} joinError="" />;
       case GameState.LOBBY:
         return <LobbyDisplay room={mockRoom} />;
       case GameState.JUDGE_SELECTION:

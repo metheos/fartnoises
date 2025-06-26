@@ -26,7 +26,7 @@ const getPlayerColorClass = (color: string): string => {
 function GamePageContent() {
   const [room, setRoom] = useState<Room | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
-  const [selectedSounds, setSelectedSounds] = useState<[string, string] | null>(null);
+  const [selectedSounds, setSelectedSounds] = useState<string[] | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState<number>(30);
@@ -457,8 +457,12 @@ function GamePageContent() {
       addDebugLog(`Emitting startGame on socket ${socketRef.current.id}`);
       socketRef.current.emit('startGame');
     }
-  };  const selectSounds = (sound1: string, sound2: string) => {
-    setSelectedSounds([sound1, sound2]);
+  };  const selectSounds = (sounds: string[]) => {
+    // Filter out empty strings and ensure we have 1-2 valid sounds
+    const validSounds = sounds.filter(sound => sound && sound.trim() !== '');
+    if (validSounds.length >= 1 && validSounds.length <= 2) {
+      setSelectedSounds(validSounds);
+    }
   };
 
   const submitSounds = () => {
@@ -840,7 +844,7 @@ function LobbyComponent({ room, player, onStartGame }: {
           Start Game
         </button>
       )}
-      {!player.isVIP && room.players.length >= 3 && <p className="text-gray-700">Waiting for the host ({room.players.find(p => p.isVIP)?.name || 'VIP'}) to start the game...</p>}
+      {!player.isVIP && room.players.length >= 3 && <p className="text-gray-700">Waiting for the host to start the game...</p>}
       {player.isVIP && room.players.length < 3 && <p className="text-gray-700">Need at least 3 players to start the game. ({room.players.length}/3)</p>}
       {!player.isVIP && room.players.length < 3 && <p className="text-gray-700">Need at least 3 players to start. Waiting for more players to join... ({room.players.length}/3)</p>}
     </div>
@@ -925,16 +929,17 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
 function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds, onSubmitSounds, timeLeft, soundEffects }: { 
   room: Room; 
   player: Player; 
-  selectedSounds: [string, string] | null;
-  onSelectSounds: (sound1: string, sound2: string) => void;
+  selectedSounds: string[] | null;
+  onSelectSounds: (sounds: string[]) => void;
   onSubmitSounds: () => void;
   timeLeft: number;
   soundEffects: SoundEffect[];
 }) {
   const isJudge = player.id === room.currentJudge;
-  const [sound1, setSound1] = useState<string>('');
-  const [sound2, setSound2] = useState<string>('');
-  const [playerSoundSet, setPlayerSoundSet] = useState<SoundEffect[]>([]);  // Generate random sound set for this player when component mounts or when entering new round
+  const [selectedSoundsLocal, setSelectedSoundsLocal] = useState<string[]>([]);
+  const [playerSoundSet, setPlayerSoundSet] = useState<SoundEffect[]>([]);
+
+  // Generate random sound set for this player when component mounts or when entering new round
   useEffect(() => {
     console.log('Hello from SoundSelectionComponent useEffect');
     console.log(soundEffects.length);
@@ -947,53 +952,50 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
           try {
             const randomSounds = await getRandomSounds(12); // Get random sounds
             setPlayerSoundSet(randomSounds);
-            setSound1('');
-            setSound2('');
+            setSelectedSoundsLocal([]);
           } catch (error) {
             console.error('Failed to load random sounds:', error);
             // Fallback to manual shuffling if getRandomSounds fails
             const shuffled = [...soundEffects].sort(() => Math.random() - 0.5);
             const fallbackSounds = shuffled.slice(0, Math.min(8, soundEffects.length));
             setPlayerSoundSet(fallbackSounds);
-            setSound1('');
-            setSound2('');
+            setSelectedSoundsLocal([]);
           }
         };
         loadRandomSounds();
       }
     }
   }, [room.gameState, room.currentRound, player.id, soundEffects]);
+  
   useEffect(() => {
     if (selectedSounds) {
-      setSound1(selectedSounds[0]);
-      setSound2(selectedSounds[1]);
+      setSelectedSoundsLocal([...selectedSounds]);
     } else {
       // Reset local state when selectedSounds is null
-      setSound1('');
-      setSound2('');
+      setSelectedSoundsLocal([]);
     }
-  }, [selectedSounds]);  const handleSoundSelect = (soundId: string) => {
-    if (sound1 === soundId) {
-      // Deselect sound1
-      setSound1('');
-      onSelectSounds('', sound2);
-    } else if (sound2 === soundId) {
-      // Deselect sound2
-      setSound2('');
-      onSelectSounds(sound1, '');
-    } else if (!sound1) {
-      // Select as sound1
-      setSound1(soundId);
-      onSelectSounds(soundId, sound2);
-    } else if (!sound2) {
-      // Select as sound2
-      setSound2(soundId);
-      onSelectSounds(sound1, soundId);
+  }, [selectedSounds]);
+
+  const handleSoundSelect = (soundId: string) => {
+    const currentIndex = selectedSoundsLocal.indexOf(soundId);
+    let newSelectedSounds: string[];
+    
+    if (currentIndex !== -1) {
+      // Sound is already selected, remove it
+      newSelectedSounds = selectedSoundsLocal.filter(id => id !== soundId);
     } else {
-      // Both slots filled, replace sound1
-      setSound1(soundId);
-      onSelectSounds(soundId, sound2);
+      // Sound is not selected, add it
+      if (selectedSoundsLocal.length < 2) {
+        // Add to existing selection (max 2 sounds)
+        newSelectedSounds = [...selectedSoundsLocal, soundId];
+      } else {
+        // Replace the first sound if we already have 2
+        newSelectedSounds = [soundId, selectedSoundsLocal[1]];
+      }
     }
+    
+    setSelectedSoundsLocal(newSelectedSounds);
+    onSelectSounds(newSelectedSounds);
   };
   
   const playSound = (soundId: string) => {
@@ -1004,9 +1006,10 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   };
 
   const getSoundButtonStyle = (soundId: string) => {
-    if (sound1 === soundId) {
+    const index = selectedSoundsLocal.indexOf(soundId);
+    if (index === 0) {
       return 'bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-700 shadow-lg transform scale-105';
-    } else if (sound2 === soundId) {
+    } else if (index === 1) {
       return 'bg-gradient-to-br from-green-500 to-green-600 text-white border-green-700 shadow-lg transform scale-105';
     } else {
       return 'bg-gradient-to-br from-purple-100 to-pink-100 text-gray-800 border-purple-200 hover:from-purple-200 hover:to-pink-200 hover:scale-102';
@@ -1048,12 +1051,16 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 max-w-md mx-auto">
             <p className="text-green-800 font-semibold mb-2">Your Submission:</p>
             <div className="flex gap-2 justify-center">
-              <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                {soundEffects.find(s => s.id === submission.sounds[0])?.name || 'Sound 1'}
-              </span>
-              <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                {soundEffects.find(s => s.id === submission.sounds[1])?.name || 'Sound 2'}
-              </span>
+              {submission.sounds.map((soundId, index) => (
+                <span 
+                  key={soundId}
+                  className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
+                    index === 0 ? 'bg-blue-500' : 'bg-green-500'
+                  }`}
+                >
+                  {soundEffects.find(s => s.id === soundId)?.name || `Sound ${index + 1}`}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -1062,7 +1069,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
           {/* Instructions */}
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 max-w-2xl mx-auto">
             <p className="text-gray-800 text-center">
-              <span className="font-semibold">Choose 2 sounds</span>
+              <span className="font-semibold">Choose 1-2 sounds</span>
             </p>
             {/* <div className="flex gap-4 justify-center text-sm">
               <div className="flex items-center gap-2">
@@ -1086,9 +1093,9 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                 >
                   <div className="text-center">
                     <div className="text-sm font-bold mb-1">{sound.name}</div>
-                    {(sound1 === sound.id || sound2 === sound.id) && (
+                    {selectedSoundsLocal.includes(sound.id) && (
                       <div className="text-xs opacity-90">
-                        {sound1 === sound.id ? '🔵 Sound 1' : '🟢 Sound 2'}
+                        {selectedSoundsLocal.indexOf(sound.id) === 0 ? '🔵 Sound 1' : '🟢 Sound 2'}
                       </div>
                     )}
                   </div>
@@ -1110,26 +1117,23 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
           </div>
 
           {/* Selected sounds display */}
-          {(sound1 || sound2) && (
+          {selectedSoundsLocal.length > 0 && (
             <div className="bg-gray-50 rounded-xl p-4 max-w-md mx-auto">
               <p className="text-gray-800 font-semibold mb-2 text-center">Selected Sounds:</p>
               <div className="flex gap-2 justify-center">
-                {sound1 ? (
-                  <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    🔵 {playerSoundSet.find(s => s.id === sound1)?.name}
+                {selectedSoundsLocal.map((soundId, index) => (
+                  <span 
+                    key={soundId}
+                    className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
+                      index === 0 ? 'bg-blue-500' : 'bg-green-500'
+                    }`}
+                  >
+                    {index === 0 ? '🔵' : '🟢'} {playerSoundSet.find(s => s.id === soundId)?.name}
                   </span>
-                ) : (
+                ))}
+                {selectedSoundsLocal.length < 2 && (
                   <span className="bg-gray-300 text-gray-600 px-3 py-1 rounded-full text-sm">
-                    Choose Sound 1
-                  </span>
-                )}
-                {sound2 ? (
-                  <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    🟢 {playerSoundSet.find(s => s.id === sound2)?.name}
-                  </span>
-                ) : (
-                  <span className="bg-gray-300 text-gray-600 px-3 py-1 rounded-full text-sm">
-                    Choose Sound 2
+                    {selectedSoundsLocal.length === 0 ? 'Choose 1-2 sounds' : 'Add 2nd sound (optional)'}
                   </span>
                 )}
               </div>
@@ -1137,10 +1141,10 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
           )}          {/* Submit button */}
           <button 
             onClick={onSubmitSounds}
-            disabled={!selectedSounds || selectedSounds[0] === '' || selectedSounds[1] === '' || (hasFirstSubmission && timeLeft <= 0)}
+            disabled={selectedSoundsLocal.length === 0 || (hasFirstSubmission && timeLeft <= 0)}
             className="w-full max-w-md mx-auto bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition-all text-lg disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg"
           >
-            {(!selectedSounds || selectedSounds[0] === '' || selectedSounds[1] === '') ? 'Select 2 Sounds' : 'Submit Sounds! 🎵'}
+            {selectedSoundsLocal.length === 0 ? 'Select 1-2 Sounds' : `Submit ${selectedSoundsLocal.length} Sound${selectedSoundsLocal.length > 1 ? 's' : ''}! 🎵`}
           </button>
         </div>
       )}
@@ -1155,10 +1159,16 @@ function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: {
   soundEffects: SoundEffect[];
 }) {
   const isJudge = player.id === room.currentJudge;
-  const playSubmissionSounds = (sounds: [string, string]) => {
-    const soundFile1 = soundEffects.find(s => s.id === sounds[0])?.fileName;
-    const soundFile2 = soundEffects.find(s => s.id === sounds[1])?.fileName;    if (soundFile1 && soundFile2) {
-      console.log(`Playing sounds: ${sounds[0]} then ${sounds[1]}`);
+  const playSubmissionSounds = (sounds: string[]) => {
+    if (sounds.length === 0) return;
+    
+    // Filter out any invalid sounds and get filenames
+    const validSounds = sounds
+      .map(soundId => soundEffects.find(s => s.id === soundId))
+      .filter(sound => sound !== undefined);
+    
+    if (validSounds.length > 0) {
+      console.log(`Playing ${validSounds.length} sound(s): [${sounds.join(', ')}]`);
       // Use the proper sequence method that waits for each sound to finish
       audioSystem.playSoundSequence(sounds, 200); // 200ms delay between sounds
     }
@@ -1198,7 +1208,7 @@ function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: {
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-        {room.submissions.map((submission, index) => (
+        {(room.randomizedSubmissions || room.submissions).map((submission, index) => (
           <div 
             key={index} 
             className="relative rounded-3xl p-6 transition-all duration-500 bg-gray-100 hover:bg-gray-50 border-2 border-gray-200"
@@ -1559,16 +1569,16 @@ function GameOverComponent({ room, player }: { room: Room; player: Player }) {
       <div className="mb-8">
         <div className="relative bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl p-6 mx-auto shadow-2xl transform hover:scale-105 transition-all duration-500">
           {/* Sparkle decorations with staggered animations */}
-          <div className="absolute -top-3 -left-3 text-2xl animate-bounce">✨</div>
+          {/* <div className="absolute -top-3 -left-3 text-2xl animate-bounce">✨</div>
           <div className="absolute -top-3 -right-3 text-2xl animate-bounce delay-500">🎉</div>
           <div className="absolute -bottom-3 -left-3 text-2xl animate-bounce delay-1000">🏆</div>
-          <div className="absolute -bottom-3 -right-3 text-2xl animate-bounce delay-150">⭐</div>
+          <div className="absolute -bottom-3 -right-3 text-2xl animate-bounce delay-150">⭐</div> */}
           
           {/* Crown above winner */}
           <div className="text-5xl mb-3 animate-bounce text-center">👑</div>
           
           <h4 className="text-2xl font-black text-yellow-900 mb-3 drop-shadow-lg text-center">
-            GAME CHAMPION!
+            CHAMPION!
           </h4>
           
           {/* Winner Avatar - Large */}
@@ -1583,12 +1593,12 @@ function GameOverComponent({ room, player }: { room: Room; player: Player }) {
           </p>
           
           <div className="flex items-center justify-center space-x-2 mb-3">
-            <div className="text-xl">🎯</div>
+            {/* <div className="text-xl">🎯</div> */}
             <span className="text-3xl font-black text-yellow-900 drop-shadow-lg">
               {overallWinner.score}
             </span>
-            <span className="text-lg font-bold text-yellow-800">POINTS</span>
-            <div className="text-xl">🎯</div>
+            <span className="text-lg font-bold text-yellow-800">Points</span>
+            {/* <div className="text-xl">🎯</div> */}
           </div>
           
           <p className="text-sm font-bold text-yellow-800 italic text-center">

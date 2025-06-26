@@ -38,6 +38,8 @@ export interface Room {
   promptChoices: GamePrompt[];
   availablePrompts?: GamePrompt[];
   submissions: SoundSubmission[];
+  randomizedSubmissions?: SoundSubmission[]; // Randomized order for playback/judging
+  submissionSeed?: string; // Seed for deterministic randomization
   lastWinner: string | null;
   lastWinningSubmission: SoundSubmission | null;
   winner: string | null;
@@ -56,7 +58,7 @@ export interface Room {
 export interface SoundSubmission {
   playerId: string;
   playerName: string;
-  sounds: [string, string]; // Two sound effect IDs
+  sounds: string[]; // One or two sound effect IDs (1-2 sounds allowed)
 }
 
 export interface SoundEffect {
@@ -158,7 +160,7 @@ export interface ClientToServerEvents {
   leaveRoom: () => void;
   startGame: () => void;
   selectPrompt: (promptId: string) => void;
-  submitSounds: (sounds: [string, string]) => void;
+  submitSounds: (sounds: string[]) => void;
   selectWinner: (submissionId: string) => void;
   voteOnReconnection: (continueWithoutPlayer: boolean) => void;
   restartGame: () => void;

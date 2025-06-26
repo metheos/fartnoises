@@ -44,6 +44,10 @@ const roomTimers: Map<string, NodeJS.Timeout> = new Map(); // roomCode -> timer
 const disconnectionTimers: Map<string, NodeJS.Timeout> = new Map(); // roomCode -> disconnection timer
 const reconnectionVoteTimers: Map<string, NodeJS.Timeout> = new Map(); // roomCode -> vote timer
 
+// Main screen tracking for multiple main screen support
+const mainScreens: Map<string, Set<string>> = new Map(); // roomCode -> Set of main screen socket IDs
+const primaryMainScreens: Map<string, string> = new Map(); // roomCode -> primary main screen socket ID
+
 // Global event emitter for internal server events
 const serverEvents = new EventEmitter();
 
@@ -74,6 +78,71 @@ function broadcastRoomListUpdate(
     (room) => room.players.length > 0
   ); // Only show rooms with players
   ioInstance.emit("mainScreenUpdate", { rooms: roomsArray });
+}
+
+// Main screen management functions
+function addMainScreen(roomCode: string, socketId: string): void {
+  if (!mainScreens.has(roomCode)) {
+    mainScreens.set(roomCode, new Set());
+  }
+
+  const roomMainScreens = mainScreens.get(roomCode)!;
+  roomMainScreens.add(socketId);
+
+  // If this is the first main screen or there's no primary, elect it as primary
+  if (!primaryMainScreens.has(roomCode) || roomMainScreens.size === 1) {
+    primaryMainScreens.set(roomCode, socketId);
+    console.log(
+      `[MAIN SCREEN] Elected ${socketId} as primary main screen for room ${roomCode}`
+    );
+  } else {
+    console.log(
+      `[MAIN SCREEN] Added ${socketId} as secondary main screen for room ${roomCode}. Primary remains: ${primaryMainScreens.get(
+        roomCode
+      )}`
+    );
+  }
+}
+
+function removeMainScreen(roomCode: string, socketId: string): void {
+  const roomMainScreens = mainScreens.get(roomCode);
+  if (!roomMainScreens) return;
+
+  roomMainScreens.delete(socketId);
+
+  // If the primary main screen disconnected, elect a new one
+  if (primaryMainScreens.get(roomCode) === socketId) {
+    if (roomMainScreens.size > 0) {
+      const newPrimary = Array.from(roomMainScreens)[0]; // Get first remaining main screen
+      primaryMainScreens.set(roomCode, newPrimary);
+      console.log(
+        `[MAIN SCREEN] Primary main screen ${socketId} disconnected. Elected ${newPrimary} as new primary for room ${roomCode}`
+      );
+    } else {
+      primaryMainScreens.delete(roomCode);
+      console.log(
+        `[MAIN SCREEN] Last main screen ${socketId} disconnected from room ${roomCode}. No main screens remaining.`
+      );
+    }
+  } else {
+    console.log(
+      `[MAIN SCREEN] Secondary main screen ${socketId} disconnected from room ${roomCode}`
+    );
+  }
+
+  // Clean up if no main screens left
+  if (roomMainScreens.size === 0) {
+    mainScreens.delete(roomCode);
+  }
+}
+
+function isPrimaryMainScreen(roomCode: string, socketId: string): boolean {
+  return primaryMainScreens.get(roomCode) === socketId;
+}
+
+function hasMainScreens(roomCode: string): boolean {
+  const roomMainScreens = mainScreens.get(roomCode);
+  return roomMainScreens ? roomMainScreens.size > 0 : false;
 }
 
 // Utility functions
@@ -212,9 +281,30 @@ function startDelayedSoundSelectionTimer(
         console.log(
           `[${new Date().toISOString()}] [TIMER] Sound selection time expired for room ${roomCode}, transitioning to JUDGING`
         );
+
+        // Randomize submissions if they haven't been randomized yet (when timer expires)
+        if (!room.randomizedSubmissions && room.submissions.length > 0) {
+          console.log(
+            `[TIMER] Randomizing submissions due to timer expiration...`
+          );
+          const seed = generateSubmissionSeed(roomCode, room.currentRound);
+          room.submissionSeed = seed;
+          room.randomizedSubmissions = shuffleWithSeed(room.submissions, seed);
+          console.log(
+            `[TIMER] Original order: [${room.submissions
+              .map((s) => s.playerName)
+              .join(", ")}]`
+          );
+          console.log(
+            `[TIMER] Randomized order: [${room.randomizedSubmissions
+              .map((s) => s.playerName)
+              .join(", ")}]`
+          );
+        }
+
         room.gameState = GameState.JUDGING;
         io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
-          submissions: room.submissions,
+          submissions: room.randomizedSubmissions || room.submissions, // Use randomized submissions
           judgeId: room.currentJudge,
         });
       } else {
@@ -628,6 +718,44 @@ function clearDisconnectionTimer(roomCode: string) {
   }
 }
 
+// Deterministic randomization function using a simple LCG (Linear Congruential Generator)
+function seededRandom(seed: string): () => number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+
+  // Use the hash as the initial seed for LCG
+  let currentSeed = Math.abs(hash);
+
+  return function () {
+    // LCG formula: (a * seed + c) % m
+    currentSeed = (currentSeed * 1664525 + 1013904223) % 4294967296;
+    return currentSeed / 4294967296;
+  };
+}
+
+// Shuffle array using seeded randomization for deterministic results
+function shuffleWithSeed<T>(array: T[], seed: string): T[] {
+  const shuffled = [...array]; // Create a copy
+  const random = seededRandom(seed);
+
+  // Fisher-Yates shuffle with seeded random
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled;
+}
+
+// Generate a seed for submission randomization
+function generateSubmissionSeed(roomCode: string, round: number): string {
+  return `${roomCode}-round-${round}-${Date.now()}`;
+}
+
 // Socket handler function
 export default function SocketHandler(
   req: NextApiRequest,
@@ -823,6 +951,8 @@ export default function SocketHandler(
 
                     room.gameState = GameState.SOUND_SELECTION;
                     room.submissions = [];
+                    room.randomizedSubmissions = []; // Clear randomized submissions for new round
+                    room.submissionSeed = undefined; // Clear the seed
                     room.soundSelectionTimerStarted = false;
 
                     const soundOptions = await getRandomSounds(12);
@@ -926,6 +1056,8 @@ export default function SocketHandler(
 
           room.gameState = GameState.SOUND_SELECTION;
           room.submissions = [];
+          room.randomizedSubmissions = []; // Clear randomized submissions for new round
+          room.submissionSeed = undefined; // Clear the seed
           room.soundSelectionTimerStarted = false;
 
           const soundOptions = await getRandomSounds(12);
@@ -960,16 +1092,48 @@ export default function SocketHandler(
           const player = room.players.find((p) => p.id === socket.id);
           if (!player || socket.id === room.currentJudge) return;
 
+          // Validate that sounds array has 1-2 valid sound IDs
+          if (
+            !Array.isArray(sounds) ||
+            sounds.length < 1 ||
+            sounds.length > 2
+          ) {
+            console.warn(
+              `[SUBMISSION] Invalid sounds array from ${player.name}: ${sounds}`
+            );
+            return;
+          }
+
+          // Filter out empty strings and ensure we have valid sound IDs
+          const validSounds = sounds.filter(
+            (soundId) =>
+              soundId && typeof soundId === "string" && soundId.trim() !== ""
+          );
+          if (validSounds.length < 1 || validSounds.length > 2) {
+            console.warn(
+              `[SUBMISSION] No valid sounds from ${player.name}: ${sounds}`
+            );
+            return;
+          }
+
           // Check if player already submitted
           const existingSubmission = room.submissions.find(
             (s) => s.playerId === socket.id
           );
           if (existingSubmission) return;
+
           const submission = {
             playerId: socket.id,
             playerName: player.name,
-            sounds: sounds,
+            sounds: validSounds,
           };
+
+          console.log(
+            `[SUBMISSION] ${player.name} submitted ${
+              validSounds.length
+            } sound(s): [${validSounds.join(", ")}]`
+          );
+
           room.submissions.push(submission);
           io.to(roomCode).emit("soundSubmitted", submission); // Check if this is the first submission and start the timer
           if (
@@ -990,19 +1154,63 @@ export default function SocketHandler(
           if (room.submissions.length === nonJudgePlayers.length) {
             // Clear the sound selection timer since all players submitted
             clearTimer(roomCode);
-            room.gameState = GameState.PLAYBACK;
-            room.currentSubmissionIndex = 0; // Initialize for client-driven playback
+
+            // All submissions are in - now randomize them for consistent order across all clients
             console.log(
-              `[SUBMISSION] All submissions received for room ${roomCode}, transitioning to PLAYBACK`
+              `[SUBMISSION] All submissions received for room ${roomCode}. Randomizing order...`
             );
 
-            // Notify clients to start the playback sequence
-            io.to(roomCode).emit("gameStateChanged", GameState.PLAYBACK, {
-              submissions: room.submissions,
-            });
-            io.to(roomCode).emit("roomUpdated", room);
+            // Generate a seed for deterministic randomization
+            const seed = generateSubmissionSeed(roomCode, room.currentRound);
+            room.submissionSeed = seed;
 
-            // The client (main screen) will now drive the playback by emitting 'requestNextSubmission'
+            // Create randomized order that will be consistent for all clients
+            room.randomizedSubmissions = shuffleWithSeed(
+              room.submissions,
+              seed
+            );
+
+            console.log(
+              `[SUBMISSION] Original order: [${room.submissions
+                .map((s) => s.playerName)
+                .join(", ")}]`
+            );
+            console.log(
+              `[SUBMISSION] Randomized order: [${room.randomizedSubmissions
+                .map((s) => s.playerName)
+                .join(", ")}]`
+            );
+
+            // Check if there are any main screens connected
+            if (!hasMainScreens(roomCode)) {
+              // No main screens - skip playback and go directly to judging
+              console.log(
+                `[SUBMISSION] No main screens connected. Skipping playback, going to JUDGING`
+              );
+              room.gameState = GameState.JUDGING;
+              io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
+                submissions: room.randomizedSubmissions, // Use randomized submissions
+                judgeId: room.currentJudge,
+              });
+              io.to(roomCode).emit("roomUpdated", room);
+            } else {
+              // Main screens present - proceed with playback
+              room.gameState = GameState.PLAYBACK;
+              room.currentSubmissionIndex = 0; // Initialize for client-driven playback
+              console.log(
+                `[SUBMISSION] Transitioning to PLAYBACK with randomized submissions. Primary main screen: ${primaryMainScreens.get(
+                  roomCode
+                )}`
+              );
+
+              // Notify clients to start the playback sequence with randomized submissions
+              io.to(roomCode).emit("gameStateChanged", GameState.PLAYBACK, {
+                submissions: room.randomizedSubmissions, // Use randomized submissions
+              });
+              io.to(roomCode).emit("roomUpdated", room);
+
+              // The primary main screen will now drive the playback by emitting 'requestNextSubmission'
+            }
           }
         } catch (error) {
           console.error("Error submitting sounds:", error);
@@ -1013,10 +1221,21 @@ export default function SocketHandler(
         const roomCode = playerRooms.get(socket.id);
         if (!roomCode) return;
 
-        // Security: Only the main screen (viewer) should control playback
+        // Security: Only the primary main screen should control playback
         if (!(socket as any).isViewer) {
           console.log(
             `[SECURITY] Player socket ${socket.id} attempted to control playback. Ignoring.`
+          );
+          return;
+        }
+
+        if (!isPrimaryMainScreen(roomCode, socket.id)) {
+          console.log(
+            `[SECURITY] Secondary main screen ${
+              socket.id
+            } attempted to control playback for room ${roomCode}. Only primary main screen ${primaryMainScreens.get(
+              roomCode
+            )} can control playback. Ignoring.`
           );
           return;
         }
@@ -1025,30 +1244,36 @@ export default function SocketHandler(
         if (!room || room.gameState !== GameState.PLAYBACK) return;
 
         const index = room.currentSubmissionIndex || 0;
+        const submissionsToPlay =
+          room.randomizedSubmissions || room.submissions; // Use randomized if available
 
-        if (index < room.submissions.length) {
+        if (index < submissionsToPlay.length) {
           console.log(
-            `[PLAYBACK] Playing submission ${index + 1} of ${
-              room.submissions.length
-            }`
+            `[PLAYBACK] Primary main screen ${
+              socket.id
+            } playing randomized submission ${index + 1} of ${
+              submissionsToPlay.length
+            } for room ${roomCode} (Player: ${
+              submissionsToPlay[index].playerName
+            })`
           );
           io.to(roomCode).emit(
             "playSubmission",
-            room.submissions[index],
+            submissionsToPlay[index],
             index
           );
           room.currentSubmissionIndex = index + 1;
         } else {
           // All submissions played, move to judging
           console.log(
-            `[PLAYBACK] All submissions played for room ${roomCode}, transitioning to JUDGING`
+            `[PLAYBACK] All randomized submissions played for room ${roomCode}, transitioning to JUDGING`
           );
           room.gameState = GameState.JUDGING;
           room.isPlayingBack = false; // Reset playback flag
           room.currentSubmissionIndex = 0; // Reset for next round
 
           io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
-            submissions: room.submissions,
+            submissions: room.randomizedSubmissions || room.submissions, // Use randomized submissions
             judgeId: room.currentJudge,
           });
           io.to(roomCode).emit("roomUpdated", room);
@@ -1068,7 +1293,10 @@ export default function SocketHandler(
           )
             return;
 
-          const winningSubmission = room.submissions[parseInt(submissionIndex)];
+          // Use randomized submissions for winner selection
+          const submissionsToUse =
+            room.randomizedSubmissions || room.submissions;
+          const winningSubmission = submissionsToUse[parseInt(submissionIndex)];
           if (!winningSubmission) return;
 
           const winner = room.players.find(
@@ -1152,11 +1380,28 @@ export default function SocketHandler(
           const roomCode = playerRooms.get(socket.id);
           if (!roomCode) return;
 
+          // Only accept winner audio completion from primary main screen or if no main screens exist
+          if (
+            (socket as any).isViewer &&
+            !isPrimaryMainScreen(roomCode, socket.id)
+          ) {
+            console.log(
+              `[SECURITY] Secondary main screen ${
+                socket.id
+              } attempted to signal winner audio complete for room ${roomCode}. Only primary main screen ${primaryMainScreens.get(
+                roomCode
+              )} can do this. Ignoring.`
+            );
+            return;
+          }
+
           const room = rooms.get(roomCode);
           if (!room || room.gameState !== GameState.ROUND_RESULTS) return;
 
           console.log(
-            "Winner audio complete, starting next round after brief delay..."
+            `Winner audio complete from ${
+              (socket as any).isViewer ? "primary main screen" : "player"
+            } ${socket.id}, starting next round after brief delay...`
           );
 
           // Start next round after a brief pause
@@ -1166,6 +1411,8 @@ export default function SocketHandler(
             room.gameState = GameState.JUDGE_SELECTION;
             room.currentPrompt = null;
             room.submissions = [];
+            room.randomizedSubmissions = []; // Clear randomized submissions for new round
+            room.submissionSeed = undefined; // Clear the seed
             room.soundSelectionTimerStarted = false;
             room.judgeSelectionTimerStarted = false;
 
@@ -1223,6 +1470,8 @@ export default function SocketHandler(
 
                       room.gameState = GameState.SOUND_SELECTION;
                       room.submissions = [];
+                      room.randomizedSubmissions = []; // Clear randomized submissions for new round
+                      room.submissionSeed = undefined; // Clear the seed
                       room.soundSelectionTimerStarted = false;
 
                       const soundOptions = await getRandomSounds(12);
@@ -1283,12 +1532,15 @@ export default function SocketHandler(
           const room = rooms.get(normalizedRoomCode);
           if (room) {
             console.log(
-              `[VIEWER] Main screen joining room ${normalizedRoomCode} as viewer`
+              `[VIEWER] Main screen ${socket.id} joining room ${normalizedRoomCode} as viewer`
             );
             socket.join(normalizedRoomCode);
 
             // Add viewer to playerRooms map so they can emit events for this room
             playerRooms.set(socket.id, normalizedRoomCode);
+
+            // Track this main screen and potentially elect as primary
+            addMainScreen(normalizedRoomCode, socket.id);
 
             // Verify the join worked
             const roomMembers =
@@ -1303,6 +1555,11 @@ export default function SocketHandler(
             );
 
             (socket as any).isViewer = true; // Mark this socket as a viewer
+            (socket as any).isPrimaryMainScreen = isPrimaryMainScreen(
+              normalizedRoomCode,
+              socket.id
+            ); // Mark if primary
+
             socket.emit("roomJoined", room);
           } else {
             console.log(
@@ -1324,31 +1581,46 @@ export default function SocketHandler(
           if (roomCode) {
             const room = rooms.get(roomCode);
             if (room) {
-              room.players = room.players.filter((p) => p.id !== socket.id);
-              playerRooms.delete(socket.id);
-              socket.leave(roomCode);
-
-              if (room.players.length === 0) {
-                rooms.delete(roomCode);
-                clearTimer(roomCode); // Clear any timers associated with the empty room
-                console.log(`Room ${roomCode} closed as it's empty.`);
+              // Check if this is a main screen leaving
+              if ((socket as any).isViewer) {
+                console.log(
+                  `[MAIN SCREEN] Main screen ${socket.id} leaving room ${roomCode}`
+                );
+                removeMainScreen(roomCode, socket.id);
+                playerRooms.delete(socket.id);
+                socket.leave(roomCode);
               } else {
-                // If room still active, select new VIP if old one left, or new judge
-                if (
-                  room.players.every((p) => !p.isVIP) &&
-                  room.players.length > 0
-                ) {
-                  room.players[0].isVIP = true;
+                // Regular player leaving
+                room.players = room.players.filter((p) => p.id !== socket.id);
+                playerRooms.delete(socket.id);
+                socket.leave(roomCode);
+
+                if (room.players.length === 0) {
+                  rooms.delete(roomCode);
+                  clearTimer(roomCode); // Clear any timers associated with the empty room
+                  // Clean up main screen tracking too
+                  mainScreens.delete(roomCode);
+                  primaryMainScreens.delete(roomCode);
+                  console.log(`Room ${roomCode} closed as it's empty.`);
+                } else {
+                  // If room still active, select new VIP if old one left, or new judge
+                  if (
+                    room.players.every((p) => !p.isVIP) &&
+                    room.players.length > 0
+                  ) {
+                    room.players[0].isVIP = true;
+                  }
+                  if (room.currentJudge === socket.id) {
+                    room.currentJudge = selectNextJudge(room); // Or handle judge leaving differently
+                    io.to(roomCode).emit(
+                      "judgeSelected",
+                      room.currentJudge as string
+                    );
+                  }
+                  io.to(roomCode).emit("roomUpdated", room);
                 }
-                if (room.currentJudge === socket.id) {
-                  room.currentJudge = selectNextJudge(room); // Or handle judge leaving differently
-                  io.to(roomCode).emit(
-                    "judgeSelected",
-                    room.currentJudge as string
-                  );
-                }
-                io.to(roomCode).emit("roomUpdated", room);
               }
+
               io.to(roomCode).emit("playerLeft", socket.id);
               // Broadcast updated room list to all clients
               broadcastRoomListUpdate(io);
@@ -1364,8 +1636,16 @@ export default function SocketHandler(
         try {
           const roomCode = playerRooms.get(socket.id);
           if (roomCode) {
-            // Use new disconnection handling
-            handlePlayerDisconnection(io, socket.id, roomCode);
+            // Check if this was a main screen and clean up tracking
+            if ((socket as any).isViewer) {
+              console.log(
+                `[MAIN SCREEN] Main screen ${socket.id} disconnected from room ${roomCode}`
+              );
+              removeMainScreen(roomCode, socket.id);
+            } else {
+              // Use new disconnection handling for regular players
+              handlePlayerDisconnection(io, socket.id, roomCode);
+            }
           }
         } catch (error) {
           console.error("Error during disconnect:", error);

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getPlayerColorClass } from '@/data/gameData';
+import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getPlayerColorClass, getSoundEffects } from '@/data/gameData';
+import { useAudioSystem } from '@/utils/audioSystem';
 
 export default function Home() {
   const [playerName, setPlayerName] = useState('');
@@ -11,7 +12,9 @@ export default function Home() {
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState<'create' | 'join' | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isPlayingSound, setIsPlayingSound] = useState(false);
   const router = useRouter();
+  const { audioSystem } = useAudioSystem();
 
   // Load player data from localStorage on component mount
   useEffect(() => {
@@ -59,6 +62,62 @@ export default function Home() {
     localStorage.removeItem('lastKnownRoomCode');
     console.log('Home page loaded: Cleared game persistence data for fresh start');
   }, []);
+
+  // Function to play a random fart sound
+  // Note: Chrome requires AudioContext to be initialized after a user gesture
+  // https://developer.chrome.com/blog/autoplay/#web_audio
+  const playRandomFartSound = async () => {
+    if (isPlayingSound) return;
+
+    setIsPlayingSound(true);
+    
+    try {
+      // Ensure audio system is available
+      if (!audioSystem) {
+        console.log('Audio system not available');
+        return;
+      }
+
+      console.log('🎵 Initializing audio system...');
+      
+      // Initialize audio context (this handles Chrome's user gesture requirement)
+      await audioSystem.initialize();
+
+      console.log('🔍 Loading sound effects...');
+      
+      // Get all sound effects
+      const allSounds = await getSoundEffects();
+      
+      // Filter for sounds with "fart" in the name or in "bodily functions" category
+      const fartSounds = allSounds.filter(sound => 
+        sound.name.toLowerCase().includes('fart') || 
+        sound.category.toLowerCase().includes('bodily functions')
+      );
+
+      console.log(`Found ${fartSounds.length} fart sounds`);
+
+      if (fartSounds.length > 0) {
+        // Pick a random fart sound
+        const randomFartSound = fartSounds[Math.floor(Math.random() * fartSounds.length)];
+        console.log(`🎵💨 Playing random fart sound: ${randomFartSound.name}`);
+        
+        // Play the sound
+        await audioSystem.playSound(randomFartSound.id);
+        console.log('✅ Sound played successfully!');
+      } else {
+        console.log('No fart sounds found! 😢');
+      }
+    } catch (error) {
+      console.error('❌ Error playing fart sound:', error);
+      
+      // Show user-friendly error message
+      if (error instanceof Error && error.message.includes('AudioContext')) {
+        console.log('💡 Audio initialization failed - this is normal on first click in some browsers');
+      }
+    } finally {
+      setIsPlayingSound(false);
+    }
+  };
   const handleSubmit = (selectedMode: 'create' | 'join') => {
     if (!playerName.trim()) return;
     
@@ -94,7 +153,17 @@ export default function Home() {
           <p className="text-xl text-white/90 font-bold">
             The hilarious sound game!
           </p>
-          <div className="text-4xl mt-4 animate-bounce">🎵💨</div>
+          <div 
+            className={`text-4xl mt-4 cursor-pointer transition-all duration-200 select-none ${
+              isPlayingSound 
+                ? 'animate-pulse scale-125 text-yellow-300' 
+                : 'animate-bounce hover:scale-110'
+            }`}
+            onClick={playRandomFartSound}
+            title="Click me for a surprise! 🎵💨"
+          >
+            🎵💨
+          </div>
         </div>
 
         {/* Main Content Card */}
@@ -341,11 +410,11 @@ export default function Home() {
         </div>
 
         {/* Instructions */}
-        <div className="text-center mt-8 text-white/80">
+        {/* <div className="text-center mt-8 text-white/80">
           <p className="text-sm">
             Get 3-8 friends together for the funniest sound game ever! 🎊
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   );

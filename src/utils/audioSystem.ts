@@ -13,19 +13,29 @@ export class AudioSystem {
     return AudioSystem.instance;
   }
   async initialize(): Promise<void> {
-    if (!this.audioContext) {
-      // Create proper type definition for webkit prefix
-      const WindowWithWebkit = window as Window & {
-        webkitAudioContext?: typeof AudioContext;
-      };
+    try {
+      if (!this.audioContext) {
+        // Create proper type definition for webkit prefix
+        const WindowWithWebkit = window as Window & {
+          webkitAudioContext?: typeof AudioContext;
+        };
 
-      this.audioContext = new (window.AudioContext ||
-        WindowWithWebkit.webkitAudioContext ||
-        AudioContext)();
-    }
+        this.audioContext = new (window.AudioContext ||
+          WindowWithWebkit.webkitAudioContext ||
+          AudioContext)();
+      }
 
-    if (this.audioContext.state === "suspended") {
-      await this.audioContext.resume();
+      if (this.audioContext.state === "suspended") {
+        console.log("🔊 Resuming suspended AudioContext...");
+        await this.audioContext.resume();
+      }
+
+      console.log(
+        `✅ AudioContext initialized successfully (state: ${this.audioContext.state})`
+      );
+    } catch (error) {
+      console.error("❌ Failed to initialize AudioContext:", error);
+      throw error;
     }
   }
   async loadSound(id: string, fileName: string): Promise<void> {
@@ -263,14 +273,11 @@ export function useAudioSystem() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const initializeAudio = async () => {
-      const audio = AudioSystem.getInstance();
-      await audio.initialize();
-      setAudioSystem(audio);
-      setIsLoading(false);
-    };
-
-    initializeAudio();
+    // Only get the AudioSystem instance, don't initialize yet
+    // Initialization will happen on first user interaction
+    const audio = AudioSystem.getInstance();
+    setAudioSystem(audio);
+    setIsLoading(false);
   }, []);
 
   return { audioSystem, isLoading };
