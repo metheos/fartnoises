@@ -132,14 +132,21 @@ export interface ServerToClientEvents {
   playbackComplete: () => void;
 }
 
+// Player data for socket events
+export interface PlayerData {
+  name: string;
+  color?: string;
+  emoji?: string;
+}
+
 export interface ClientToServerEvents {
   createRoom: (
-    playerName: string,
+    playerData: PlayerData,
     callback: (roomCode: string) => void
   ) => void;
   joinRoom: (
     roomCode: string,
-    playerName: string,
+    playerData: PlayerData,
     callback: (success: boolean, room?: Room) => void
   ) => void;
   reconnectToRoom: (

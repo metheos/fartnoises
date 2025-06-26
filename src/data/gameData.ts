@@ -71,12 +71,64 @@ export const PLAYER_COLORS = [
   "#F7DC6F", // Light yellow
 ];
 
+// Player emoji options for avatars
+export const PLAYER_EMOJIS = [
+  "🎵",
+  "🎶",
+  "🎤",
+  "🎸",
+  "🥁",
+  "🎹",
+  "🎺",
+  "🎷",
+  "😂",
+  "😎",
+  "🤪",
+  "🤯",
+  "😜",
+  "🤔",
+  "😈",
+  "🤓",
+  "🦄",
+  "🐱",
+  "🐶",
+  "🐸",
+  "🦊",
+  "🐻",
+  "🐼",
+  "🐨",
+  "🚀",
+  "⭐",
+  "🌟",
+  "✨",
+  "🔥",
+  "💫",
+  "🌈",
+  "🎊",
+  "🍕",
+  "🍔",
+  "🍟",
+  "🍎",
+  "🍌",
+  "🍇",
+  "🍓",
+  "🥑",
+  "🎮",
+  "🕹️",
+  "🎯",
+  "🎲",
+  "🃏",
+  "🎪",
+  "🎭",
+  "🎨",
+];
+
 // Game configuration
 export const GAME_CONFIG = {
   MIN_PLAYERS: 3,
   MAX_PLAYERS: 8,
-  DEFAULT_MAX_ROUNDS: 10,
-  MAX_SCORE: 4, // Score needed to win the game
+  DEFAULT_MAX_ROUNDS: 2,
+  MAX_SCORE: 2, // Score needed to win the game
   SOUND_SELECTION_TIME: 45, // seconds
   PROMPT_SELECTION_TIME: 30, // seconds
   ROOM_CODE_LENGTH: 4,
@@ -85,3 +137,39 @@ export const GAME_CONFIG = {
   RECONNECTION_VOTE_TIMEOUT: 20, // seconds for players to vote
   MAX_DISCONNECTION_TIME: 300, // 5 minutes max before auto-removal
 };
+
+// Helper functions for player customization
+export function getRandomColor(excludedColors: string[] = []): string {
+  const availableColors = PLAYER_COLORS.filter(
+    (color) => !excludedColors.includes(color)
+  );
+  if (availableColors.length === 0) {
+    return PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)];
+  }
+  return availableColors[Math.floor(Math.random() * availableColors.length)];
+}
+
+export function getRandomEmoji(excludedEmojis: string[] = []): string {
+  const availableEmojis = PLAYER_EMOJIS.filter(
+    (emoji) => !excludedEmojis.includes(emoji)
+  );
+  if (availableEmojis.length === 0) {
+    return PLAYER_EMOJIS[Math.floor(Math.random() * PLAYER_EMOJIS.length)];
+  }
+  return availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
+}
+
+// Helper function to convert hex colors to Tailwind classes
+export function getPlayerColorClass(color: string): string {
+  const colorMap: { [key: string]: string } = {
+    "#FF6B6B": "bg-red-400",
+    "#4ECDC4": "bg-teal-400",
+    "#45B7D1": "bg-blue-400",
+    "#96CEB4": "bg-green-400",
+    "#FFEAA7": "bg-yellow-400",
+    "#DDA0DD": "bg-purple-400",
+    "#98D8C8": "bg-emerald-400",
+    "#F7DC6F": "bg-amber-400",
+  };
+  return colorMap[color] || "bg-gray-400";
+}

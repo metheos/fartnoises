@@ -6,6 +6,7 @@ import { EventEmitter } from "events";
 import {
   Room,
   Player,
+  PlayerData,
   GameState,
   ServerToClientEvents,
   ClientToServerEvents,
@@ -14,6 +15,7 @@ import {
   getGamePrompts,
   getSoundEffects,
   PLAYER_COLORS,
+  PLAYER_EMOJIS,
   GAME_CONFIG,
   processPromptText,
 } from "@/data/gameData";
@@ -91,6 +93,15 @@ function getRandomColor(usedColors: string[]): string {
   return availableColors.length > 0
     ? availableColors[Math.floor(Math.random() * availableColors.length)]
     : PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)];
+}
+
+function getRandomEmoji(usedEmojis: string[]): string {
+  const availableEmojis = PLAYER_EMOJIS.filter(
+    (emoji) => !usedEmojis.includes(emoji)
+  );
+  return availableEmojis.length > 0
+    ? availableEmojis[Math.floor(Math.random() * availableEmojis.length)]
+    : PLAYER_EMOJIS[Math.floor(Math.random() * PLAYER_EMOJIS.length)];
 }
 
 function selectNextJudge(room: Room): string {
@@ -637,8 +648,8 @@ export default function SocketHandler(
       // Send current room list to newly connected client
       broadcastRoomListUpdate(io); // Send to all, or use socket.emit to send only to the new client if preferred
 
-      socket.on("createRoom", (playerName, callback) => {
-        console.log("createRoom event received with playerName:", playerName);
+      socket.on("createRoom", (playerData, callback) => {
+        console.log("createRoom event received with playerData:", playerData);
         try {
           let roomCode: string;
           do {
@@ -647,8 +658,9 @@ export default function SocketHandler(
 
           const player: Player = {
             id: socket.id,
-            name: playerName,
-            color: getRandomColor([]),
+            name: playerData.name,
+            color: playerData.color || getRandomColor([]),
+            emoji: playerData.emoji || getRandomEmoji([]),
             score: 0,
             isVIP: true,
           };
@@ -685,7 +697,7 @@ export default function SocketHandler(
         }
       });
 
-      socket.on("joinRoom", (roomCode, playerName, callback) => {
+      socket.on("joinRoom", (roomCode, playerData, callback) => {
         try {
           const room = rooms.get(roomCode.toUpperCase());
 
@@ -705,10 +717,14 @@ export default function SocketHandler(
           }
 
           const usedColors = room.players.map((p) => p.color);
+          const usedEmojis = room.players
+            .map((p) => p.emoji)
+            .filter(Boolean) as string[];
           const player: Player = {
             id: socket.id,
-            name: playerName,
-            color: getRandomColor(usedColors),
+            name: playerData.name,
+            color: playerData.color || getRandomColor(usedColors),
+            emoji: playerData.emoji || getRandomEmoji(usedEmojis),
             score: 0,
             isVIP: false,
           };
@@ -1120,37 +1136,6 @@ export default function SocketHandler(
             }
 
             // In all other cases (not game over, or tie at game end), continue to the next round.
-            console.log(
-              "Round results displayed, waiting for client audio completion..."
-            );
-            // The next round will be triggered when client emits 'winnerAudioComplete'
-          }
-
-          if (
-            room.currentRound >= room.maxRounds ||
-            maxScore >= GAME_CONFIG.MAX_SCORE
-          ) {
-            console.log(
-              `🎉 Game ending: Round ${room.currentRound}/${room.maxRounds} or score ${maxScore} reached threshold`
-            );
-            room.gameState = GameState.GAME_OVER;
-            room.winner = gameWinners[0].id;
-            io.to(roomCode).emit("roomUpdated", room);
-            io.to(roomCode).emit("gameStateChanged", GameState.GAME_OVER, {
-              winner: gameWinners[0],
-              finalScores: room.players.map((p) => ({
-                id: p.id,
-                name: p.name,
-                score: p.score,
-              })),
-            });
-            io.to(roomCode).emit(
-              "gameComplete",
-              gameWinners[0].id,
-              gameWinners[0].name
-            );
-          } else {
-            // Don't automatically start next round - wait for client to finish playing winner audio
             console.log(
               "Round results displayed, waiting for client audio completion..."
             );

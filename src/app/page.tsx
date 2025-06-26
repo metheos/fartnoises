@@ -2,12 +2,54 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getPlayerColorClass } from '@/data/gameData';
 
 export default function Home() {
   const [playerName, setPlayerName] = useState('');
+  const [playerColor, setPlayerColor] = useState('');
+  const [playerEmoji, setPlayerEmoji] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState<'create' | 'join' | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const router = useRouter();
+
+  // Load player data from localStorage on component mount
+  useEffect(() => {
+    const savedPlayerData = localStorage.getItem('playerCustomization');
+    if (savedPlayerData) {
+      try {
+        const { name, color, emoji } = JSON.parse(savedPlayerData);
+        setPlayerName(name || '');
+        setPlayerColor(color || getRandomColor());
+        setPlayerEmoji(emoji || getRandomEmoji());
+        // Don't auto-expand editing if we have saved data
+        setIsEditingProfile(false);
+      } catch (error) {
+        console.error('Failed to parse saved player data:', error);
+        // Initialize with random values if parsing fails
+        setPlayerColor(getRandomColor());
+        setPlayerEmoji(getRandomEmoji());
+        setIsEditingProfile(true); // Show full interface if no valid saved data
+      }
+    } else {
+      // No saved data, initialize with random values and show full interface
+      setPlayerColor(getRandomColor());
+      setPlayerEmoji(getRandomEmoji());
+      setIsEditingProfile(true);
+    }
+  }, []);
+
+  // Save player data to localStorage whenever it changes
+  useEffect(() => {
+    if (playerColor && playerEmoji) {
+      const playerData = {
+        name: playerName,
+        color: playerColor,
+        emoji: playerEmoji
+      };
+      localStorage.setItem('playerCustomization', JSON.stringify(playerData));
+    }
+  }, [playerName, playerColor, playerEmoji]);
 
   // Clear any game persistence data when the home page loads
   // This ensures a fresh start when users return to the home screen
@@ -26,6 +68,8 @@ export default function Home() {
     const params = new URLSearchParams({
       mode: urlMode,
       playerName: playerName.trim(),
+      playerColor: playerColor,
+      playerEmoji: playerEmoji,
     });
     
     if (selectedMode === 'join' && roomCode.trim()) {
@@ -58,76 +102,181 @@ export default function Home() {
           {!mode ? (
             <>
               {/* Player Name Input */}
-              <div className="mb-4">
-              <label className="block text-gray-700 text-lg font-bold mb-2">
-                Your Name
-              </label>
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                placeholder="Enter your name..."
-                className="w-full px-6 py-4 text-lg text-gray-800 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none transition-colors placeholder:text-gray-600"
-                maxLength={20}
-              />
-              </div>
+              {(!playerName.trim() || isEditingProfile) ? (
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-lg font-bold mb-2">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    placeholder="Enter your name..."
+                    className="w-full px-6 py-4 text-lg text-gray-800 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none transition-colors placeholder:text-gray-600"
+                    maxLength={20}
+                  />
+                </div>
+              ) : (
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-lg font-bold mb-2">
+                    Welcome back!
+                  </label>
+                  <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-12 h-12 rounded-full ${getPlayerColorClass(playerColor)} flex items-center justify-center text-xl shadow-md`}>
+                        {playerEmoji}
+                      </div>
+                      <span className="text-lg font-semibold text-gray-800">{playerName}</span>
+                    </div>
+                    <button
+                      onClick={() => setIsEditingProfile(true)}
+                      className="bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-2 rounded-lg font-medium transition-colors text-sm"
+                    >
+                      ✏️ Edit
+                    </button>
+                  </div>
+                </div>
+              )}
 
-              {/* Room Code Input */}
-              <div className="mb-8">
-              <label className="block text-gray-700 text-lg font-bold mb-2">
-                Room Code <span className="font-normal text-gray-500">(to join)</span>
-              </label>
-              <input
-                type="text"
-                value={roomCode}
-                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && playerName.trim() && roomCode.trim().length === 4) {
-                    handleSubmit('join');
-                  }
-                }}
-                placeholder="4-LETTER-CODE"
-                className="w-full px-6 py-4 text-lg text-gray-800 text-center font-mono tracking-widest border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors uppercase placeholder:text-gray-500"
-                maxLength={4}
-              />
-              </div>
+              {/* Player Customization - Show only when editing */}
+              {(!playerName.trim() || isEditingProfile) && (
+                <div className="mb-6">
+                  <label className="block text-gray-700 text-lg font-bold mb-3">
+                    Your Avatar
+                  </label>
+                  
+                  {/* Current Selection Preview */}
+                  <div className="flex items-center justify-center mb-4">
+                    <div className={`w-20 h-20 rounded-full ${getPlayerColorClass(playerColor)} flex items-center justify-center text-3xl shadow-lg`}>
+                      {playerEmoji}
+                    </div>
+                  </div>
 
-              {/* Action Buttons */}
-              <div className="space-y-4">
-              <button
-                onClick={() => handleSubmit('join')}
-                disabled={!playerName.trim() || roomCode.trim().length !== 4}
-                className="w-full bg-gradient-to-r from-blue-400 to-blue-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-blue-500 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                🚀 Join Game
-              </button>
-              
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-gray-300"></div>
-                <span className="flex-shrink mx-4 text-gray-500 font-semibold">OR</span>
-                <div className="flex-grow border-t border-gray-300"></div>
-              </div>
+                  {/* Color Selection */}
+                  <div className="mb-4">
+                    <p className="text-sm font-semibold text-gray-600 mb-2">Choose your color:</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {PLAYER_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setPlayerColor(color)}
+                          className={`w-8 h-8 rounded-full ${getPlayerColorClass(color)} border-2 transition-all duration-200 hover:scale-110 ${
+                            playerColor === color ? 'border-gray-800 ring-2 ring-gray-400' : 'border-gray-300'
+                          }`}
+                          title={`Select ${color}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
 
-              <button
-                onClick={() => handleSubmit('create')}
-                disabled={!playerName.trim()}
-                className="w-full bg-gradient-to-r from-green-400 to-green-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-green-500 hover:to-green-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                🎮 Create New Room
-              </button>
-              </div>
+                  {/* Emoji Selection */}
+                  <div className="mb-4">
+                    <p className="text-sm font-semibold text-gray-600 mb-2">Choose your emoji:</p>
+                    <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                      {PLAYER_EMOJIS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => setPlayerEmoji(emoji)}
+                          className={`w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-100 rounded transition-colors ${
+                            playerEmoji === emoji ? 'bg-purple-100 ring-2 ring-purple-400' : ''
+                          }`}
+                          title={`Select ${emoji}`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Main Screen Button */}
+                  {/* Random Button */}
+                  <div className="text-center mb-4">
+                    <button
+                      onClick={() => {
+                        setPlayerColor(getRandomColor());
+                        setPlayerEmoji(getRandomEmoji());
+                      }}
+                      className="text-sm bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-full text-gray-700 font-medium transition-colors"
+                    >
+                      🎲 Randomize
+                    </button>
+                  </div>
+
+                  {/* Done Editing Button - Only show if we're editing existing profile */}
+                  {playerName.trim() && isEditingProfile && (
+                    <div className="text-center">
+                      <button
+                        onClick={() => setIsEditingProfile(false)}
+                        className="bg-green-100 hover:bg-green-200 text-green-700 px-6 py-2 rounded-full font-medium transition-colors"
+                      >
+                        💾 Save
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Room Code Input and Game Actions - Hide when editing profile */}
+              {!isEditingProfile && (
+                <>
+                  {/* Room Code Input */}
+                  <div className="mb-8">
+                    <label className="block text-gray-700 text-lg font-bold mb-2">
+                      Room Code <span className="font-normal text-gray-500">(to join)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={roomCode}
+                      onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && playerName.trim() && roomCode.trim().length === 4) {
+                          handleSubmit('join');
+                        }
+                      }}
+                      placeholder="4-LETTER-CODE"
+                      className="w-full px-6 py-4 text-lg text-gray-800 text-center font-mono tracking-widest border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors uppercase placeholder:text-gray-500"
+                      maxLength={4}
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="space-y-4">
+                    <button
+                      onClick={() => handleSubmit('join')}
+                      disabled={!playerName.trim() || roomCode.trim().length !== 4}
+                      className="w-full bg-gradient-to-r from-blue-400 to-blue-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-blue-500 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+                    >
+                      🚀 Join Game
+                    </button>
+                    
+                    <div className="relative flex py-2 items-center">
+                      <div className="flex-grow border-t border-gray-300"></div>
+                      <span className="flex-shrink mx-4 text-gray-500 font-semibold">OR</span>
+                      <div className="flex-grow border-t border-gray-300"></div>
+                    </div>
+
+                    <button
+                      onClick={() => handleSubmit('create')}
+                      disabled={!playerName.trim()}
+                      className="w-full bg-gradient-to-r from-green-400 to-green-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-green-500 hover:to-green-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+                    >
+                      🎮 Create New Room
+                    </button>
+                  </div>
+
+                </>
+              )}
+
+              {/* Main Screen Button - Always available */}
               <div className="mt-8 pt-6 border-t border-gray-200">
-              <button
-                onClick={goToMainScreen}
-                className="w-full bg-gradient-to-r from-purple-400 to-purple-600 text-white py-3 px-6 rounded-xl font-bold hover:from-purple-500 hover:to-purple-700 transition-all duration-200"
-              >
-                📺 Main Screen Mode
-              </button>
-              <p className="text-sm text-gray-700 text-center mt-2">
-                For TV/shared display
-              </p>
+                <button
+                  onClick={goToMainScreen}
+                  className="w-full bg-gradient-to-r from-purple-400 to-purple-600 text-white py-3 px-6 rounded-xl font-bold hover:from-purple-500 hover:to-purple-700 transition-all duration-200"
+                >
+                  📺 Main Screen Mode
+                </button>
+                <p className="text-sm text-gray-700 text-center mt-2">
+                  For TV/shared display
+                </p>
               </div>
             </>
           ) : mode === 'join' ? (

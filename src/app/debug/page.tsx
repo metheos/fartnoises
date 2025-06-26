@@ -16,10 +16,10 @@ import {
 
 // Mock Data
 const mockPlayers: Player[] = [
-  { id: 'player1', name: 'Alice', color: '#ef4444', score: 1, isVIP: true, isDisconnected: false },
-  { id: 'player2', name: 'Bob', color: '#3b82f6', score: 2, isVIP: false, isDisconnected: false },
-  { id: 'player3', name: 'Charlie', color: '#22c55e', score: 0, isVIP: false, isDisconnected: false },
-  { id: 'player4', name: 'Diana', color: '#eab308', score: 3, isVIP: false, isDisconnected: false },
+  { id: 'player1', name: 'Alice', color: '#FF6B6B', emoji: '😂', score: 1, isVIP: true, isDisconnected: false },
+  { id: 'player2', name: 'Bob', color: '#4ECDC4', emoji: '🎵', score: 2, isVIP: false, isDisconnected: false },
+  { id: 'player3', name: 'Charlie', color: '#45B7D1', emoji: '🤪', score: 0, isVIP: false, isDisconnected: false },
+  { id: 'player4', name: 'Diana', color: '#96CEB4', emoji: '🎸', score: 3, isVIP: false, isDisconnected: false },
 ];
 
 const mockSoundEffects: SoundEffect[] = [

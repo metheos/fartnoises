@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } from '@/types/game';
 import { getSoundEffects } from '@/data/gameData';
@@ -11,19 +12,21 @@ let socket: Socket;
 // Helper function to convert hex colors to Tailwind classes
 export const getPlayerColorClass = (color: string): string => {
   const colorMap: { [key: string]: string } = {
-    '#ef4444': 'bg-red-500',
-    '#f97316': 'bg-orange-500',
-    '#eab308': 'bg-yellow-500',
-    '#22c55e': 'bg-green-500',
-    '#3b82f6': 'bg-blue-500',
-    '#8b5cf6': 'bg-violet-500',
-    '#ec4899': 'bg-pink-500',
-    '#06b6d4': 'bg-cyan-500',
+    '#FF6B6B': 'bg-red-400',
+    '#4ECDC4': 'bg-teal-400', 
+    '#45B7D1': 'bg-blue-400',
+    '#96CEB4': 'bg-green-400',
+    '#FFEAA7': 'bg-yellow-400',
+    '#DDA0DD': 'bg-purple-400',
+    '#98D8C8': 'bg-emerald-400',
+    '#F7DC6F': 'bg-amber-400',
   };
-  return colorMap[color] || 'bg-gray-500';
+  return colorMap[color] || 'bg-gray-400';
 };
 
 export default function MainScreen() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -36,6 +39,19 @@ export default function MainScreen() {
     winningSubmission: any;
     submissionIndex: number;
   } | null>(null);
+  
+  // Helper function to update URL with room code
+  const updateURLWithRoom = (roomCode: string | null) => {
+    const url = new URL(window.location.href);
+    if (roomCode) {
+      url.searchParams.set('room', roomCode);
+      console.log('Main screen: Updating URL with room code:', roomCode);
+    } else {
+      url.searchParams.delete('room');
+      console.log('Main screen: Removing room code from URL');
+    }
+    window.history.replaceState({}, '', url.toString());
+  };
   
   // Load sound effects on component mount
   useEffect(() => {
@@ -51,6 +67,29 @@ export default function MainScreen() {
     loadSounds();
   }, []);
 
+  // Handle URL parameters - populate input field on load and handle browser navigation
+  useEffect(() => {
+    const urlRoomCode = searchParams?.get('room');
+    if (urlRoomCode && urlRoomCode.length === 4) {
+      const upperRoomCode = urlRoomCode.toUpperCase();
+      console.log('Main screen: Found room code in URL:', upperRoomCode);
+      setRoomCodeInput(upperRoomCode);
+      
+      // If we're connected and not already in this room, auto-join
+      if (socket && socket.connected && (!currentRoom || currentRoom.code !== upperRoomCode)) {
+        console.log('Main screen: Auto-joining from URL change:', upperRoomCode);
+        socket.emit('joinRoomAsViewer', upperRoomCode);
+      }
+    } else if (!urlRoomCode && currentRoom) {
+      // URL was cleared but we still have a room - user navigated away
+      console.log('Main screen: URL cleared, leaving current room');
+      setCurrentRoom(null);
+      setRoundWinner(null);
+      setJoinError('');
+      setRoomCodeInput('');
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     // Initialize socket connection
     socket = io({
@@ -60,6 +99,14 @@ export default function MainScreen() {
       console.log('Main screen connected to server');
       // Automatically request the room list when we connect
       socket.emit('requestMainScreenUpdate');
+      
+      // Check for room code in URL and auto-join if present
+      const urlRoomCode = searchParams?.get('room');
+      if (urlRoomCode && urlRoomCode.length === 4) {
+        console.log('Main screen: Auto-joining room from URL:', urlRoomCode);
+        socket.emit('joinRoomAsViewer', urlRoomCode.toUpperCase());
+        setRoomCodeInput(urlRoomCode.toUpperCase());
+      }
       
       // If we were watching a specific room before disconnection, rejoin it
       if (currentRoom) {
@@ -77,6 +124,24 @@ export default function MainScreen() {
           const refreshedCurrentRoom = updatedRooms.find(r => r.code === prevCurrentRoom.code);
           if (refreshedCurrentRoom) {
             console.log('Main screen updating current room from room list:', refreshedCurrentRoom);
+            
+            // If updating to ROUND_RESULTS state, restore winner data if available
+            if (refreshedCurrentRoom.gameState === GameState.ROUND_RESULTS && refreshedCurrentRoom.lastWinner && refreshedCurrentRoom.lastWinningSubmission && !roundWinner) {
+              console.log('Main screen restoring round winner from room list update - lastWinner:', refreshedCurrentRoom.lastWinner);
+              // Reconstruct winner data from room properties
+              const winnerPlayer = refreshedCurrentRoom.players.find((p: Player) => p.id === refreshedCurrentRoom.lastWinner);
+              if (winnerPlayer) {
+                const reconstructedWinner = {
+                  winnerId: refreshedCurrentRoom.lastWinner,
+                  winnerName: winnerPlayer.name,
+                  winningSubmission: refreshedCurrentRoom.lastWinningSubmission,
+                  submissionIndex: refreshedCurrentRoom.submissions.findIndex((s: SoundSubmission) => s.playerId === refreshedCurrentRoom.lastWinner)
+                };
+                console.log('Main screen setting reconstructed winner:', reconstructedWinner);
+                setRoundWinner(reconstructedWinner);
+              }
+            }
+            
             return refreshedCurrentRoom; // Update currentRoom with the latest from the global list
           }
           // If the room no longer exists in the list, keep current room for now
@@ -93,6 +158,24 @@ export default function MainScreen() {
           console.log('Previous game state:', prev.gameState, '-> New game state:', updatedRoom.gameState);
           console.log('Previous judge:', prev.currentJudge, '-> New judge:', updatedRoom.currentJudge);
           console.log('Previous round:', prev.currentRound, '-> New round:', updatedRoom.currentRound);
+          
+          // If we're in ROUND_RESULTS state and don't have winner data, try to extract it from room
+          if (updatedRoom.gameState === GameState.ROUND_RESULTS && !roundWinner && updatedRoom.lastWinner && updatedRoom.lastWinningSubmission) {
+            console.log('Main screen: Restoring round winner from room data - lastWinner:', updatedRoom.lastWinner);
+            // Reconstruct winner data from room properties
+            const winnerPlayer = updatedRoom.players.find((p: Player) => p.id === updatedRoom.lastWinner);
+            if (winnerPlayer) {
+              const reconstructedWinner = {
+                winnerId: updatedRoom.lastWinner,
+                winnerName: winnerPlayer.name,
+                winningSubmission: updatedRoom.lastWinningSubmission,
+                submissionIndex: updatedRoom.submissions.findIndex((s: SoundSubmission) => s.playerId === updatedRoom.lastWinner)
+              };
+              console.log('Main screen setting reconstructed winner from roomUpdated:', reconstructedWinner);
+              setRoundWinner(reconstructedWinner);
+            }
+          }
+          
           return updatedRoom;
         }
         console.log('Main screen ignoring roomUpdated for different room:', updatedRoom.code, 'current:', prev?.code);
@@ -106,12 +189,38 @@ export default function MainScreen() {
         console.log('[MAIN SCREEN] Setting current room to:', room.code);
         setCurrentRoom(room);
         setJoinError('');
+        
+        // If joining a room in ROUND_RESULTS state, restore winner data if available
+        if (room.gameState === GameState.ROUND_RESULTS && room.lastWinner && room.lastWinningSubmission) {
+          console.log('[MAIN SCREEN] Restoring round winner from joined room - lastWinner:', room.lastWinner);
+          // Reconstruct winner data from room properties
+          const winnerPlayer = room.players.find((p: Player) => p.id === room.lastWinner);
+          if (winnerPlayer) {
+            const reconstructedWinner = {
+              winnerId: room.lastWinner,
+              winnerName: winnerPlayer.name,
+              winningSubmission: room.lastWinningSubmission,
+              submissionIndex: room.submissions.findIndex((s: SoundSubmission) => s.playerId === room.lastWinner)
+            };
+            console.log('[MAIN SCREEN] Setting reconstructed winner from roomJoined:', reconstructedWinner);
+            setRoundWinner(reconstructedWinner);
+          }
+        }
+        
+        // Update URL with the room code for persistence
+        updateURLWithRoom(room.code);
       }
     });
 
     socket.on('error', (error) => {
       console.error('Socket error:', error);
       setJoinError(error.message || 'Failed to connect to room');
+      // If error is due to invalid room from URL, clear the URL parameter
+      if (error.message && error.message.includes('Room not found')) {
+        console.log('Main screen: Room from URL not found, clearing URL');
+        updateURLWithRoom(null);
+        setRoomCodeInput('');
+      }
     });    socket.on('roundComplete', (winnerData) => {
       console.log('Main screen roundComplete event received:', winnerData);
       console.log('Setting roundWinner state to:', winnerData);
@@ -288,6 +397,9 @@ export default function MainScreen() {
     setJoinError('');
     setRoomCodeInput('');
     
+    // Clear URL parameter when leaving room
+    updateURLWithRoom(null);
+    
     // Request fresh room list only when leaving a room
     if (socket && socket.connected) {
       socket.emit('requestMainScreenUpdate');
@@ -345,6 +457,7 @@ export default function MainScreen() {
             roomCodeInput={roomCodeInput}
             setRoomCodeInput={setRoomCodeInput}
             joinError={joinError}
+            roomCodeFromURL={searchParams?.get('room')}
           />
         )}
 
@@ -389,7 +502,8 @@ export function WaitingForGameScreen({
   onRefreshRooms,
   roomCodeInput, 
   setRoomCodeInput, 
-  joinError 
+  joinError,
+  roomCodeFromURL
 }: { 
   rooms: Room[];
   onJoinRoom: () => void;
@@ -397,6 +511,7 @@ export function WaitingForGameScreen({
   roomCodeInput: string;
   setRoomCodeInput: (value: string) => void;
   joinError: string;
+  roomCodeFromURL?: string | null;
 }) {
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
@@ -408,28 +523,64 @@ export function WaitingForGameScreen({
       
       {/* Manual Room Entry */}      <div className="bg-purple-100 rounded-2xl p-6 mb-8">
         <h3 className="text-2xl font-bold text-gray-900 mb-4">Enter Room Code to Watch</h3>
-        {/* <p className="text-gray-800 mb-4">Enter a 4-letter room code to watch that game:</p> */}
         
-        <div className="flex justify-center items-center space-x-4">          <input
-            type="text"
-            value={roomCodeInput}
-            onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && roomCodeInput.length === 4) {
-                onJoinRoom();
-              }
-            }}
-            placeholder="ABCD"
-            maxLength={4}
-            className="text-2xl font-mono font-bold text-center w-32 h-16 border-2 border-purple-300 rounded-xl focus:border-purple-500 focus:outline-none placeholder:text-gray-700 text-gray-900 bg-white"
-          />
-          <button
-            onClick={onJoinRoom}
-            disabled={roomCodeInput.length !== 4}
-            className="bg-purple-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            Watch Game
-          </button>
+        {/* URL persistence indicator */}
+        {roomCodeFromURL && roomCodeFromURL.length === 4 && (
+          <div className="mb-4 px-4 py-2 bg-blue-100 border border-blue-300 rounded-lg">
+            <p className="text-sm text-blue-700 flex items-center justify-center space-x-2">
+              <span>🔗</span>
+              <span>Room code loaded from URL - page will remember this room</span>
+            </p>
+          </div>
+        )}
+        
+        <div className="flex justify-center items-center space-x-4">
+          {/*
+            Focus the input when the component mounts.
+            We'll use a ref and useEffect for this.
+          */}
+          {(() => {
+            // Inline function to allow useRef/useEffect in this block
+            // (React hooks can't be called conditionally, so we define a subcomponent)
+            // We'll define a small subcomponent for the input+button row.
+            // This keeps the main function component clean.
+            function RoomCodeInputRow() {
+              const inputRef = useRef<HTMLInputElement>(null);
+
+              useEffect(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+          }
+              }, []);
+
+              return (
+          <>
+            <input
+              ref={inputRef}
+              type="text"
+              value={roomCodeInput}
+              onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && roomCodeInput.length === 4) {
+            onJoinRoom();
+                }
+              }}
+              placeholder="ABCD"
+              maxLength={4}
+              className="text-2xl font-mono font-bold text-center w-32 h-16 border-2 border-purple-300 rounded-xl focus:border-purple-500 focus:outline-none placeholder:text-gray-700 text-gray-900 bg-white"
+            />
+            <button
+              onClick={onJoinRoom}
+              disabled={roomCodeInput.length !== 4}
+              className="bg-purple-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Watch Game
+            </button>
+          </>
+              );
+            }
+            return <RoomCodeInputRow />;
+          })()}
         </div>
         
         {joinError && (
@@ -576,14 +727,37 @@ export function MainScreenGameDisplay({
 export function LobbyDisplay({ room }: { room: Room }) {
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-900 mb-6">Waiting for Game to Start</h3>
-      <div className="text-6xl mb-6">⏳</div>
-      <p className="text-xl text-gray-800 mb-6">
-        Need at least 3 players to begin. Current: {room.players.length}
+      <h3 className="text-4xl font-extrabold text-purple-700 mb-6 animate-bounce">🎉 Waiting for Players! 🎉</h3>
+      <div className="text-7xl mb-6 animate-pulse">🚀⏳🎵</div>
+      <p className="text-2xl text-gray-800 mb-4 font-bold">
+      {room.players.length < 3
+        ? `Only ${room.players.length} joined...`
+        : `${room.players.length} players ready!`}
       </p>
-      <p className="text-lg text-gray-700">
-        Host can start the game when ready!
+      <p className="text-xl text-purple-600 mb-6">
+      {room.players.length < 3
+        ? "Need at least 3 players to blast off!"
+        : "You're good to go!"}
       </p>
+      <div className="flex justify-center flex-wrap gap-4 mb-8">
+      {room.players.map((player) => (
+        <div
+        key={player.id}
+        className={`flex flex-col items-center p-4 rounded-2xl shadow-md border-2 ${getPlayerColorClass(player.color)} bg-opacity-80`}
+        >
+        <div className="text-4xl mb-2">{player.emoji || "🎵"}</div>
+        <span className="font-bold text-lg text-white drop-shadow">{player.name}</span>
+        </div>
+      ))}
+      </div>
+      <p className="text-lg text-gray-700 font-semibold mb-2">
+      Host can start the game when ready!
+      </p>
+      <div className="mt-4 flex justify-center space-x-2 animate-bounce">
+      <span className="text-2xl">📱</span>
+      <span className="text-2xl">Get your phones out and join the fun!</span>
+      <span className="text-2xl">📱</span>
+      </div>
     </div>
   );
 }
@@ -631,9 +805,20 @@ export function PromptSelectionDisplay({ room }: { room: Room }) {
         </div>
       )}
         <div className="text-6xl mb-6">🤔</div>
-      <p className="text-2xl text-gray-800 mb-4">
-        <span className="font-bold text-purple-600">{judge?.name}</span> is choosing a prompt...
-      </p>
+      {judge ? (
+        <div className="flex flex-col items-center mb-6">
+          <div className="flex items-center justify-center mb-4">
+            <div 
+              className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white mr-3 ${getPlayerColorClass(judge.color)}`}
+            >
+              {judge.emoji || judge.name[0].toUpperCase()}
+            </div>
+            <p className="text-2xl text-gray-800 font-semibold">{judge.name} is choosing a prompt...</p>
+          </div>
+        </div>
+      ) : (
+        <p className="text-2xl text-gray-800 mb-4">Waiting for judge selection...</p>
+      )}
       <div className="animate-pulse flex justify-center space-x-2">
         <div className="w-4 h-4 bg-purple-400 rounded-full"></div>
         <div className="w-4 h-4 bg-purple-400 rounded-full"></div>
@@ -702,13 +887,13 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
         </div>
       )}
       
-      {/* Waiting for first submission message */}
+      {/* Waiting for first submission message
       {!hasFirstSubmission && (
         <div className="text-center mb-6">
           <div className="text-6xl mb-4">⏳</div>
           <div className="bg-blue-100 rounded-2xl p-6">
-            {/* <h4 className="text-2xl font-bold text-blue-800 mb-2">Waiting for First Player</h4> */}
-            <p className="text-lg text-blue-700">
+            <h4 className="text-2xl font-bold text-blue-800 mb-2">Waiting for First Player</h4>
+            <p className=</div>"text-lg text-blue-700">
               The countdown will begin once the first player submits their sounds
             </p>
             <div className="mt-4 animate-pulse flex justify-center space-x-2">
@@ -718,23 +903,43 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
             </div>
           </div>
         </div>
-      )}
-        {room.currentPrompt && (
-        <div className="bg-purple-100 rounded-2xl p-6 mb-8">
-          <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
-          <p className="text-2xl text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt.text }}></p>
+      )} */}
+      
+      {/* Judge and Prompt Display - Side by Side */}
+      {room.currentPrompt && judge && (
+        <div className="flex items-center justify-center gap-6 mb-8">
+          {/* Judge Display - Left Side */}
+            <div className="flex-shrink-0">
+            <div className="bg-gradient-to-b from-yellow-100 to-amber-100 rounded-2xl p-6 border-2 border-yellow-300 shadow-lg">
+              <div className="flex flex-col items-center space-y-3">
+              <div 
+                className={`w-20 h-20 rounded-full flex items-center justify-center text-4xl font-bold text-white shadow-lg ring-4 ring-white ring-opacity-50 ${getPlayerColorClass(judge.color)}`}
+              >
+                {judge.emoji || judge.name[0].toUpperCase()}
+              </div>
+              <span className="text-xl font-bold text-amber-900">{judge.name}</span>
+              <div className="flex items-center space-x-1 text-amber-700">
+                <span className="text-sm font-medium mr-2">Is the judge</span>
+              </div>
+              </div>
+            </div>
+            </div>
+          
+          {/* Prompt Display - Right Side */}
+          <div className="flex-grow max-w-4xl">
+            <div className="bg-purple-100 rounded-2xl p-6">
+              <p className="text-2xl text-center text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt.text }}></p>
+            </div>
+          </div>
         </div>
       )}
-          {room.currentPrompt && (
-            <div className="text-center mb-8 -mt-4">
-          <div className="inline-block bg-yellow-100 border-2 border-yellow-300 rounded-full px-5 py-2 shadow-sm">
-            <p className="text-base font-bold text-yellow-800 flex items-center">
-              <span className="text-xl mr-2">👨‍⚖️</span>
-              <span>Judge: {judge?.name}</span>
-            </p>
-          </div>
-            </div>
-          )}
+
+      {/* Fallback for when no judge or prompt */}
+      {room.currentPrompt && !judge && (
+        <div className="bg-purple-100 rounded-2xl p-6 mb-8">
+          <p className="text-2xl text-center text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt.text }}></p>
+        </div>
+      )}
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {otherPlayers.map((player) => {
@@ -931,7 +1136,7 @@ export function PlaybackSubmissionsDisplay({
 
       {room.currentPrompt && (
         <div className={`bg-purple-100 rounded-2xl p-6 mb-8 text-center transition-all duration-300 ${promptPlaying ? 'ring-4 ring-purple-500' : ''}`}>
-          <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
+          {/* <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4> */}
           <p className="text-2xl text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt.text }}></p>
           {promptPlaying && (
             <div className="mt-2 text-purple-600 font-semibold flex items-center justify-center space-x-2">
@@ -1019,7 +1224,7 @@ export function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffect
       
       {room.currentPrompt && (
         <div className="bg-purple-100 rounded-2xl p-6 mb-8 text-center">
-          <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4>
+          {/* <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4> */}
           <p className="text-2xl text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt.text }}></p>
         </div>
       )}
@@ -1074,10 +1279,31 @@ export function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffect
       {/* Bottom Status */}
       <div className="mt-8 text-center">
         <div className="bg-purple-100 rounded-2xl p-6">
-          <div className="text-4xl mb-2">🤔</div>
-            <p className="text-2xl text-gray-800">
-            <span className="font-bold text-purple-600">{judge?.name}</span> is deciding...
-            </p>
+          {judge ? (
+            <div className="flex flex-col items-center">
+              {/* Top row with judge avatar and name, plus thinking emoji */}
+              <div className="flex items-start justify-center gap-6 mb-4">
+                <div className="flex flex-col items-center">
+                  <div 
+                    className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg ${getPlayerColorClass(judge.color)}`}
+                  >
+                    {judge.emoji || judge.name[0].toUpperCase()}
+                  </div>
+                  <span className="font-semibold text-lg text-purple-600 mt-2">{judge.name}</span>
+                </div>
+                <div className="text-6xl flex items-center h-20">🤔</div>
+              </div>
+              {/* Bottom text */}
+              <div className="flex flex-col items-center">
+                <p className="text-2xl text-gray-800">The judge is deciding...</p>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="text-4xl mb-2">🤔</div>
+              <p className="text-2xl text-gray-800">Waiting for judge...</p>
+            </div>
+          )}
           {/* <p className="text-purple-700">Which sound combination is the funniest?</p> */}
         </div>
       </div>
@@ -1102,12 +1328,33 @@ export function ResultsDisplay({
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const audioCompletionSentRef = useRef(false);
   const playbackStartedRef = useRef(false);
-
-  // Reset the completion flag when a new round winner is set
+  const [animatedScores, setAnimatedScores] = useState<{ [playerId: string]: number }>({});
+  const [showPointAnimation, setShowPointAnimation] = useState(false);
+  
+  // Initialize animated scores and trigger score animation when results are first shown
   useEffect(() => {
-    audioCompletionSentRef.current = false;
-    playbackStartedRef.current = false;
-  }, [roundWinner?.submissionIndex, room.currentRound]);
+    if (roundWinner && room.players.length > 0) {
+      // Reset animation state for new round
+      setShowPointAnimation(false);
+      
+      // Reset audio completion tracking for new round
+      audioCompletionSentRef.current = false;
+      playbackStartedRef.current = false;
+      
+      // Initialize animated scores to current scores minus 1 for the winner (to animate the +1)
+      const initialScores: { [playerId: string]: number } = {};
+      room.players.forEach((player: Player) => {
+        if (player.id === roundWinner.winnerId) {
+          // For the winner, start from previous score (current - 1) to show the increment
+          initialScores[player.id] = Math.max(0, player.score - 1);
+        } else {
+          // For non-winners, start from current score (no change)
+          initialScores[player.id] = player.score;
+        }
+      });
+      setAnimatedScores(initialScores);
+    }
+  }, [roundWinner?.winnerId, room.currentRound]); // Trigger when winner changes or new round
 
   // Clean up if game state changes away from ROUND_RESULTS while audio is playing
   useEffect(() => {
@@ -1182,6 +1429,44 @@ export function ResultsDisplay({
           setIsPlayingWinner(false);
           setPlaybackProgress(0);
           
+          // Trigger score animation after audio completes
+          setTimeout(() => {
+            setShowPointAnimation(true);
+            
+            // Start score counting animation after +1PT appears - ONLY for winner
+            setTimeout(() => {
+              // Only animate the winner's score
+              const winnerStartScore = animatedScores[roundWinner.winnerId] || 0;
+              const winnerEndScore = room.players.find(p => p.id === roundWinner.winnerId)?.score || 0;
+              
+              // Animate the score increment for the winner only
+              const duration = 1500; // 1.5 seconds for count-up
+              const startTime = Date.now();
+              
+              const animateWinnerScore = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Use easing function for smooth animation
+                const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+                
+                const winnerCurrentScore = Math.round(winnerStartScore + (winnerEndScore - winnerStartScore) * easeOutQuart);
+                
+                // Update only the winner's score, keep others unchanged
+                setAnimatedScores(prev => ({
+                  ...prev,
+                  [roundWinner.winnerId]: winnerCurrentScore
+                }));
+                
+                if (progress < 1) {
+                  requestAnimationFrame(animateWinnerScore);
+                }
+              };
+              
+              animateWinnerScore();
+            }, 500); // Start score counting 500ms after +1PT appears
+          }, 500); // Show +1PT animation 500ms after audio ends
+          
           // Notify server that winner audio is complete after a brief delay
           // Only send this event once per round to prevent race conditions
           setTimeout(() => {
@@ -1251,9 +1536,21 @@ export function ResultsDisplay({
   
   return (
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-800 mb-8 text-center">🎉 Round Results! 🎉</h3>
+      {/* <h3 className="text-3xl font-bold text-gray-800 mb-8 text-center">🎉 Round Results! 🎉</h3> */}
       
-      {roundWinner && (
+      {/* Show loading state if roundWinner is null (e.g., after page refresh) */}
+      {!roundWinner ? (
+        <div className="text-center">
+          <div className="text-6xl mb-6">⏳</div>
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">Loading Round Results...</h3>
+          <p className="text-gray-600">Reconnecting to the game state...</p>
+          <div className="mt-6 animate-pulse flex justify-center space-x-2">
+            <div className="w-3 h-3 bg-purple-400 rounded-full"></div>
+            <div className="w-3 h-3 bg-purple-400 rounded-full"></div>
+            <div className="w-3 h-3 bg-purple-400 rounded-full"></div>
+          </div>
+        </div>
+      ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-8">
           {/* Left Column - Winning Sound Combination Card */}
           <div className="text-center">
@@ -1372,9 +1669,9 @@ export function ResultsDisplay({
 
           {/* Right Column - Scores List */}
           <div className="text-center">
-          <p className="text-xl font-extrabold text-purple-700 mb-6 drop-shadow-lg">&nbsp;</p>
+          {/* <p className="text-xl font-extrabold text-purple-700 mb-6 drop-shadow-lg">&nbsp;</p> */}
           <div className="bg-gray-50 rounded-3xl p-6 shadow-inner">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Current Standings</h3>
+            {/* <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Current Standings</h3> */}
             <ul className="space-y-3">
               {room.players
                 .sort((a, b) => b.score - a.score)
@@ -1394,21 +1691,48 @@ export function ResultsDisplay({
                         isRoundWinner ? 'bg-green-100 border-2 border-green-400 scale-105' : 'bg-white'
                       }`}
                     >
-                      <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center font-black text-lg mr-4 ${rankStyles}`}>
+                      <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center font-black text-lg mr-2 ${rankStyles}`}>
                         {rank}
                       </div>
+                      { isRoundWinner ? (
+                      <div 
+                        className={`w-14 h-14 flex-shrink-0 rounded-full ${getPlayerColorClass(p.color)} flex items-center justify-center text-3xl mr-3`}
+                      >
+                        {p.emoji || p.name[0].toUpperCase()}
+                      </div>
+                        
+                      ) : (
+                      <div 
+                        className={`w-10 h-10 flex-shrink-0 rounded-full ${getPlayerColorClass(p.color)} flex items-center justify-center text-2xl mr-3`}
+                      >
+                        {p.emoji || p.name[0].toUpperCase()}
+                      </div>
+                        
+                  )}
                       <div className="flex-grow">
                         <p className="font-bold text-gray-900 text-lg">{p.name}</p>
                       </div>
-                      {isRoundWinner && (
-                        <div className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full mr-4 animate-pulse">
+                      {isRoundWinner ? (
+                        <><div className={`absolute right-15 top-1/2 -translate-y-1/2 bg-green-500 text-white text-md font-bold px-2 py-1 rounded-full transition-all duration-700 ${
+                          showPointAnimation ? 'animate-bounce scale-110' : 'scale-0 opacity-0'
+                        }`}>
                           +1 PT
+                        </div><div className="text-right">
+                            <p className={`font-black text-2xl text-purple-600 transition-all duration-500 ${
+                              showPointAnimation ? 'scale-110 text-green-600' : ''
+                            }`}>
+                              {animatedScores[p.id] !== undefined ? animatedScores[p.id] : p.score}
+                            </p>
+                            <p className="text-xs text-gray-500 uppercase">Points</p>
+                          </div></>
+                      ) : (
+                        <div className="text-right">
+                          <p className="font-black text-xl text-purple-600">
+                            {animatedScores[p.id] !== undefined ? animatedScores[p.id] : p.score}
+                          </p>
+                          <p className="text-xs text-gray-500 uppercase">Points</p>
                         </div>
                       )}
-                      <div className="text-right">
-                        <p className="font-black text-xl text-purple-600">{p.score}</p>
-                        <p className="text-xs text-gray-500 uppercase">Points</p>
-                      </div>
                     </li>
                   );
                 })}
@@ -1417,12 +1741,12 @@ export function ResultsDisplay({
           </div>
         </div>
       )}
-      
+{/*       
       <div className="text-center">
         <p className="text-xl text-gray-800">
           Round {room.currentRound} complete! Getting ready for the next round...
         </p>
-      </div>
+      </div> */}
     </div>
   );
 }
@@ -1430,62 +1754,171 @@ export function ResultsDisplay({
 export function GameOverDisplay({ room }: { room: Room }) {
   const sortedPlayers = [...room.players].sort((a, b) => b.score - a.score);
   const winner = sortedPlayers[0];
+  const runnerUps = sortedPlayers.slice(1);
   
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
-      <h3 className="text-4xl font-bold text-gray-800 mb-8">🎊 Game Over! 🎊</h3>
-      
-      <div className="mb-8">
-        <div className="text-8xl mb-4">🏆</div>
-        <h4 className="text-3xl font-bold text-yellow-600 mb-2">Winner!</h4>
-        <p className="text-4xl font-bold text-gray-900">{winner.name}</p>
-        <p className="text-2xl text-gray-800">{winner.score} points</p>
-      </div>
-
-      <div className="bg-gray-100 rounded-2xl p-6">
-        <h4 className="text-2xl font-bold text-gray-800 mb-4">Final Scores</h4>
-        <div className="space-y-3">
-          {sortedPlayers.map((player, index) => (
+    <div className="bg-white rounded-3xl p-8 shadow-2xl">
+      {/* Horizontal Layout: Champion Left, Others Right */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        
+        {/* LEFT SIDE: Winner Spotlight */}
+        <div className="flex-1 lg:max-w-md">
+          <div className="relative bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl p-6 shadow-2xl transform hover:scale-105 transition-all duration-500">
+            {/* Sparkle decorations with staggered animations */}
+            <div className="absolute -top-4 -left-4 text-3xl animate-bounce">✨</div>
+            <div className="absolute -top-4 -right-4 text-3xl animate-bounce delay-500">🎉</div>
+            <div className="absolute -bottom-4 -left-4 text-3xl animate-bounce delay-1000">🏆</div>
+            <div className="absolute -bottom-4 -right-4 text-3xl animate-bounce delay-150">⭐</div>
+            
+            {/* Crown above winner */}
+            <div className="text-6xl mb-3 animate-bounce text-center">👑</div>
+            
+            <h4 className="text-3xl font-black text-yellow-900 mb-4 drop-shadow-lg text-center">
+              CHAMPION!
+            </h4>
+            
+            {/* Winner Avatar - Large */}
             <div 
-              key={player.id} 
-              className={`flex justify-between items-center p-4 rounded-xl ${
-                index === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-white'
-              }`}
+              className={`w-24 h-24 rounded-full mx-auto mb-4 ${getPlayerColorClass(winner.color)} flex items-center justify-center text-6xl shadow-2xl ring-6 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300`}
             >
-              <div className="flex items-center space-x-4">
-                <span className="text-2xl text-gray-800 font-bold">{index + 1}.</span>
-                <div 
-                  className={`w-8 h-8 rounded-full ${getPlayerColorClass(player.color)}`}
-                ></div>
-                <span className="text-xl font-bold text-gray-900">{player.name}</span>
-              </div>
-              <span className="text-2xl font-bold text-purple-600">{player.score}</span>
+              {winner.emoji || winner.name[0].toUpperCase()}
             </div>
-          ))}
+            
+            <p className="text-3xl font-black text-yellow-900 mb-3 drop-shadow-lg text-center">
+              {winner.name}
+            </p>
+            
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              {/* <div className="text-2xl">🎯</div> */}
+              <span className="text-4xl font-black text-yellow-900 drop-shadow-lg">
+                {winner.score}
+              </span>
+              <span className="text-lg font-bold text-yellow-800">Points</span>
+              {/* <div className="text-2xl">🎯</div> */}
+            </div>
+            
+            <p className="text-lg font-bold text-yellow-800 italic text-center">
+              {(() => {
+              const funnyTitles = [
+                "Master of the Fartnoises!",
+                "Supreme Sound Selector!",
+                "Captain of Comedy!",
+                "The Noise Whisperer!",
+                "King/Queen of Chaos!",
+                "Ultimate Audio Artist!",
+                "Grand Wizard of Weird!",
+                "The Sound Sage!",
+                "Meme Machine Supreme!",
+                "Lord/Lady of Laughter!",
+                "The Giggle Generator!",
+                "Chief of Chuckles!",
+                "The Silly Sound Savant!",
+                "Baron/Baroness of Bizarre!",
+                "The Whoopee Wizard!",
+                "Commissioner of Comedy!",
+                "The Absurd Audio Ace!",
+                "Duke/Duchess of Drollery!"
+              ];
+              
+              // Use winner ID as seed for consistent title per game
+              const seedIndex = winner.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+              const titleIndex = seedIndex % funnyTitles.length;
+              return funnyTitles[titleIndex];
+              })()}
+            </p>
+          </div>
+        </div>
+
+        {/* RIGHT SIDE: Runner-ups */}
+        <div className="flex-1">
+          {runnerUps.length > 0 ? (
+            <div>
+              <h4 className="text-2xl font-bold text-gray-800 mb-4 text-center">🥈 Other Players 🥉</h4>
+              <div className="bg-gray-50 rounded-2xl p-4">
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {runnerUps.map((player, index) => {
+                    const actualRank = index + 2; // +2 because winner is rank 1
+                    let rankIcon = '🥈';
+                    let rankBg = 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800';
+                    
+                    if (actualRank === 2) {
+                      rankIcon = '🥈';
+                      rankBg = 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800';
+                    } else if (actualRank === 3) {
+                      rankIcon = '🥉';
+                      rankBg = 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900';
+                    } else {
+                      rankIcon = '🏅';
+                      rankBg = 'bg-gray-200 text-gray-700';
+                    }
+                    
+                    return (
+                      <div 
+                        key={player.id} 
+                        className="flex justify-between items-center p-3 rounded-xl bg-white shadow-md hover:shadow-lg transition-shadow duration-200"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shadow-md ${rankBg}`}>
+                            {rankIcon}
+                          </div>
+                          <div 
+                            className={`w-10 h-10 rounded-full ${getPlayerColorClass(player.color)} flex items-center justify-center text-lg shadow-lg`}
+                          >
+                            {player.emoji || player.name[0].toUpperCase()}
+                          </div>
+                          <span className="text-lg font-bold text-gray-900">{player.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xl font-black text-purple-600">{player.score}</span>
+                          <p className="text-xs text-gray-500 uppercase">Points</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 text-lg">
+              No other players to display
+            </div>
+          )}
         </div>
       </div>
-    </div>  );
+
+      {/* Celebration Message */}
+      <div className="mt-8 text-center">
+        <p className="text-xl text-gray-700 font-semibold mb-4">
+          🎵 Thanks for playing Fartnoises! 🎵
+        </p>
+        <div className="flex justify-center space-x-4 text-3xl animate-pulse">
+          <span>🎪</span>
+          <span>🎭</span>
+          <span>🎨</span>
+          <span>🎸</span>
+          <span>🎺</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function JudgeSelectionDisplay({ room }: { room: Room }) {
   const judge = room.players.find(p => p.id === room.currentJudge);
   
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
-      <h3 className="text-3xl font-bold text-gray-800 mb-6">Judge Selection</h3>
-      <div className="text-6xl mb-6">👨‍⚖️</div>
-      
+    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">      
       {judge ? (
         <div>
-          <p className="text-2xl text-gray-800 mb-4">
-            This round's judge is: 
-          </p>
           <div className="bg-yellow-100 rounded-2xl p-6 inline-block">
             <div 
-              className={`w-16 h-16 rounded-full mx-auto mb-3 ${getPlayerColorClass(judge.color)}`}
-            ></div>
+              className={`w-16 h-16 rounded-full mx-auto mb-3 ${getPlayerColorClass(judge.color)} flex items-center justify-center text-2xl`}
+            >
+              {judge.emoji || judge.name[0].toUpperCase()}
+            </div>
             <p className="text-3xl font-bold text-gray-900">{judge.name}</p>
           </div>
+          <p className="text-2xl text-gray-800 mt-4">Is the judge for this round!</p>
         </div>
       ) : (
         <p className="text-xl text-gray-800">Selecting judge...</p>

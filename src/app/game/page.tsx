@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react'; // Added useMemo
 import { useRouter, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
-import { Player, Room, GameState, SoundEffect, GamePrompt } from '@/types/game';
+import { Player, PlayerData, Room, GameState, SoundEffect, GamePrompt } from '@/types/game';
 import { getSoundEffects } from '@/data/gameData';
 import { getRandomSounds } from '@/utils/soundLoader';
 import { audioSystem } from '@/utils/audioSystem';
@@ -11,16 +11,16 @@ import { audioSystem } from '@/utils/audioSystem';
 // Helper function to convert hex colors to Tailwind classes
 const getPlayerColorClass = (color: string): string => {
   const colorMap: { [key: string]: string } = {
-    '#ef4444': 'bg-red-500',
-    '#f97316': 'bg-orange-500',
-    '#eab308': 'bg-yellow-500',
-    '#22c55e': 'bg-green-500',
-    '#3b82f6': 'bg-blue-500',
-    '#8b5cf6': 'bg-violet-500',
-    '#ec4899': 'bg-pink-500',
-    '#06b6d4': 'bg-cyan-500',
+    '#FF6B6B': 'bg-red-400',
+    '#4ECDC4': 'bg-teal-400', 
+    '#45B7D1': 'bg-blue-400',
+    '#96CEB4': 'bg-green-400',
+    '#FFEAA7': 'bg-yellow-400',
+    '#DDA0DD': 'bg-purple-400',
+    '#98D8C8': 'bg-emerald-400',
+    '#F7DC6F': 'bg-amber-400',
   };
-  return colorMap[color] || 'bg-gray-500';
+  return colorMap[color] || 'bg-gray-400';
 };
 
 function GamePageContent() {
@@ -59,10 +59,12 @@ function GamePageContent() {
     const mode = searchParams?.get('mode');
     const playerName = searchParams?.get('playerName') || searchParams?.get('name');
     const roomCode = searchParams?.get('roomCode') || searchParams?.get('room');
-    return { mode, playerName, roomCode };
+    const playerColor = searchParams?.get('playerColor');
+    const playerEmoji = searchParams?.get('playerEmoji');
+    return { mode, playerName, roomCode, playerColor, playerEmoji };
   }, [searchParams]);
 
-  const { mode, playerName, roomCode } = stableParams;
+  const { mode, playerName, roomCode, playerColor, playerEmoji } = stableParams;
   const addDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setDebugLog(prev => [...prev.slice(-10), `[${timestamp}] ${message}`]);
@@ -171,13 +173,23 @@ function GamePageContent() {
         function proceedWithOriginalMode() {
           if (mode === 'create' || mode === 'host') {
             addDebugLog(`Emitting createRoom for player: ${playerName} on socket ${currentSocket.id}`);
-            currentSocket.emit('createRoom', playerName, (newRoomCode: string) => {
+            const playerData = {
+              name: playerName,
+              color: playerColor || undefined,
+              emoji: playerEmoji || undefined
+            };
+            currentSocket.emit('createRoom', playerData, (newRoomCode: string) => {
               addDebugLog(`createRoom callback for ${playerName}, room code: ${newRoomCode}. Waiting for roomCreated event.`);
               // State updates handled by 'roomCreated'
             });
           } else if (mode === 'join' && roomCode) {
             addDebugLog(`Emitting joinRoom for room: ${roomCode}, player: ${playerName} on socket ${currentSocket.id}`);
-            currentSocket.emit('joinRoom', roomCode, playerName, (success: boolean, joinedRoomData?: Room) => {
+            const playerData = {
+              name: playerName,
+              color: playerColor || undefined,
+              emoji: playerEmoji || undefined
+            };
+            currentSocket.emit('joinRoom', roomCode, playerData, (success: boolean, joinedRoomData?: Room) => {
               if (!success) {
                 addDebugLog(`joinRoom failed for room: ${roomCode}.`);
                 setError('Failed to join room. Room may be full, not exist, or game in progress.');
@@ -753,14 +765,70 @@ function LobbyComponent({ room, player, onStartGame }: {
   // Basic Lobby UI
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-      <h2 className="text-2xl font-bold text-purple-600 mb-4">Lobby</h2>
-      <p className="text-gray-800 mb-2">Room Code: <span className="font-mono font-bold">{room.code}</span></p>
-      <p className="text-gray-800 mb-4">Players in lobby: {room.players.length}</p>
-      <ul className="mb-6 text-left max-w-xs mx-auto">
-        {room.players.map((p) => (
-          <li key={p.id} className={`p-2 rounded mb-2 flex items-center ${getPlayerColorClass(p.color)} text-white`}>
-            <span className={`w-3 h-3 rounded-full mr-2 ${getPlayerColorClass(p.color)}`}></span>
-            {p.name} {p.isVIP && '👑'} {p.id === player.id && '(You)'}
+      {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Lobby</h2> */}
+      {/* <p className="text-gray-800 mb-2">Room Code: <span className="font-mono font-bold">{room.code}</span></p> */}
+      {/* <p className="text-gray-800 mb-4">Players in lobby: {room.players.length}</p> */}
+      <ul className="mb-8 text-left max-w-xs mx-auto space-y-3">
+        {room.players.map((p, idx) => (
+          <li
+        key={p.id}
+        className={`
+          flex items-center gap-3 p-3 rounded-2xl shadow-md transition-all duration-200
+          ${getPlayerColorClass(p.color)}
+          ${p.id === player.id ? 'ring-4 ring-purple-400 scale-105' : ''}
+          ${p.isVIP ? 'border-2 border-yellow-300' : ''}
+          text-white
+        `}
+        style={{
+          background:
+            p.isVIP
+          ? 'linear-gradient(90deg, #fef08a 0%, #fde047 100%)'
+          : undefined,
+          color: p.isVIP ? '#92400e' : undefined,
+          boxShadow: p.id === player.id ? '0 0 0 4px #a78bfa44' : undefined,
+        }}
+          >
+        <span
+          className={`
+            w-8 h-8 flex items-center justify-center rounded-full font-bold text-lg mr-2
+            ${getPlayerColorClass(p.color)}
+            ${p.isVIP ? 'border-2 border-yellow-400' : ''}
+            ${p.id === player.id ? 'ring-2 ring-purple-400' : ''}
+          `}
+          style={{
+            background:
+          p.isVIP
+            ? 'radial-gradient(circle at 60% 40%, #fde047 70%, #facc15 100%)'
+            : undefined,
+            color: p.isVIP ? '#92400e' : undefined,
+          }}
+        >
+          {p.emoji || p.name[0].toUpperCase()}
+        </span>
+        <div className="flex flex-col flex-grow">
+          <span className="font-bold text-lg flex items-center gap-1">
+            {p.name}
+            {p.isVIP && (
+          <span
+            className="ml-1 text-yellow-400 text-xl animate-bounce"
+            title="Host"
+          >
+            👑
+          </span>
+            )}
+            {p.id === player.id && (
+          <span className="ml-1 text-purple-200 text-xs font-semibold bg-purple-600 bg-opacity-60 px-2 py-0.5 rounded-full">
+            You
+          </span>
+            )}
+          </span>
+          <span className="text-xs opacity-80">
+            {p.isVIP ? 'Host' : 'Player'}
+          </span>
+        </div>
+        <span className="ml-auto font-black text-lg drop-shadow">
+          {p.score}
+        </span>
           </li>
         ))}
       </ul>
@@ -785,7 +853,17 @@ function JudgeSelectionComponent({ room, player }: { room: Room; player: Player 
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Judge Selection</h2>
       {judge ? (
-        <p className="text-gray-800 text-xl">The judge for this round is: <span className={`font-bold text-white ${getPlayerColorClass(judge.color)} p-1 rounded`}>{judge.name}</span></p>
+        <div className="flex flex-col items-center">
+          <p className="text-gray-800 text-xl mb-4">The judge for this round is:</p>
+          <div className="flex flex-col items-center">
+            <div 
+              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white mb-2 ${getPlayerColorClass(judge.color)}`}
+            >
+              {judge.emoji || judge.name[0].toUpperCase()}
+            </div>
+            <span className="font-semibold text-lg">{judge.name}</span>
+          </div>
+        </div>
       ) : (
         <p className="text-gray-800">Waiting for judge selection...</p>
       )}
@@ -823,7 +901,22 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
           </div>
         </>
       ) : (
-        <p className="text-gray-800">Waiting for the Judge ({room.players.find(p => p.id === room.currentJudge)?.name}) to select a prompt...</p>
+        <div className="text-gray-800">
+          <p className="mb-4">Waiting for the Judge to select a prompt...</p>
+          {(() => {
+            const judge = room.players.find(p => p.id === room.currentJudge);
+            return judge ? (
+              <div className="flex flex-col items-center">
+                <div 
+                  className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white mb-2 ${getPlayerColorClass(judge.color)}`}
+                >
+                  {judge.emoji || judge.name[0].toUpperCase()}
+                </div>
+                <span className="font-semibold text-lg">{judge.name}</span>
+              </div>
+            ) : null;
+          })()}
+        </div>
       )}
     </div>
   );
@@ -923,26 +1016,31 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   if (isJudge) {
     return (
       <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-        <h2 className="text-2xl font-bold text-purple-600 mb-4">Sound Selection</h2>
-        <p className="text-gray-800">Players are selecting their sounds...</p>
-        <p className="text-gray-800 mt-2">Prompt: <span className="font-semibold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></span></p>
-      </div>
-    );
-  }
-  const hasSubmitted = room.submissions.some(s => s.playerId === player.id);
-  const submission = hasSubmitted ? room.submissions.find(s => s.playerId === player.id) : null;
-  const hasFirstSubmission = room.submissions.length > 0;
+        {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Sound Selection</h2> */}
+        <p className="text-2xl font-bold text-purple-600 mb-4">Players are choosing sounds...</p>
+        <div className="bg-purple-100 rounded-2xl p-6 mb-6">
+          <p className="text-lg text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></p>
+        </div>
+            </div>
+          );
+        }
+        const hasSubmitted = room.submissions.some(s => s.playerId === player.id);
+        const submission = hasSubmitted ? room.submissions.find(s => s.playerId === player.id) : null;
+        const hasFirstSubmission = room.submissions.length > 0;
 
-  return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-      <h2 className="text-2xl font-bold text-purple-600 mb-4">Select Your Sounds!</h2>
-      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></span></p>
-      
+        return (
+          <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+            {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Select Your Sounds!</h2> */}
+            <div className="bg-purple-100 rounded-2xl p-6 mb-6">
+        <p className="text-lg text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></p>
+            </div>
+            
       {/* Only show timer after first submission */}
       {hasFirstSubmission ? (
         <p className="text-red-500 font-bold mb-4">Time Left: {timeLeft}s</p>
       ) : (
-        <p className="text-blue-600 font-semibold mb-4">⏳ Timer will start when first player submits</p>
+        <></>
+        // <p className="text-blue-600 font-semibold mb-4">⏳ Timer will start when first player submits</p>
       )}
         {hasSubmitted && submission ? (
         <div className="text-center">
@@ -963,10 +1061,10 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
         <div className="space-y-6">
           {/* Instructions */}
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 max-w-2xl mx-auto">
-            <p className="text-gray-800 text-center mb-2">
-              <span className="font-semibold">Choose 2 sounds</span> that best match the prompt!
+            <p className="text-gray-800 text-center">
+              <span className="font-semibold">Choose 2 sounds</span>
             </p>
-            <div className="flex gap-4 justify-center text-sm">
+            {/* <div className="flex gap-4 justify-center text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-blue-500 rounded"></div>
                 <span>Sound 1</span>
@@ -975,7 +1073,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                 <div className="w-4 h-4 bg-green-500 rounded"></div>
                 <span>Sound 2</span>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Sound Grid */}
@@ -1068,35 +1166,104 @@ function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: {
 
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-      <h2 className="text-2xl font-bold text-purple-600 mb-4">Judging Time!</h2>
-      <p className="text-gray-800 mb-1">Prompt: <span className="font-semibold">{room.currentPrompt?.text}</span></p>
+      {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Judging Time!</h2> */}
+      
+      {/* Styled Prompt Display */}
+      <div className="bg-purple-100 rounded-2xl p-6 mb-6">
+        {/* <h4 className="text-xl font-bold text-purple-800 mb-2">The Prompt:</h4> */}
+        <p className="text-lg text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></p>
+      </div>
+      
       {isJudge ? (
-        <p className="text-gray-800 mb-4">Listen to the submissions and pick the funniest!</p>
+        <p className="text-gray-800 mb-4">Choose the winner!</p>
       ) : (
-        <p className="text-gray-800 mb-4">The Judge ({room.players.find(p => p.id === room.currentJudge)?.name}) is choosing the winner...</p>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          {(() => {
+            const judge = room.players.find(p => p.id === room.currentJudge);
+            return judge ? (
+              <>
+                <div 
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${getPlayerColorClass(judge.color)}`}
+                >
+                  {judge.emoji || judge.name[0].toUpperCase()}
+                </div>
+                <p className="text-gray-800">
+                  <span className="font-semibold">{judge.name}</span> is choosing the winner...
+                </p>
+              </>
+            ) : (
+              <p className="text-gray-800">The judge is choosing the winner...</p>
+            );
+          })()}
+        </div>
       )}
-      <div className="space-y-4 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
         {room.submissions.map((submission, index) => (
-          <div key={index} className="bg-gray-100 p-4 rounded-xl shadow">
-            <p className="text-lg font-semibold text-gray-800">Submission {index + 1}</p>
-            <div className="my-2 space-x-2">
-                <span className="inline-block bg-pink-200 text-pink-800 px-3 py-1 rounded-full text-sm font-medium">{soundEffects.find(s=>s.id === submission.sounds[0])?.name || 'Sound 1'}</span>
-                <span className="inline-block bg-indigo-200 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">{soundEffects.find(s=>s.id === submission.sounds[1])?.name || 'Sound 2'}</span>
+          <div 
+            key={index} 
+            className="relative rounded-3xl p-6 transition-all duration-500 bg-gray-100 hover:bg-gray-50 border-2 border-gray-200"
+          >
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xl font-bold text-gray-800">
+                  Submission {index + 1}
+                </h4>
+                
+                {/* Status Indicator */}
+                {isJudge ? (
+                  <div className="w-4 h-4 rounded-full bg-green-400 animate-pulse"></div>
+                ) : (
+                  <div className="w-4 h-4 rounded-full bg-purple-400 animate-pulse"></div>
+                )}
+              </div>
+
+              <div className="space-y-3 mb-4">
+                {submission.sounds.map((soundId, soundIndex) => {
+                  const sound = soundEffects.find(s => s.id === soundId);
+                  
+                  return (
+                    <div 
+                      key={soundIndex} 
+                      className="px-4 py-3 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">🎵</span>
+                        <span className="font-semibold">{sound?.name || soundId}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                <button 
+                  onClick={() => playSubmissionSounds(submission.sounds)}
+                  className="w-full bg-blue-500 text-white px-4 py-3 rounded-xl hover:bg-blue-600 transition-colors font-semibold"
+                >
+                  🔊 Play Sounds
+                </button>
+                {isJudge && (
+                  <button 
+                    onClick={() => onJudgeSubmission(index)}
+                    className="w-full bg-green-500 text-white px-4 py-3 rounded-xl hover:bg-green-600 transition-colors font-semibold"
+                  >
+                    🏆 Pick as Winner
+                  </button>
+                )}
+              </div>
+
+              {/* Judge consideration indicator for non-judges */}
+              {!isJudge && (
+                <div className="mt-4 text-center">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                    <span className="text-purple-600 font-medium text-sm">UNDER REVIEW</span>
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                  </div>
+                </div>
+              )}
             </div>
-            <button 
-              onClick={() => playSubmissionSounds(submission.sounds)}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors mr-2"
-            >
-              Play Sounds
-            </button>
-            {isJudge && (
-              <button 
-                onClick={() => onJudgeSubmission(index)}
-                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
-              >
-                Pick as Winner
-              </button>
-            )}
           </div>
         ))}
       </div>
@@ -1331,20 +1498,34 @@ function ResultsComponent({ room, player, roundWinner, soundEffects }: {
           const rank = index + 1;
           const isRoundWinner = p.id === roundWinner.winnerId;
           
+          let rankIcon = '🏅';
           let rankStyles = 'bg-gray-200 text-gray-700';
-          if (rank === 1) rankStyles = 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900 shadow-md'; // Gold
-          if (rank === 2) rankStyles = 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800 shadow-md'; // Silver
-          if (rank === 3) rankStyles = 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900 shadow-md'; // Bronze
+          if (rank === 1) {
+            rankIcon = '👑';
+            rankStyles = 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900 shadow-md';
+          }
+          if (rank === 2) {
+            rankIcon = '🥈';
+            rankStyles = 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800 shadow-md';
+          }
+          if (rank === 3) {
+            rankIcon = '🥉';
+            rankStyles = 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900 shadow-md';
+          }
 
           return (
             <li 
           key={p.id} 
           className={`flex items-center p-3 rounded-2xl shadow-sm transition-all duration-300 ${isRoundWinner ? 'bg-green-100 border-2 border-green-400 scale-105' : 'bg-white'}`}
             >
-          <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center font-black text-lg mr-4 ${rankStyles}`}>
-            {rank}
+          <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center font-black text-sm shadow-md mr-3 ${rankStyles}`}>
+            {rankIcon}
           </div>
-          {/* <div className={`w-2 h-8 rounded-full mr-4 ${getPlayerColorClass(p.color)}`}></div> */}
+          <div 
+            className={`w-10 h-10 flex-shrink-0 rounded-full ${getPlayerColorClass(p.color)} flex items-center justify-center text-lg shadow-lg mr-3`}
+          >
+            {p.emoji || p.name[0].toUpperCase()}
+          </div>
           <div className="flex-grow">
             <p className="font-bold text-gray-900 text-lg">{p.name}</p>
           </div>
@@ -1368,48 +1549,119 @@ function ResultsComponent({ room, player, roundWinner, soundEffects }: {
 }
 
 function GameOverComponent({ room, player }: { room: Room; player: Player }) {
-  const overallWinner = room.players.reduce((prev, current) => (prev.score > current.score) ? prev : current);
+  const sortedPlayers = [...room.players].sort((a, b) => b.score - a.score);
+  const overallWinner = sortedPlayers[0];
+  const runnerUps = sortedPlayers.slice(1);
+  
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-      <h2 className="text-4xl font-black text-purple-700 mb-6">Game Over!</h2>
-      {overallWinner && (
-        <p className="text-2xl font-bold mb-4">
-          The Grand Winner is <span>{overallWinner.name}</span> with {overallWinner.score} points!
-        </p>
-      )}
-      
-      <div className="bg-gray-100 rounded-2xl p-6">
-        <h4 className="text-2xl font-bold text-gray-800 mb-4">Final Scores</h4>
-        <div className="space-y-3">
-          {room.players.sort((a, b) => b.score - a.score).map((player, index) => (
-            <div 
-              key={player.id} 
-              className={`flex justify-between items-center p-4 rounded-xl ${
-                index === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-white'
-              }`}
-            >
-              <div className="flex items-center space-x-4">
-                <span className="text-2xl text-gray-800 font-bold">{index + 1}.</span>
-                <div 
-                  className={`w-8 h-8 rounded-full ${getPlayerColorClass(player.color)}`}
-                ></div>
-                <span className="text-xl font-bold text-gray-900">{player.name}</span>
-              </div>
-              <span className="text-2xl font-bold text-purple-600">{player.score}</span>
-            </div>
-          ))}
+    <div className="bg-white rounded-3xl p-6 shadow-lg text-center">
+      {/* Winner Spotlight */}
+      <div className="mb-8">
+        <div className="relative bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl p-6 mx-auto shadow-2xl transform hover:scale-105 transition-all duration-500">
+          {/* Sparkle decorations with staggered animations */}
+          <div className="absolute -top-3 -left-3 text-2xl animate-bounce">✨</div>
+          <div className="absolute -top-3 -right-3 text-2xl animate-bounce delay-500">🎉</div>
+          <div className="absolute -bottom-3 -left-3 text-2xl animate-bounce delay-1000">🏆</div>
+          <div className="absolute -bottom-3 -right-3 text-2xl animate-bounce delay-150">⭐</div>
+          
+          {/* Crown above winner */}
+          <div className="text-5xl mb-3 animate-bounce text-center">👑</div>
+          
+          <h4 className="text-2xl font-black text-yellow-900 mb-3 drop-shadow-lg text-center">
+            GAME CHAMPION!
+          </h4>
+          
+          {/* Winner Avatar - Large */}
+          <div 
+            className={`w-20 h-20 rounded-full mx-auto mb-3 ${getPlayerColorClass(overallWinner.color)} flex items-center justify-center text-3xl shadow-2xl ring-4 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300`}
+          >
+            {overallWinner.emoji || overallWinner.name[0].toUpperCase()}
+          </div>
+          
+          <p className="text-2xl font-black text-yellow-900 mb-2 drop-shadow-lg text-center">
+            {overallWinner.name}
+          </p>
+          
+          <div className="flex items-center justify-center space-x-2 mb-3">
+            <div className="text-xl">🎯</div>
+            <span className="text-3xl font-black text-yellow-900 drop-shadow-lg">
+              {overallWinner.score}
+            </span>
+            <span className="text-lg font-bold text-yellow-800">POINTS</span>
+            <div className="text-xl">🎯</div>
+          </div>
+          
+          <p className="text-sm font-bold text-yellow-800 italic text-center">
+            "Master of the Fartnoises!"
+          </p>
         </div>
       </div>
 
-      {/* <h3 className="text-xl font-semibold text-gray-800 mb-3">Final Scores:</h3>
-      <ul className="space-y-1 max-w-sm mx-auto text-left mb-8">
-        {room.players.sort((a, b) => b.score - a.score).map(p => (
-          <li key={p.id} className={`p-2 rounded flex justify-between items-center ${getPlayerColorClass(p.color)} text-white shadow`}>
-            <span>{p.name}</span>
-            <span className="font-bold">{p.score} pts</span>
-          </li>
-        ))}
-      </ul> */}
+      {/* Final Scores - Compact Mobile Layout */}
+      <div className="bg-gray-50 rounded-2xl p-4 mb-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-3 text-center">Final Standings</h3>
+        <div className="space-y-2">
+          {sortedPlayers.map((p, index) => {
+            const rank = index + 1;
+            let rankIcon = '🏅';
+            let rankBg = 'bg-gray-200 text-gray-700';
+            
+            if (rank === 1) {
+              rankIcon = '👑';
+              rankBg = 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900 shadow-md';
+            } else if (rank === 2) {
+              rankIcon = '🥈';
+              rankBg = 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800 shadow-md';
+            } else if (rank === 3) {
+              rankIcon = '🥉';
+              rankBg = 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900 shadow-md';
+            }
+            
+            return (
+              <div 
+                key={p.id} 
+                className={`flex items-center justify-between p-3 rounded-xl shadow-sm transition-all duration-300 ${
+                  rank === 1 ? 'bg-yellow-50 border-2 border-yellow-400 scale-105' : 'bg-white'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm shadow-md ${rankBg}`}>
+                    {rankIcon}
+                  </div>
+                  <div 
+                    className={`w-8 h-8 rounded-full ${getPlayerColorClass(p.color)} flex items-center justify-center text-sm shadow-lg`}
+                  >
+                    {p.emoji || p.name[0].toUpperCase()}
+                  </div>
+                  <span className={`font-bold ${rank === 1 ? 'text-yellow-900 text-lg' : 'text-gray-900'}`}>
+                    {p.name}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className={`font-black ${rank === 1 ? 'text-yellow-900 text-xl' : 'text-purple-600 text-lg'}`}>
+                    {p.score}
+                  </span>
+                  <p className="text-xs text-gray-500 uppercase">Points</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Celebration Message */}
+      <div className="mb-6 text-center">
+        <p className="text-lg text-gray-700 font-semibold mb-3">
+          🎵 Thanks for playing Fartnoises! 🎵
+        </p>
+        <div className="flex justify-center space-x-3 text-2xl animate-pulse">
+          <span>🎪</span>
+          <span>🎭</span>
+          <span>🎨</span>
+          <span>🎸</span>
+          <span>🎺</span>
+        </div>
+      </div>
       <button 
         onClick={() => {
           // Clear reconnection data when starting a new game
