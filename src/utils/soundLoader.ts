@@ -98,20 +98,44 @@ function cleanSoundName(name: string): string {
   });
 
   // Articles and other words that should not be capitalized (unless first word or after quote)
-  const articles = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'for', 'nor', 'so', 'yet', 'at', 'by', 'in', 'of', 'on', 'to', 'up', 'as', 'is', 'it']);
-  
+  const articles = new Set([
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "but",
+    "for",
+    "nor",
+    "so",
+    "yet",
+    "at",
+    "by",
+    "in",
+    "of",
+    "on",
+    "to",
+    "up",
+    "as",
+    "is",
+    "it",
+  ]);
+
   // Capitalize words appropriately, considering articles and quotes
   cleaned = cleaned
     .split(" ")
     .map((word, index) => {
       if (word.length === 0) return word;
-      
-      // Check if this word starts after a quote mark
-      const startsAfterQuote = index > 0 && /["'""'']$/.test(cleaned.split(" ")[index - 1]);
-      
+
+      // Check if this word starts after a quote mark (including non-standard quotes)
+      const startsAfterQuote =
+        index > 0 &&
+        /["'""''‚„«»‹›「」『』]$/.test(cleaned.split(" ")[index - 1]);
+
       // Always capitalize first word, words after quotes, or words not in articles list
-      const shouldCapitalize = index === 0 || startsAfterQuote || !articles.has(word.toLowerCase());
-      
+      const shouldCapitalize =
+        index === 0 || startsAfterQuote || !articles.has(word.toLowerCase());
+
       if (shouldCapitalize) {
         return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
       } else {
