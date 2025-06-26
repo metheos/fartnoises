@@ -653,7 +653,7 @@ function GamePageContent() {
             <div className="text-right">
               <p className="text-sm text-gray-700">Round {room.currentRound}/{room.maxRounds}</p>
               <p className="text-lg font-bold text-purple-600">{player.name}</p>
-              <p className="text-sm text-gray-700">Score: {player.score}</p>
+              <p className="text-sm text-gray-700">Score: {player.score}/{room.maxScore}</p>
             </div>
           </div>        </div>        
           {/* Debug Info
