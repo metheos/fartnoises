@@ -645,17 +645,19 @@ function GamePageContent() {
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-3xl p-6 mb-6 shadow-lg">
-          <div className="flex justify-between items-center">            <div>
-              <h1 className="text-3xl font-black text-gray-900">fartnoises</h1>
-              <p className="text-gray-800">Room: <span className="font-mono font-bold">{room.code}</span></p>
+        <div className="bg-white rounded-3xl p-4 mb-6 shadow-lg">
+          <div className="flex justify-between items-center">            
+            <div>
+              <h1 className="text-2xl font-black text-gray-900 leading-tight">fartnoises</h1>
+              <p className="text-sm text-gray-800">Room: <span className="font-mono font-bold">{room.code}</span></p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-700">Round {room.currentRound}/{room.maxRounds}</p>
-              <p className="text-lg font-bold text-purple-600">{player.name}</p>
-              <p className="text-sm text-gray-700">Score: {player.score}/{room.maxScore}</p>
+              <p className="text-xs text-gray-700">Round {room.currentRound}/{room.maxRounds}</p>
+              <p className="text-base font-bold text-purple-600 leading-tight">{player.name}</p>
+              <p className="text-xs text-gray-700">Score: {player.score}/{room.maxScore}</p>
             </div>
-          </div>        </div>        
+          </div>        
+        </div>        
           {/* Debug Info
         <div className="bg-white rounded-xl p-4 mb-4 text-sm text-gray-900">
           <p><strong>Current Game State:</strong> {room.gameState}</p>
@@ -1141,20 +1143,67 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
       )}
         {hasSubmitted && submission ? (
         <div className="text-center">
-          <p className="text-green-600 text-xl mb-4">✅ Sounds submitted! Waiting for others...</p>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 max-w-md mx-auto">
-            <p className="text-green-800 font-semibold mb-2">Your Submission:</p>
-            <div className="flex gap-2 justify-center">
+          {/* Success message with animation */}
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
+              <span className="text-3xl text-white">✅</span>
+            </div>
+            <h3 className="text-2xl font-bold text-green-600 mb-2">Sounds Submitted!</h3>
+            <p className="text-gray-600">Waiting for other players to finish...</p>
+          </div>
+
+          {/* Enhanced submission display */}
+          <div className="bg-gradient-to-br from-green-50 via-white to-emerald-50 rounded-2xl p-6 max-w-2xl mx-auto border border-green-200 shadow-lg">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-lg">🎵</span>
+              </div>
+              <h4 className="text-xl font-bold text-gray-800">Your Sound Combo</h4>
+            </div>
+            
+            <div className="flex flex-row items-center justify-center gap-4">
               {submission.sounds.map((soundId, index) => (
-                <span 
-                  key={soundId}
-                  className={`px-3 py-1 rounded-full text-sm font-medium text-white ${
-                    index === 0 ? 'bg-blue-500' : 'bg-green-500'
-                  }`}
-                >
-                  {soundEffects.find(s => s.id === soundId)?.name || `Sound ${index + 1}`}
-                </span>
+                <div key={soundId} className="relative">
+                  <div className={`w-40 h-20 rounded-xl flex items-center justify-center shadow-lg transform scale-105 transition-all duration-300 ${
+                    index === 0 
+                      ? 'bg-gradient-to-br from-blue-500 to-blue-600 border-2 border-blue-300' 
+                      : 'bg-gradient-to-br from-green-500 to-green-600 border-2 border-green-300'
+                  }`}>
+                    <div className="text-center text-white">
+                      <div className="text-sm font-bold">
+                        {soundEffects.find(s => s.id === soundId)?.name || `Sound ${index + 1}`}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Preview button */}
+                  <button
+                    onClick={() => playSound(soundId)}
+                    className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all hover:scale-110 border-2 border-gray-200"
+                    title="Preview sound"
+                  >
+                    <span className="text-gray-600 text-sm">🔊</span>
+                  </button>
+                </div>
               ))}
+            </div>
+
+            {/* Preview combo button */}
+            <div className="mt-6">
+              <button
+                onClick={() => {
+                  // Play submitted sounds in sequence
+                  if (submission.sounds.length === 1) {
+                    playSound(submission.sounds[0]);
+                  } else if (submission.sounds.length === 2) {
+                    playSound(submission.sounds[0]);
+                    setTimeout(() => playSound(submission.sounds[1]), 800);
+                  }
+                }}
+                className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-xl font-bold hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                🎧 Replay Your Combo
+              </button>
             </div>
           </div>
         </div>
@@ -1216,13 +1265,13 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
               <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-lg">🎵</span>
               </div>
-              <h3 className="text-xl font-bold text-gray-800">Your Sound Combo</h3>
+              <h3 className="text-xl font-bold text-gray-800">Your Sounds</h3>
             </div>
             
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+            <div className="flex flex-row items-center justify-center gap-4">
               {/* Sound 1 Slot */}
               <div className="relative">
-                <div className={`w-48 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
+                <div className={`w-38 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
                   selectedSoundsLocal.length > 0 
                     ? 'border-blue-400 bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg transform scale-105' 
                     : 'border-blue-300 bg-blue-50 hover:border-blue-400 hover:bg-blue-100'
@@ -1230,7 +1279,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                   {selectedSoundsLocal.length > 0 ? (
                     <div className="text-center text-white">
                       {/* <div className="text-sm font-bold opacity-90 mb-1">🔵 SOUND 1</div> */}
-                      <div className="text-lg font-bold">
+                      <div className="text-sm font-bold">
                         {playerSoundSet.find(s => s.id === selectedSoundsLocal[0])?.name || 'Unknown'}
                       </div>
                     </div>
@@ -1252,16 +1301,9 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                 )}
               </div>
 
-              {/* Plus/Connection Symbol */}
-              <div className="flex items-center justify-center">
-                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-bold text-xl">
-                  +
-                </div>
-              </div>
-
               {/* Sound 2 Slot */}
               <div className="relative">
-                <div className={`w-48 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
+                <div className={`w-38 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
                   selectedSoundsLocal.length > 1 
                     ? 'border-green-400 bg-gradient-to-br from-green-500 to-green-600 shadow-lg transform scale-105' 
                     : 'border-green-300 bg-green-50 hover:border-green-400 hover:bg-green-100'
@@ -1269,7 +1311,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                   {selectedSoundsLocal.length > 1 ? (
                     <div className="text-center text-white">
                       {/* <div className="text-sm font-bold opacity-90 mb-1">🟢 SOUND 2</div> */}
-                      <div className="text-lg font-bold">
+                      <div className="text-sm font-bold">
                         {playerSoundSet.find(s => s.id === selectedSoundsLocal[1])?.name || 'Unknown'}
                       </div>
                     </div>
@@ -1295,7 +1337,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
               </div>
             </div>
 
-            {/* Preview Combo Button */}
+            {/* Preview Combo Button
             {selectedSoundsLocal.length > 0 && (
               <div className="mt-6 text-center">
                 <button
@@ -1313,8 +1355,9 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                   🎧 Preview Your Combo
                 </button>
               </div>
-            )}
-          </div>          {/* Submit button */}
+            )} */}
+          </div>          
+          {/* Submit button */}
           <button 
             onClick={onSubmitSounds}
             disabled={selectedSoundsLocal.length === 0 || (hasFirstSubmission && timeLeft <= 0)}
