@@ -766,7 +766,7 @@ function GamePageContent() {
           <PausedForDisconnectionComponent room={room} player={player} onAttemptReconnection={attemptReconnection} />
         )}        {/* Fallback for unknown game states */}
         {!Object.values(GameState).includes(room.gameState as GameState) && (
-          <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+          <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
             <h2 className="text-2xl font-bold text-red-600 mb-4">Unknown Game State</h2>
             <p className="text-gray-800">Current state: {room.gameState}</p>
             <p className="text-gray-800">Expected states: {Object.values(GameState).join(', ')}</p>
@@ -847,7 +847,7 @@ export function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting 
 }) {
   // Basic Lobby UI
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+    <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
       {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Lobby</h2> */}
       {/* <p className="text-gray-800 mb-2">Room Code: <span className="font-mono font-bold">{room.code}</span></p> */}
       {/* <p className="text-gray-800 mb-4">Players in lobby: {room.players.length}</p> */}
@@ -998,7 +998,7 @@ export function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting 
 export function JudgeSelectionComponent({ room, player }: { room: Room; player: Player }) {
   const judge = room.players.find(p => p.id === room.currentJudge);
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+    <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Judge Selection</h2>
       {judge ? (
         <div className="flex flex-col items-center">
@@ -1031,7 +1031,7 @@ export function PromptSelectionComponent({ room, player, onSelectPrompt }: {
   console.log('PromptSelectionComponent - Available prompts:', room.availablePrompts);
   
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+    <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-purple-600 mb-4">Prompt Selection</h2>
       {isJudge ? (
         <>
@@ -1206,7 +1206,7 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
 
   if (isJudge) {
     return (
-      <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
         {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Sound Selection</h2> */}
         <p className="text-2xl font-bold text-purple-600 mb-4">Players are choosing sounds...</p>
         <div className="bg-purple-100 rounded-2xl p-6 mb-6">
@@ -1220,7 +1220,7 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
         const hasFirstSubmission = room.submissions.length > 0;
 
         return (
-          <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+          <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
             {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Select Your Sounds!</h2> */}
             <div className="bg-purple-100 rounded-2xl p-6 mb-6">
         <p className="text-lg text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></p>
@@ -1492,7 +1492,7 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
   };
 
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+    <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
       {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Judging Time!</h2> */}
       
       {/* Styled Prompt Display */}
@@ -1690,7 +1690,7 @@ export function ResultsComponent({ room, player, roundWinner, soundEffects }: {
 
   if (!roundWinner) {
     return (
-      <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+      <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
         <h2 className="text-2xl font-bold text-purple-600 mb-4">Round Results</h2>
         <p className="text-gray-800">Waiting for results...</p>
       </div>
@@ -1700,7 +1700,7 @@ export function ResultsComponent({ room, player, roundWinner, soundEffects }: {
   const winnerPlayerDetails = room.players.find(p => p.id === roundWinner.winnerId);
 
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+    <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
       {/* <h2 className="text-2xl font-bold text-purple-600 mb-6">🎉 Round Over! 🎉</h2> */}
       
       {/* Winner Announcement */}
@@ -1872,8 +1872,8 @@ export function ResultsComponent({ room, player, roundWinner, soundEffects }: {
             <p className="font-bold text-gray-900 text-lg">{p.name}</p>
           </div>
           {isRoundWinner && (
-            <div className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full mr-4 animate-pulse">
-              +1 PT
+            <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse z-10">
+              +1
             </div>
           )}
           <div className="text-right">
@@ -2058,7 +2058,7 @@ export function PausedForDisconnectionComponent({ room, player, onAttemptReconne
     Math.floor((Date.now() - room.disconnectionTimestamp) / 1000) : 0;
 
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
+    <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
       <h2 className="text-2xl font-bold text-orange-600 mb-4">Game Paused</h2>
       <div className="animate-pulse w-16 h-16 bg-orange-200 rounded-full mx-auto mb-4"></div>
       
