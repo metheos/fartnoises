@@ -1463,7 +1463,8 @@ export default function SocketHandler(
 
           io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
             submissions: room.submissions, // Send original submissions
-            randomizedSubmissions: room.randomizedSubmissions || room.submissions, // Send randomized submissions separately
+            randomizedSubmissions:
+              room.randomizedSubmissions || room.submissions, // Send randomized submissions separately
             judgeId: room.currentJudge,
           });
           io.to(roomCode).emit("roomUpdated", room);

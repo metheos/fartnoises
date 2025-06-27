@@ -839,7 +839,7 @@ function GamePageContent() {
 }
 
 // Component implementations will follow...
-function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting }: { 
+export function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting }: { 
   room: Room; 
   player: Player; 
   onStartGame: () => void;
@@ -995,7 +995,7 @@ function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting }: {
   );
 }
 
-function JudgeSelectionComponent({ room, player }: { room: Room; player: Player }) {
+export function JudgeSelectionComponent({ room, player }: { room: Room; player: Player }) {
   const judge = room.players.find(p => p.id === room.currentJudge);
   return (
     <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
@@ -1020,10 +1020,10 @@ function JudgeSelectionComponent({ room, player }: { room: Room; player: Player 
   );
 }
 
-function PromptSelectionComponent({ room, player, onSelectPrompt }: { 
+export function PromptSelectionComponent({ room, player, onSelectPrompt }: { 
   room: Room; 
   player: Player; 
-  onSelectPrompt: (promptId: string) => void; 
+  onSelectPrompt: (promptId: string) => void;
 }) {
   const isJudge = player.id === room.currentJudge;
   
@@ -1070,7 +1070,7 @@ function PromptSelectionComponent({ room, player, onSelectPrompt }: {
   );
 }
 
-function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds, onSubmitSounds, timeLeft, soundEffects }: { 
+export function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds, onSubmitSounds, timeLeft, soundEffects }: { 
   room: Room; 
   player: Player; 
   selectedSounds: string[] | null;
@@ -1457,7 +1457,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   );
 }
 
-function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: { 
+export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: { 
   room: Room; 
   player: Player; 
   onJudgeSubmission: (submissionIndex: number) => void;
@@ -1613,7 +1613,7 @@ function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: {
   );
 }
 
-function ResultsComponent({ room, player, roundWinner, soundEffects }: { 
+export function ResultsComponent({ room, player, roundWinner, soundEffects }: { 
   room: Room; 
   player: Player; 
   roundWinner: { winnerId: string; winnerName: string; winningSubmission: any; submissionIndex: number } | null;
@@ -1890,7 +1890,7 @@ function ResultsComponent({ room, player, roundWinner, soundEffects }: {
   );
 }
 
-function GameOverComponent({ room, player }: { room: Room; player: Player }) {
+export function GameOverComponent({ room, player }: { room: Room; player: Player }) {
   const sortedPlayers = [...room.players].sort((a, b) => b.score - a.score);
   const overallWinner = sortedPlayers[0];
   const runnerUps = sortedPlayers.slice(1);
@@ -2048,10 +2048,10 @@ function GameOverComponent({ room, player }: { room: Room; player: Player }) {
   );
 }
 
-function PausedForDisconnectionComponent({ room, player, onAttemptReconnection }: { 
+export function PausedForDisconnectionComponent({ room, player, onAttemptReconnection }: { 
   room: Room; 
   player: Player; 
-  onAttemptReconnection: () => void; 
+  onAttemptReconnection: () => void;
 }) {
   const disconnectedPlayers = room.disconnectedPlayers || [];
   const timeSinceDisconnection = room.disconnectionTimestamp ? 
