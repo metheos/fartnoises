@@ -848,15 +848,15 @@ export function PromptSelectionDisplay({ room }: { room: Room }) {
                   {/* Judge avatar - larger and more prominent */}
                   <div className="relative mb-3">
                     <div 
-                      className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-bold text-white shadow-2xl ring-6 ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge.color)}`}
+                      className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-bold text-white shadow-2xl ring-6 ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge?.color || '#gray')}`}
                     >
-                      {judge.emoji || judge.name[0].toUpperCase()}
+                      {judge?.emoji || judge?.name?.[0]?.toUpperCase() || '?'}
                     </div>
                   </div>
                   
                   {/* Judge name with emphasis */}
                   <div className="">
-                    <span className="text-xl font-black text-amber-900 drop-shadow-sm">{judge.name}</span>
+                    <span className="text-xl font-black text-amber-900 drop-shadow-sm">{judge?.name || 'Unknown'}</span>
                   </div>
                 </div>
               </div>
@@ -937,9 +937,9 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
               }`}
             ></div>
           </div>
-          <p className="text-sm text-gray-600 mt-2">
+          {/* <p className="text-sm text-gray-600 mt-2">
             ⏰ Countdown started after first submission
-          </p>
+          </p> */}
         </div>
       )}
       
@@ -981,9 +981,9 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
                   {/* Judge avatar - larger and more prominent */}
                   <div className="relative mb-3">
                     <div 
-                      className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-bold text-white shadow-2xl ring-6 ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge.color)}`}
+                      className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-bold text-white shadow-2xl ring-6 ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge?.color || '#gray')}`}
                     >
-                      {judge.emoji || judge.name[0].toUpperCase()}
+                      {judge?.emoji || judge?.name?.[0]?.toUpperCase() || '?'}
                     </div>
                   </div>
                   
@@ -1084,13 +1084,15 @@ export function PlaybackSubmissionsDisplay({
   room: Room;
   soundEffects: SoundEffect[];
   socket: Socket;
-}) {  const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
+}) {  
+  const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
   const [currentPlayingSoundIndex, setCurrentPlayingSoundIndex] = useState<number>(-1);
   const [revealedSounds, setRevealedSounds] = useState<Set<string>>(new Set());
   const [isPlaying, setIsPlaying] = useState(false);
   const [promptPlaying, setPromptPlaying] = useState(false);
   const hasStartedPlaybackRef = useRef(false);
   const promptAudioPlayingRef = useRef(false);
+  const judge = room.players.find(p => p.id === room.currentJudge);
   // This effect runs once when the component mounts for this phase to start the sequence.
   useEffect(() => {
     // Prevent this from running multiple times if the component re-renders.
@@ -1129,7 +1131,8 @@ export function PlaybackSubmissionsDisplay({
 
   // This effect handles playing each submission when the server sends it.
   useEffect(() => {
-    if (!socket) return;    const handlePlaySubmission = async (submission: SoundSubmission | null) => {
+    if (!socket) return;    
+    const handlePlaySubmission = async (submission: SoundSubmission | null) => {
       // A null submission from the server indicates the end of playback.
       if (!submission) {
         console.log('Received null submission, playback is complete.');
@@ -1219,11 +1222,48 @@ export function PlaybackSubmissionsDisplay({
 
   return (
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
-      {/* <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Playback Time!</h3> */}
-
+      
+      
+      {/* Judge and Prompt Display - Side by Side */}
+      {room.currentPrompt && judge && (
+        <div className="flex items-center justify-center gap-6 mb-8">
+          {/* Judge Display - Left Side */}
+            <div className="flex-shrink-0">
+            <div className="relative bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 rounded-3xl p-3 shadow-2xl border-1 border-yellow-400 overflow-hidden">
+              
+              {/* Main judge content */}
+              <div className="relative z-10 flex flex-col items-center min-w-50">
+                <div className="bg-white bg-opacity-90 rounded-2xl p-4 shadow-lg border-1 border-yellow-300 w-full text-center">
+                  
+                  
+                  {/* Judge Title */}
+                  <div className="mb-3">
+                    <span className="text-xl font-black text-amber-900 drop-shadow-sm underline">The Judge</span>
+                  </div>
+                  
+                  {/* Judge avatar - larger and more prominent */}
+                  <div className="relative mb-3">
+                    <div 
+                      className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-bold text-white shadow-2xl ring-6 ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge?.color || '#gray')}`}
+                    >
+                      {judge?.emoji || judge?.name?.[0]?.toUpperCase() || '?'}
+                    </div>
+                  </div>
+                  
+                  {/* Judge name with emphasis */}
+                  <div className="">
+                    <span className="text-xl font-black text-amber-900 drop-shadow-sm">{judge.name}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Animated border glow effect */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 opacity-25 animate-pulse"></div>
+            </div>
+            </div>
+          
           {/* Prompt Display - Right Side */}
-      {room.currentPrompt && (
-          <div className="flex-grow mb-8">
+          <div className="flex-grow max-w-4xl">
             <div className="relative bg-gradient-to-br from-purple-200 via-pink-100 to-orange-100 rounded-3xl p-8 shadow-2xl border-4 border-purple-300 overflow-hidden">
               
               {/* Main prompt text */}
@@ -1241,6 +1281,7 @@ export function PlaybackSubmissionsDisplay({
               <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 opacity-20 animate-pulse"></div>
             </div>
           </div>
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

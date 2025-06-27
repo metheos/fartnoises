@@ -275,15 +275,81 @@ function startDelayedSoundSelectionTimer(
   startTimer(
     roomCode,
     GAME_CONFIG.SOUND_SELECTION_TIME,
-    () => {
+    async () => {
       // Auto-transition to judging if time runs out, but only if not already in playback
       if (room.gameState === GameState.SOUND_SELECTION && !room.isPlayingBack) {
         console.log(
-          `[${new Date().toISOString()}] [TIMER] Sound selection time expired for room ${roomCode}, transitioning to JUDGING`
+          `[${new Date().toISOString()}] [TIMER] Sound selection time expired for room ${roomCode}, processing auto-submissions`
         );
 
+        // Auto-submit sounds for players who haven't submitted yet
+        const nonJudgePlayers = room.players.filter(
+          (p) => p.id !== room.currentJudge
+        );
+        const playersWhoSubmitted = room.submissions.map((s) => s.playerId);
+        const playersWhoNeedSubmission = nonJudgePlayers.filter(
+          (p) => !playersWhoSubmitted.includes(p.id)
+        );
+
+        for (const player of playersWhoNeedSubmission) {
+          console.log(
+            `[TIMER] Checking player ${player.name}: soundSet = ${
+              player.soundSet
+                ? `[${player.soundSet.join(", ")}]`
+                : "null/undefined"
+            }`
+          );
+          if (player.soundSet && player.soundSet.length > 0) {
+            // Randomly select 1-2 sounds from the player's sound set
+            const numSounds = Math.random() < 0.7 ? 2 : 1; // 70% chance of 2 sounds, 30% chance of 1 sound
+            const selectedSounds: string[] = [];
+            const availableSounds = [...player.soundSet]; // Copy array to avoid modifying original
+
+            for (
+              let i = 0;
+              i < Math.min(numSounds, availableSounds.length);
+              i++
+            ) {
+              const randomIndex = Math.floor(
+                Math.random() * availableSounds.length
+              );
+              const selectedSound = availableSounds.splice(randomIndex, 1)[0];
+              selectedSounds.push(selectedSound);
+            }
+
+            if (selectedSounds.length > 0) {
+              const autoSubmission = {
+                playerId: player.id,
+                playerName: player.name,
+                sounds: selectedSounds,
+              };
+
+              console.log(
+                `[TIMER] Auto-submitting ${
+                  selectedSounds.length
+                } sound(s) for ${player.name}: [${selectedSounds.join(", ")}]`
+              );
+
+              room.submissions.push(autoSubmission);
+              io.to(roomCode).emit("soundSubmitted", autoSubmission);
+            } else {
+              console.warn(
+                `[TIMER] No sounds selected for auto-submission for ${player.name}`
+              );
+            }
+          } else {
+            console.warn(
+              `[TIMER] Player ${player.name} has no sound set available for auto-submission (soundSet: ${player.soundSet})`
+            );
+          }
+        }
+
         // Randomize submissions if they haven't been randomized yet (when timer expires)
-        if (!room.randomizedSubmissions && room.submissions.length > 0) {
+        if (
+          (!room.randomizedSubmissions ||
+            room.randomizedSubmissions.length === 0) &&
+          room.submissions.length > 0
+        ) {
           console.log(
             `[TIMER] Randomizing submissions due to timer expiration...`
           );
@@ -302,9 +368,44 @@ function startDelayedSoundSelectionTimer(
           );
         }
 
+        console.log(
+          `[${new Date().toISOString()}] [TIMER] Transitioning to JUDGING after auto-submissions`
+        );
+
+        console.log(
+          `[TIMER] Room submissions before transition: ${room.submissions.length} total`
+        );
+        room.submissions.forEach((sub, index) => {
+          console.log(
+            `[TIMER] Submission ${index}: ${
+              sub.playerName
+            } - [${sub.sounds.join(", ")}]`
+          );
+        });
+
+        if (room.randomizedSubmissions) {
+          console.log(
+            `[TIMER] Room randomizedSubmissions: ${room.randomizedSubmissions.length} total`
+          );
+          room.randomizedSubmissions.forEach((sub, index) => {
+            console.log(
+              `[TIMER] Randomized submission ${index}: ${
+                sub.playerName
+              } - [${sub.sounds.join(", ")}]`
+            );
+          });
+        }
+
         room.gameState = GameState.JUDGING;
+        const submissionsToSend =
+          room.randomizedSubmissions || room.submissions;
+        console.log(
+          `[TIMER] Sending ${submissionsToSend.length} submissions to clients`
+        );
+
         io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
-          submissions: room.randomizedSubmissions || room.submissions, // Use randomized submissions
+          submissions: room.submissions, // Send original submissions
+          randomizedSubmissions: submissionsToSend, // Send randomized submissions separately
           judgeId: room.currentJudge,
         });
       } else {
@@ -584,8 +685,22 @@ function resumeGame(
               ) {
                 // Auto-select the first prompt
                 const selectedPrompt = timerRoom.availablePrompts[0];
-                timerRoom.currentPrompt = selectedPrompt;
+                processAndAssignPrompt(timerRoom, selectedPrompt);
+
+                // Track this prompt as used to avoid repeating in future rounds
+                if (!timerRoom.usedPromptIds) {
+                  timerRoom.usedPromptIds = [];
+                }
+                timerRoom.usedPromptIds.push(selectedPrompt.id);
+
                 timerRoom.gameState = GameState.SOUND_SELECTION;
+                timerRoom.submissions = [];
+                timerRoom.randomizedSubmissions = []; // Clear randomized submissions for new round
+                timerRoom.submissionSeed = undefined; // Clear the seed
+                timerRoom.soundSelectionTimerStarted = false;
+
+                // Generate individual random sound sets for each non-judge player
+                await generatePlayerSoundSets(timerRoom);
 
                 io.to(roomCode).emit("promptSelected", selectedPrompt);
                 io.to(roomCode).emit(
@@ -593,7 +708,6 @@ function resumeGame(
                   GameState.SOUND_SELECTION,
                   {
                     prompt: selectedPrompt,
-                    sounds: [], // Will be populated with random sounds
                     timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                   }
                 );
@@ -609,6 +723,22 @@ function resumeGame(
     }
   }
   // Note: Add other timer restarts as needed based on game state
+}
+
+// Helper function to generate sound sets for players when entering SOUND_SELECTION
+async function generatePlayerSoundSets(room: Room): Promise<void> {
+  const nonJudgePlayers = room.players.filter(
+    (p) => p.id !== room.currentJudge
+  );
+
+  for (const player of nonJudgePlayers) {
+    // Generate 10 random sounds for each player
+    const playerSounds = await getRandomSoundsFromLoader(10);
+    player.soundSet = playerSounds.map((sound) => sound.id);
+    console.log(
+      `🎯 SERVER: Generated ${player.soundSet.length} sounds for player ${player.name}`
+    );
+  }
 }
 
 function handlePlayerReconnection(
@@ -1012,7 +1142,8 @@ export default function SocketHandler(
                     room.submissionSeed = undefined; // Clear the seed
                     room.soundSelectionTimerStarted = false;
 
-                    const soundOptions = await getRandomSounds(10);
+                    // Generate individual random sound sets for each non-judge player
+                    await generatePlayerSoundSets(room);
 
                     io.to(roomCode).emit("roomUpdated", room);
                     io.to(roomCode).emit("promptSelected", firstPrompt);
@@ -1021,7 +1152,6 @@ export default function SocketHandler(
                       GameState.SOUND_SELECTION,
                       {
                         prompt: firstPrompt,
-                        sounds: soundOptions,
                         timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                       }
                     );
@@ -1117,15 +1247,16 @@ export default function SocketHandler(
           room.submissionSeed = undefined; // Clear the seed
           room.soundSelectionTimerStarted = false;
 
-          const soundOptions = await getRandomSounds(10);
+          // Generate individual random sound sets for each non-judge player
+          await generatePlayerSoundSets(room);
 
           console.log(`🎯 SERVER: Emitting room updates for ${roomCode}`);
           io.to(roomCode).emit("roomUpdated", room);
           io.to(roomCode).emit("promptSelected", prompt); // Send the full prompt object
           io.to(roomCode).emit("gameStateChanged", GameState.SOUND_SELECTION, {
             prompt: prompt, // Send the full prompt object
-            sounds: soundOptions,
             timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
+            currentRound: room.currentRound,
           });
 
           // Note: Sound selection timer will start when first player submits
@@ -1246,7 +1377,8 @@ export default function SocketHandler(
               );
               room.gameState = GameState.JUDGING;
               io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
-                submissions: room.randomizedSubmissions, // Use randomized submissions
+                submissions: room.submissions, // Send original submissions
+                randomizedSubmissions: room.randomizedSubmissions, // Send randomized submissions separately
                 judgeId: room.currentJudge,
               });
               io.to(roomCode).emit("roomUpdated", room);
@@ -1330,7 +1462,8 @@ export default function SocketHandler(
           room.currentSubmissionIndex = 0; // Reset for next round
 
           io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
-            submissions: room.randomizedSubmissions || room.submissions, // Use randomized submissions
+            submissions: room.submissions, // Send original submissions
+            randomizedSubmissions: room.randomizedSubmissions || room.submissions, // Send randomized submissions separately
             judgeId: room.currentJudge,
           });
           io.to(roomCode).emit("roomUpdated", room);
@@ -1519,7 +1652,8 @@ export default function SocketHandler(
                         room.submissionSeed = undefined; // Clear the seed
                         room.soundSelectionTimerStarted = false;
 
-                        const soundOptions = await getRandomSounds(10);
+                        // Generate individual random sound sets for each non-judge player
+                        await generatePlayerSoundSets(room);
 
                         io.to(roomCode).emit("roomUpdated", room);
                         io.to(roomCode).emit("promptSelected", firstPrompt);
@@ -1528,7 +1662,6 @@ export default function SocketHandler(
                           GameState.SOUND_SELECTION,
                           {
                             prompt: firstPrompt,
-                            sounds: soundOptions,
                             timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                           }
                         );
@@ -1857,7 +1990,7 @@ export default function SocketHandler(
                     room.players[0].isVIP = true;
                   }
                   if (room.currentJudge === socket.id) {
-                    room.currentJudge = selectNextJudge(room); // Or handle judge leaving differently
+                    room.currentJudge = selectNextJudge(room);
                     io.to(roomCode).emit(
                       "judgeSelected",
                       room.currentJudge as string

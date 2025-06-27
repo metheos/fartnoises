@@ -38,6 +38,7 @@ function GamePageContent() {
     submissionIndex: number;
   } | null>(null);
   const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [lastRoundNumber, setLastRoundNumber] = useState<number>(0);
   const [reconnectionVote, setReconnectionVote] = useState<{
     disconnectedPlayerName: string;
     timeLeft: number;
@@ -241,18 +242,28 @@ function GamePageContent() {
       addDebugLog(`roomJoined event for room: ${newRoom?.code}. Player: ${newPlayer?.name}. Socket: ${currentSocket.id}`);
       setRoom(newRoom);
       setPlayer(newPlayer);
+      setLastRoundNumber(newRoom.currentRound || 0);
       // Store room code for future reconnection attempts
       localStorage.setItem('lastKnownRoomCode', newRoom.code);
     };
 
     const handleRoomUpdated = (updatedRoom: Room) => {
-      addDebugLog(`roomUpdated event for room: ${updatedRoom?.code}, players: ${updatedRoom?.players?.length}. Socket: ${currentSocket.id}`);
+      addDebugLog(`🏠 roomUpdated event for room: ${updatedRoom?.code}, players: ${updatedRoom?.players?.length}. Socket: ${currentSocket.id}`);
+      addDebugLog(`🏠 Current selectedSounds: ${selectedSounds ? selectedSounds.join(', ') : 'null'}`);
       if (updatedRoom && updatedRoom.code) {
-        setRoom(updatedRoom);
+        setRoom((prevRoom) => {
+          const roundChanged = !prevRoom || prevRoom.currentRound !== updatedRoom.currentRound;
+          addDebugLog(`🏠 Room update - prevRound: ${prevRoom?.currentRound}, newRound: ${updatedRoom.currentRound}, roundChanged: ${roundChanged}`);
+          if (roundChanged) {
+            setLastRoundNumber(updatedRoom.currentRound || 0);
+            addDebugLog(`🏠 Updated lastRoundNumber to: ${updatedRoom.currentRound || 0}`);
+          }
+          return updatedRoom;
+        });
         const selfPlayer = updatedRoom.players.find(p => p.id === player?.id || p.id === currentSocket.id);
         if (selfPlayer) setPlayer(selfPlayer);
       } else {
-        addDebugLog('roomUpdated: Received invalid room data.');
+        addDebugLog('🏠 roomUpdated: Received invalid room data.');
       }
     };
 
@@ -264,17 +275,47 @@ function GamePageContent() {
         addDebugLog('playerJoined: Received invalid room data.');
       }
     };    const handleGameStateChanged = (state: GameState, data?: any) => {
-      addDebugLog(`gameStateChanged event: ${state}, data: ${JSON.stringify(data)}. Socket: ${currentSocket.id}`);
+      addDebugLog(`🎯 gameStateChanged event: ${state}, data: ${JSON.stringify(data)}. Socket: ${currentSocket.id}`);
+      addDebugLog(`🎯 Current selectedSounds before processing: ${selectedSounds ? selectedSounds.join(', ') : 'null'}`);
+      
+      // Detailed logging of what we're receiving
+      console.log(`🎯 RAW DATA RECEIVED:`, data);
+      console.log(`🎯 data.submissions:`, data?.submissions);
+      console.log(`🎯 data.randomizedSubmissions:`, data?.randomizedSubmissions);
+      
+      if (data?.submissions) {
+        addDebugLog(`🎯 Received ${data.submissions.length} submissions`);
+      }
+      if (data?.randomizedSubmissions) {
+        addDebugLog(`🎯 Received ${data.randomizedSubmissions.length} randomized submissions`);
+      } else {
+        addDebugLog(`🎯 NO randomizedSubmissions in data! Keys: ${Object.keys(data || {}).join(', ')}`);
+      }
+      
       if (state === GameState.JUDGE_SELECTION) {
         setRoundWinner(null);
       }
-      // Reset sound selection when starting a new sound selection phase
-      if (state === GameState.SOUND_SELECTION) {
-        setSelectedSounds(null);
-        addDebugLog('Reset selectedSounds for new round');
-      }
+      // Only reset sound selection when starting a NEW sound selection phase (new round)
+      // Don't reset if we're just updating the timer or other data within the same round
       setRoom((currentRoomVal) => {
         if (currentRoomVal) {
+          // More precise check: only reset if we're transitioning TO SOUND_SELECTION 
+          // from a different state AND the round has actually changed
+          const isActualNewRound = state === GameState.SOUND_SELECTION && 
+                                 currentRoomVal.gameState !== GameState.SOUND_SELECTION &&
+                                 (data?.currentRound !== undefined ? data.currentRound !== lastRoundNumber : true);
+          
+          addDebugLog(`🎯 Round check: state=${state}, currentGameState=${currentRoomVal.gameState}, dataRound=${data?.currentRound}, lastRound=${lastRoundNumber}, isNewRound=${isActualNewRound}`);
+          
+          if (isActualNewRound) {
+            setSelectedSounds(null);
+            const newRoundNumber = data?.currentRound || currentRoomVal.currentRound;
+            setLastRoundNumber(newRoundNumber);
+            addDebugLog(`🎯 RESET selectedSounds for actual new round ${newRoundNumber} (prev state: ${currentRoomVal.gameState} -> ${state})`);
+          } else {
+            addDebugLog(`🎯 NOT resetting selectedSounds - state: ${currentRoomVal.gameState} -> ${state}, round: ${currentRoomVal.currentRound}, lastRound: ${lastRoundNumber}`);
+          }
+          
           return {
             ...currentRoomVal,
             gameState: state,
@@ -282,6 +323,8 @@ function GamePageContent() {
             ...(data?.prompt && { currentPrompt: data.prompt }),
             ...(data?.judgeId && { currentJudge: data.judgeId }),
             ...(data?.submissions && { submissions: data.submissions }),
+            ...(data?.randomizedSubmissions && { randomizedSubmissions: data.randomizedSubmissions }),
+            ...(data?.currentRound !== undefined && { currentRound: data.currentRound }),
           };
         }
         return currentRoomVal;
@@ -478,14 +521,19 @@ function GamePageContent() {
     const validSounds = sounds.filter(sound => sound && sound.trim() !== '');
     if (validSounds.length >= 1 && validSounds.length <= 2) {
       setSelectedSounds(validSounds);
+    } else if (validSounds.length === 0) {
+      // Allow clearing the selection with an empty array
+      setSelectedSounds(null);
     }
   };
 
   const submitSounds = () => {
     if (socketRef.current && room && selectedSounds) {
-      addDebugLog(`Emitting submitSounds: ${selectedSounds.join(', ')} on socket ${socketRef.current.id}`);
+      addDebugLog(`🔊 Emitting submitSounds: ${selectedSounds.join(', ')} on socket ${socketRef.current.id}`);
       socketRef.current.emit('submitSounds', selectedSounds);
-      setSelectedSounds(null);
+      addDebugLog(`🔊 Clearing MY selectedSounds after submission (socket ${socketRef.current.id})`);
+      // Note: Don't call setSelectedSounds(null) here as it affects all players
+      // The SoundSelectionComponent will handle its own state
     }
   };
 
@@ -1034,43 +1082,86 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
   const isJudge = player.id === room.currentJudge;
   const [selectedSoundsLocal, setSelectedSoundsLocal] = useState<string[]>([]);
   const [playerSoundSet, setPlayerSoundSet] = useState<SoundEffect[]>([]);
+  const [lastClearedRound, setLastClearedRound] = useState<number>(-1);
+  const justClearedRoundRef = useRef<number>(-1);
 
   // Generate random sound set for this player when component mounts or when entering new round
   useEffect(() => {
-    console.log('Hello from SoundSelectionComponent useEffect');
-    console.log(soundEffects.length);
-    if (soundEffects.length > 0 && room.gameState === GameState.SOUND_SELECTION) {
+    console.log('🎵 SoundSelectionComponent useEffect triggered');
+    console.log(`🎵 soundEffects.length: ${soundEffects.length}, gameState: ${room.gameState}, playerSoundSet.length: ${playerSoundSet.length}`);
+    
+    if (soundEffects.length > 0 && room.gameState === GameState.SOUND_SELECTION && player.soundSet) {
       // Check if this is a new round by seeing if we haven't submitted in this round yet
       const hasSubmittedThisRound = room.submissions.some(s => s.playerId === player.id);
-      if (!hasSubmittedThisRound) {
-        // Generate random set of sounds for this player using getRandomSounds
-        const loadRandomSounds = async () => {
-          try {
-            const randomSounds = await getRandomSounds(10); // Get random sounds
-            setPlayerSoundSet(randomSounds);
-            setSelectedSoundsLocal([]);
-          } catch (error) {
-            console.error('Failed to load random sounds:', error);
-            // Fallback to manual shuffling if getRandomSounds fails
-            const shuffled = [...soundEffects].sort(() => Math.random() - 0.5);
-            const fallbackSounds = shuffled.slice(0, Math.min(8, soundEffects.length));
-            setPlayerSoundSet(fallbackSounds);
-            setSelectedSoundsLocal([]);
-          }
-        };
-        loadRandomSounds();
+      const needsNewSoundSet = playerSoundSet.length === 0;
+      
+      console.log(`🎵 hasSubmittedThisRound: ${hasSubmittedThisRound}, needsNewSoundSet: ${needsNewSoundSet}, currentRound: ${room.currentRound}, lastClearedRound: ${lastClearedRound}`);
+      
+      if (needsNewSoundSet) {
+        // Use the server-provided sound set instead of generating random sounds
+        const playerSounds = player.soundSet
+          .map(soundId => soundEffects.find(s => s.id === soundId))
+          .filter(sound => sound !== undefined) as SoundEffect[];
+        
+        if (playerSounds.length > 0) {
+          console.log(`🎵 Using server-provided sound set: ${playerSounds.length} sounds`);
+          setPlayerSoundSet(playerSounds);
+        } else {
+          console.warn('🎵 Server-provided sound set is empty, falling back to random generation');
+          // Fallback to client-side random generation if server set is invalid
+          const loadRandomSounds = async () => {
+            try {
+              const randomSounds = await getRandomSounds(10);
+              setPlayerSoundSet(randomSounds);
+            } catch (error) {
+              console.error('Failed to load random sounds:', error);
+              const shuffled = [...soundEffects].sort(() => Math.random() - 0.5);
+              const fallbackSounds = shuffled.slice(0, Math.min(8, soundEffects.length));
+              setPlayerSoundSet(fallbackSounds);
+            }
+          };
+          loadRandomSounds();
+        }
       }
     }
-  }, [room.gameState, room.currentRound, player.id, soundEffects]);
+  }, [room.gameState, room.currentRound, player.id, player.soundSet, soundEffects.length]);
+  
+  // One-time clearing effect for new rounds - only clears once per round
+  useEffect(() => {
+    if (room.gameState === GameState.SOUND_SELECTION && room.currentRound !== lastClearedRound) {
+      const hasSubmittedThisRound = room.submissions.some(s => s.playerId === player.id);
+      
+      // If we haven't submitted in this round, this is a fresh start - clear local selections ONCE
+      if (!hasSubmittedThisRound) {
+        console.log(`🎵 NEW ROUND ${room.currentRound} detected - clearing selections (was: local=[${selectedSoundsLocal.join(', ')}], parent=[${selectedSounds?.join(', ') || 'null'}])`);
+        justClearedRoundRef.current = room.currentRound; // Set ref IMMEDIATELY to block sync
+        setSelectedSoundsLocal([]);
+        onSelectSounds([]); // Clear parent state too
+        setLastClearedRound(room.currentRound); // Mark this round as cleared
+      }
+    }
+  }, [room.gameState, room.currentRound, room.submissions.length]);
   
   useEffect(() => {
-    if (selectedSounds) {
+    console.log(`🎵 selectedSounds useEffect: selectedSounds changed to ${selectedSounds ? selectedSounds.join(', ') : 'null'}`);
+    
+    // Only sync with parent selectedSounds if:
+    // 1. We don't have any local selections yet
+    // 2. We haven't just cleared this round (check both ref and state)
+    // 3. Parent actually has selections to sync with
+    const justClearedThisRound = justClearedRoundRef.current === room.currentRound || lastClearedRound === room.currentRound;
+    
+    if (selectedSounds && selectedSounds.length > 0 && selectedSoundsLocal.length === 0 && !justClearedThisRound) {
+      console.log(`🎵 Syncing with parent selectedSounds (local is empty): [${selectedSounds.join(', ')}]`);
       setSelectedSoundsLocal([...selectedSounds]);
+    } else if (selectedSounds && justClearedThisRound) {
+      console.log(`🎵 Ignoring parent selectedSounds - we just cleared this round: [${selectedSounds.join(', ')}]`);
+    } else if (selectedSounds) {
+      console.log(`🎵 Parent selectedSounds changed but keeping local selections: [${selectedSoundsLocal.join(', ')}]`);
     } else {
-      // Reset local state when selectedSounds is null
-      setSelectedSoundsLocal([]);
+      console.log(`🎵 Parent selectedSounds is null, keeping local selections: [${selectedSoundsLocal.join(', ')}]`);
     }
-  }, [selectedSounds]);
+  }, [selectedSounds, selectedSoundsLocal.length, room.currentRound, lastClearedRound]);
 
   const handleSoundSelect = (soundId: string) => {
     const currentIndex = selectedSoundsLocal.indexOf(soundId);
@@ -1090,6 +1181,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
       }
     }
     
+    console.log(`🎵 Player ${player.name} selecting sound: ${soundId}, new local selection: [${newSelectedSounds.join(', ')}]`);
     setSelectedSoundsLocal(newSelectedSounds);
     onSelectSounds(newSelectedSounds);
   };
@@ -1144,13 +1236,13 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
         {hasSubmitted && submission ? (
         <div className="text-center">
           {/* Success message with animation */}
-          <div className="mb-6">
+          {/* <div className="mb-6">
             <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
               <span className="text-3xl text-white">✅</span>
             </div>
             <h3 className="text-2xl font-bold text-green-600 mb-2">Sounds Submitted!</h3>
             <p className="text-gray-600">Waiting for other players to finish...</p>
-          </div>
+          </div> */}
 
           {/* Enhanced submission display */}
           <div className="bg-gradient-to-br from-green-50 via-white to-emerald-50 rounded-2xl p-6 max-w-2xl mx-auto border border-green-200 shadow-lg">
@@ -1192,17 +1284,12 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
             <div className="mt-6">
               <button
                 onClick={() => {
-                  // Play submitted sounds in sequence
-                  if (submission.sounds.length === 1) {
-                    playSound(submission.sounds[0]);
-                  } else if (submission.sounds.length === 2) {
-                    playSound(submission.sounds[0]);
-                    setTimeout(() => playSound(submission.sounds[1]), 800);
-                  }
+                  // Play submitted sounds in sequence using the proper audio system method
+                  audioSystem.playSoundsSequentially(submission.sounds);
                 }}
                 className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-xl font-bold hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
               >
-                🎧 Replay Your Combo
+                🎧 Play Your Combo
               </button>
             </div>
           </div>
@@ -1210,10 +1297,10 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
       ) : (
         <div className="space-y-6">
           {/* Instructions */}
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 max-w-2xl mx-auto">
-            <p className="text-gray-800 text-center">
+          {/* <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 max-w-2xl mx-auto"> */}
+            {/* <p className="text-gray-800 text-center">
               <span className="font-semibold">Choose 1-2 sounds</span>
-            </p>
+            </p> */}
             {/* <div className="flex gap-4 justify-center text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-blue-500 rounded"></div>
@@ -1224,7 +1311,7 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
                 <span>Sound 2</span>
               </div>
             </div> */}
-          </div>
+          {/* </div> */}
 
           {/* Sound Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto">
@@ -1342,13 +1429,8 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
               <div className="mt-6 text-center">
                 <button
                   onClick={() => {
-                    // Play both selected sounds in sequence
-                    if (selectedSoundsLocal.length === 1) {
-                      playSound(selectedSoundsLocal[0]);
-                    } else if (selectedSoundsLocal.length === 2) {
-                      playSound(selectedSoundsLocal[0]);
-                      setTimeout(() => playSound(selectedSoundsLocal[1]), 800);
-                    }
+                    // Play both selected sounds in sequence using the proper audio system method
+                    audioSystem.playSoundsSequentially(selectedSoundsLocal);
                   }}
                   className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-xl font-bold hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
@@ -1359,7 +1441,11 @@ function SoundSelectionComponent({ room, player, selectedSounds, onSelectSounds,
           </div>          
           {/* Submit button */}
           <button 
-            onClick={onSubmitSounds}
+            onClick={() => {
+              // Call the parent's onSubmitSounds but first sync our local selections
+              onSelectSounds(selectedSoundsLocal);
+              onSubmitSounds();
+            }}
             disabled={selectedSoundsLocal.length === 0 || (hasFirstSubmission && timeLeft <= 0)}
             className="w-full max-w-md mx-auto bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition-all text-lg disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg"
           >
@@ -1378,6 +1464,18 @@ function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: {
   soundEffects: SoundEffect[];
 }) {
   const isJudge = player.id === room.currentJudge;
+  
+  // Debug logging for submissions
+  console.log(`[JUDGING] Component render - Player: ${player.name}, isJudge: ${isJudge}`);
+  console.log(`[JUDGING] Room submissions: ${room.submissions.length}`);
+  console.log(`[JUDGING] Room randomizedSubmissions: ${room.randomizedSubmissions?.length || 0}`);
+  console.log(`[JUDGING] Room randomizedSubmissions data:`, room.randomizedSubmissions);
+  const submissionsToShow = room.randomizedSubmissions || room.submissions;
+  console.log(`[JUDGING] Submissions to show: ${submissionsToShow.length}`);
+  submissionsToShow.forEach((sub, index) => {
+    console.log(`[JUDGING] Submission ${index}: ${sub.playerName} - [${sub.sounds.join(', ')}]`);
+  });
+  
   const playSubmissionSounds = (sounds: string[]) => {
     if (sounds.length === 0) return;
     
@@ -1426,8 +1524,22 @@ function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: {
           })()}
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-        {(room.randomizedSubmissions || room.submissions).map((submission, index) => (
+      
+      {submissionsToShow.length === 0 ? (
+        <div className="bg-yellow-100 rounded-2xl p-8 text-center">
+          <h3 className="text-2xl font-bold text-yellow-800 mb-4">No Submissions Found!</h3>
+          <p className="text-yellow-700 text-lg">
+            There seems to be an issue - no sound submissions are available for judging.
+          </p>
+          <div className="mt-4 text-sm text-yellow-600">
+            <p>Debug Info:</p>
+            <p>Regular submissions: {room.submissions.length}</p>
+            <p>Randomized submissions: {room.randomizedSubmissions?.length || 0}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+          {submissionsToShow.map((submission, index) => (
           <div 
             key={index} 
             className="relative rounded-3xl p-6 transition-all duration-500 bg-gray-100 hover:bg-gray-50 border-2 border-gray-200"
@@ -1495,7 +1607,8 @@ function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: {
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1820,9 +1933,38 @@ function GameOverComponent({ room, player }: { room: Room; player: Player }) {
             {/* <div className="text-xl">🎯</div> */}
           </div>
           
-          <p className="text-sm font-bold text-yellow-800 italic text-center">
+          {/* <p className="text-sm font-bold text-yellow-800 italic text-center">
             "Master of the Fartnoises!"
-          </p>
+          </p> */}
+                      <p className="text-lg font-bold text-yellow-800 italic text-center">
+              {(() => {
+              const funnyTitles = [
+                "Master of the Fartnoises!",
+                "Supreme Sound Selector!",
+                "Captain of Comedy!",
+                "The Noise Whisperer!",
+                "King/Queen of Chaos!",
+                "Ultimate Audio Artist!",
+                "Grand Wizard of Weird!",
+                "The Sound Sage!",
+                "Meme Machine Supreme!",
+                "Lord/Lady of Laughter!",
+                "The Giggle Generator!",
+                "Chief of Chuckles!",
+                "The Silly Sound Savant!",
+                "Baron/Baroness of Bizarre!",
+                "The Whoopee Wizard!",
+                "Commissioner of Comedy!",
+                "The Absurd Audio Ace!",
+                "Duke/Duchess of Drollery!"
+              ];
+              
+              // Use winner ID as seed for consistent title per game
+              const seedIndex = overallWinner.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+              const titleIndex = seedIndex % funnyTitles.length;
+              return funnyTitles[titleIndex];
+              })()}
+            </p>
         </div>
       </div>
 

@@ -8,6 +8,7 @@ export interface Player {
   isVIP: boolean;
   isDisconnected?: boolean; // Track disconnection status
   disconnectedAt?: number; // Timestamp when disconnected
+  soundSet?: string[]; // Player's available sound IDs for current round
 }
 
 export interface DisconnectedPlayer {
