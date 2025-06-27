@@ -19,7 +19,7 @@ export function WaveformAnimation({
   color = 'bg-white', 
   className = '', 
   size = 'md',
-  barCount = 24
+  barCount = 12
 }: WaveformAnimationProps) {
   const animationRef = useRef<number | undefined>(undefined);
   const [frequencyData, setFrequencyData] = useState<number[]>(new Array(barCount).fill(0.1)); // Start with stub values
@@ -33,7 +33,7 @@ export function WaveformAnimation({
       minHeight: 1   // Keep minimum low for contrast
     },
     md: {
-      container: 'h-20 py-2 ', // Removed mt-6 to avoid conflicts with mt-auto
+      container: 'h-24 py-2 ', // Removed mt-6 to avoid conflicts with mt-auto
       barWidth: 'w-2', // Thinner bars for more density
       maxHeight: 56, // Much taller maximum height
       minHeight: 2  // Keep minimum low for contrast
@@ -192,34 +192,54 @@ export function WaveformAnimation({
 
   // Always render the waveform with stubs - remove the empty state check
   return (
-    <div className={`${config.container} flex justify-center items-end space-x-1 mt-auto ${className}`}>
+    <div className={`${config.container} flex justify-center items-center space-x-1 mt-auto ${className}`}>
       {frequencyData.map((intensity, index) => {
-        // Calculate actual height in pixels based on intensity and size
-        const getBarHeight = (intensity: number, size: string) => {
-          if (size === 'sm') {
-            return Math.max(config.minHeight, Math.floor(intensity * config.maxHeight));
-          } else if (size === 'md') {
-            return Math.max(config.minHeight, Math.floor(intensity * config.maxHeight));
-          } else {
-            return Math.max(config.minHeight, Math.floor(intensity * config.maxHeight));
+        // Calculate bubble size constrained to container
+        const getBubbleSize = (intensity: number) => {
+          // Use fixed pixel sizing that respects container space
+          const minSize = size === 'sm' ? 8 : size === 'md' ? 12 : 16; // Minimum size in pixels
+          const maxSize = size === 'sm' ? 24 : size === 'md' ? 32 : 40; // Maximum size in pixels
+          return Math.max(minSize, Math.floor(intensity * maxSize));
+        };
+
+        const getAnimationClass = (intensity: number) => {
+          if (intensity > 0.7) return 'animate-bounce';
+          if (intensity > 0.4) return 'animate-pulse';
+          return '';
+        };
+
+        const getBubbleColor = (index: number, intensity: number) => {
+          // When idle (low intensity), show gray bubbles
+          if (intensity <= 0.15) {
+            return '#6b7280'; // Tailwind gray-500
           }
+          
+          // Create rainbow colors across the frequency spectrum for active bubbles
+          const hue = (index / barCount) * 360;
+          const saturation = 60 + (intensity * 40); // 60-100%
+          const lightness = 50 + (intensity * 30); // 50-80%
+          return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
         };
 
-        const getOpacityValue = (intensity: number) => {
-          // Smooth opacity transition from 0.7 to 1.0
-          return Math.max(0.7, 0.7 + (intensity * 0.3));
+        const getGlowIntensity = (intensity: number) => {
+          return intensity * 15; // 0-15px glow
         };
 
-        const barHeight = getBarHeight(intensity, size);
-        const opacity = getOpacityValue(intensity);
+        const bubbleSize = getBubbleSize(intensity);
+        const animationClass = getAnimationClass(intensity);
+        const bubbleColor = getBubbleColor(index, intensity);
+        const glowIntensity = getGlowIntensity(intensity);
         
         return (
           <div 
             key={index}
-            className={`${config.barWidth} ${color} rounded-full transition-all duration-75 ease-out`}
+            className={`rounded-full transition-all duration-150 ease-out ${animationClass}`}
             style={{
-              height: `${barHeight}px`,
-              opacity: opacity
+              width: `${bubbleSize}px`,
+              height: `${bubbleSize}px`,
+              backgroundColor: bubbleColor,
+              boxShadow: `0 0 ${glowIntensity}px ${bubbleColor}`,
+              transform: `scale(${0.8 + intensity * 0.4})`, // Additional scaling for extra bounce
             }}
           />
         );

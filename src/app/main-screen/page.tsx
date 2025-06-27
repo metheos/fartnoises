@@ -1510,21 +1510,6 @@ export function PlaybackSubmissionsDisplay({
                   color="bg-white"
                 />
                 
-                {/* Play Status */}
-                <div className="mt-6 text-center">
-                  {isCurrentlyPlaying ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      {/* <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
-                      <span className="text-white font-bold text-lg">PLAYING NOW</span>
-                      <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div> */}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center space-x-2 text-yellow-800">
-                      {/* <span className="text-2xl">🎵</span>
-                      <span className="font-bold text-lg">Sound Combination</span> */}
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           );
