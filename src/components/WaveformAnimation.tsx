@@ -19,7 +19,7 @@ export function WaveformAnimation({
   color = 'bg-white', 
   className = '', 
   size = 'md',
-  barCount = 12
+  barCount = 24
 }: WaveformAnimationProps) {
   const animationRef = useRef<number | undefined>(undefined);
   const [frequencyData, setFrequencyData] = useState<number[]>(new Array(barCount).fill(0.1)); // Start with stub values
@@ -78,13 +78,12 @@ export function WaveformAnimation({
     const nyquistFreq = sampleRate / 2; // 22.05kHz
     const freqPerBin = nyquistFreq / totalBins; // ~172.3 Hz per bin
     
-    // Human hearing: 20Hz to 20kHz, but focus more on musical range
-    const minFreq = 60; // Start at 60Hz (more musical content)
-    const maxFreq = 16000; // End at 16kHz (covers most audio content)
+    // Cover full spectrum with better bass representation
+    const minFreq = 80; // Start at more realistic bass frequencies that actually appear in music
+    const maxFreq = 16000; // Cover most useful spectrum
     
-    // Use logarithmic distribution across musical range
+    // Use a simpler logarithmic distribution across the full range
     for (let i = 0; i < barCount; i++) {
-      // More aggressive logarithmic mapping for better separation
       const logMin = Math.log(minFreq);
       const logMax = Math.log(maxFreq);
       const logStep = (logMax - logMin) / barCount;
@@ -92,61 +91,44 @@ export function WaveformAnimation({
       const startFreq = Math.exp(logMin + i * logStep);
       const endFreq = Math.exp(logMin + (i + 1) * logStep);
       
-      // Convert frequencies to bin indices
-      const startBin = Math.floor(startFreq / freqPerBin);
-      const endBin = Math.floor(endFreq / freqPerBin);
+      const startBin = Math.max(0, Math.floor(startFreq / freqPerBin));
+      const endBin = Math.min(totalBins, Math.floor(endFreq / freqPerBin));
       
-      // Ensure we stay within bounds and have at least 1 bin per bar
-      const start = Math.max(0, Math.min(startBin, totalBins - 1));
-      const end = Math.max(start + 1, Math.min(endBin, totalBins - 1));
+      // Ensure we have at least one bin per bar
+      const actualEndBin = Math.max(startBin + 1, endBin);
       
-      // Get the maximum value in this frequency range instead of average
-      // This makes peaks more prominent and creates more variation
-      let maxValue = 0;
-      for (let j = start; j < end; j++) {
-        maxValue = Math.max(maxValue, rawFrequencyData[j]);
-      }
+      // Use peak detection for more dramatic visualization
+      let peakValue = 0;
+      let averageValue = 0;
+      const binCount = Math.max(1, actualEndBin - startBin);
       
-      // Normalize to 0-1 range
-      const normalized = Math.min(1, maxValue / 255);
+      for (let j = startBin; j < actualEndBin; j++) {
+        const normalizedValue = rawFrequencyData[j] / 255;
+        peakValue = Math.max(peakValue, normalizedValue);
+        averageValue += normalizedValue;
+      }
+      averageValue /= binCount;
       
-      // Apply frequency-dependent scaling for more realistic response
-      const freqCenter = (startFreq + endFreq) / 2;
-      let scaled = normalized;
+      // Combine peak and average for better responsiveness
+      let intensity = (peakValue * 0.7) + (averageValue * 0.3);
       
-      // Correct frequency-dependent scaling for human hearing
-      // Sub-bass and bass (60Hz - 200Hz) - drums, bass instruments
-      if (freqCenter < 200) {
-        scaled = Math.pow(normalized, 0.8) * 0.8; // Much less sensitive bass response
-      }
-      // Low-mids (200Hz - 500Hz) - male vocal fundamentals, lower instruments  
-      else if (freqCenter >= 200 && freqCenter <= 500) {
-        scaled = Math.pow(normalized, 0.65) * 0.95; // Reduced sensitivity for low-mids
-      }
-      // Mid-range (500Hz - 2kHz) - vocal formants, most musical content
-      else if (freqCenter > 500 && freqCenter <= 2000) {
-        scaled = Math.pow(normalized, 0.4) * 1.15; // Boost the important vocal range
-      }
-      // Upper-mids/presence (2kHz - 5kHz) - vocal clarity, attack transients
-      else if (freqCenter > 2000 && freqCenter <= 5000) {
-        scaled = Math.pow(normalized, 0.45) * 1.2; // Strong boost for presence
-      }
-      // Treble (5kHz+) - air, shimmer, sibilants
-      else {
-        scaled = Math.pow(normalized, 0.55) * 1.1; // Moderate treble enhancement
-      }
+      // No frequency boosting - use raw intensity for natural response
       
-      // Gentle dynamic range compression for low values only
-      if (scaled < 0.15) {
-        scaled = scaled * 1.6; // Modest boost for very low values
-      } else if (scaled < 0.3) {
-        scaled = scaled * 1.3; // Small boost for low-mid values
-      }
+      // Apply a gentle power curve to make lower values visible
+      intensity = Math.pow(intensity, 0.6);
       
-      newFrequencyData.push(Math.min(1, scaled)); // Cap at 1.0 to prevent clipping
+      newFrequencyData.push(Math.min(1, intensity));
     }
     
-    setFrequencyData(newFrequencyData);
+    // Apply light smoothing to prevent jitter while preserving dynamics
+    setFrequencyData(prev => {
+      const smoothingFactor = 0.3; // Reduced smoothing for more variation
+      return newFrequencyData.map((val, index) => {
+        const prevVal = prev[index] || 0;
+        return prevVal * smoothingFactor + val * (1 - smoothingFactor);
+      });
+    });
+
     animationRef.current = requestAnimationFrame(updateFrequencyData);
   };
 
@@ -192,54 +174,53 @@ export function WaveformAnimation({
 
   // Always render the waveform with stubs - remove the empty state check
   return (
-    <div className={`${config.container} flex justify-center items-center space-x-1 mt-auto ${className}`}>
+    <div className={`${config.container} flex justify-center items-end space-x-1 mt-auto ${className}`}>
       {frequencyData.map((intensity, index) => {
-        // Calculate bubble size constrained to container
-        const getBubbleSize = (intensity: number) => {
-          // Use fixed pixel sizing that respects container space
-          const minSize = size === 'sm' ? 8 : size === 'md' ? 12 : 16; // Minimum size in pixels
-          const maxSize = size === 'sm' ? 24 : size === 'md' ? 32 : 40; // Maximum size in pixels
-          return Math.max(minSize, Math.floor(intensity * maxSize));
+        // Calculate bar height based on intensity
+        const getBarHeight = (intensity: number) => {
+          const { maxHeight, minHeight } = config;
+          const heightRange = maxHeight - minHeight;
+          // Use continuous values instead of Math.floor for smooth animation
+          return Math.max(minHeight, (intensity * heightRange) + minHeight);
         };
 
         const getAnimationClass = (intensity: number) => {
-          if (intensity > 0.7) return 'animate-bounce';
-          if (intensity > 0.4) return 'animate-pulse';
+        //   if (intensity > 0.7) return 'animate-pulse';
+        //   if (intensity > 0.4) return 'animate-bounce';
           return '';
         };
 
-        const getBubbleColor = (index: number, intensity: number) => {
-          // When idle (low intensity), show gray bubbles
+        const getBarColor = (index: number, intensity: number) => {
+          // When idle (low intensity), show gray bars
           if (intensity <= 0.15) {
             return '#6b7280'; // Tailwind gray-500
           }
           
-          // Create rainbow colors across the frequency spectrum for active bubbles
+          // Create rainbow colors across the frequency spectrum for active bars
           const hue = (index / barCount) * 360;
-          const saturation = 60 + (intensity * 40); // 60-100%
-          const lightness = 50 + (intensity * 30); // 50-80%
+          const saturation = 70 + (intensity * 30); // 70-100%
+          const lightness = 40 + (intensity * 35); // 45-80%
           return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
         };
 
         const getGlowIntensity = (intensity: number) => {
-          return intensity * 15; // 0-15px glow
+          return intensity * 12; // 0-12px glow for bars
         };
 
-        const bubbleSize = getBubbleSize(intensity);
+        const barHeight = getBarHeight(intensity);
         const animationClass = getAnimationClass(intensity);
-        const bubbleColor = getBubbleColor(index, intensity);
+        const barColor = getBarColor(index, intensity);
         const glowIntensity = getGlowIntensity(intensity);
         
         return (
           <div 
             key={index}
-            className={`rounded-full transition-all duration-150 ease-out ${animationClass}`}
+            className={`${config.barWidth} rounded-full transition-all duration-150 ease-out ${animationClass}`}
             style={{
-              width: `${bubbleSize}px`,
-              height: `${bubbleSize}px`,
-              backgroundColor: bubbleColor,
-              boxShadow: `0 0 ${glowIntensity}px ${bubbleColor}`,
-              transform: `scale(${0.8 + intensity * 0.4})`, // Additional scaling for extra bounce
+              height: `${barHeight}px`,
+              backgroundColor: barColor,
+              boxShadow: `0 0 ${glowIntensity}px ${barColor}`,
+              transform: `scaleY(${0.7 + intensity * 0.6})`, // Additional vertical scaling for bounce
             }}
           />
         );
