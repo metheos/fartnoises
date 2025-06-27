@@ -49,6 +49,9 @@ function GamePageContent() {
     timeLeft: number;
   } | null>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  // Sound playback state management
+  const [playingSounds, setPlayingSounds] = useState<Set<string>>(new Set());
+  const [playingButtons, setPlayingButtons] = useState<Set<string>>(new Set());
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -69,6 +72,74 @@ function GamePageContent() {
   const addDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setDebugLog(prev => [...prev.slice(-10), `[${timestamp}] ${message}`]);
+  };
+
+  // Helper function to play sound with button state management
+  const playSoundWithFeedback = async (soundId: string, buttonId?: string) => {
+    // If this specific sound is already playing, ignore the click
+    if (playingSounds.has(soundId)) {
+      console.log(`Sound ${soundId} is already playing, ignoring click`);
+      return;
+    }
+
+    // If a buttonId is provided and it's already in a playing state, ignore
+    if (buttonId && playingButtons.has(buttonId)) {
+      console.log(`Button ${buttonId} is already playing, ignoring click`);
+      return;
+    }
+
+    try {
+      // Mark sound and button as playing
+      setPlayingSounds(prev => new Set(prev).add(soundId));
+      if (buttonId) {
+        setPlayingButtons(prev => new Set(prev).add(buttonId));
+      }
+
+      // Play the sound and wait for it to finish
+      await audioSystem.playSound(soundId);
+    } catch (error) {
+      console.error(`Error playing sound ${soundId}:`, error);
+    } finally {
+      // Clean up - remove from playing sets
+      setPlayingSounds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(soundId);
+        return newSet;
+      });
+      if (buttonId) {
+        setPlayingButtons(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(buttonId);
+          return newSet;
+        });
+      }
+    }
+  };
+
+  // Helper function to play sound combinations with button state management
+  const playSoundCombinationWithFeedback = async (sounds: string[], buttonId: string) => {
+    // If this button is already playing, ignore the click
+    if (playingButtons.has(buttonId)) {
+      console.log(`Button ${buttonId} is already playing combination, ignoring click`);
+      return;
+    }
+
+    try {
+      // Mark button as playing
+      setPlayingButtons(prev => new Set(prev).add(buttonId));
+
+      // Play the sound combination and wait for it to finish
+      await audioSystem.playSoundsSequentially(sounds);
+    } catch (error) {
+      console.error(`Error playing sound combination:`, error);
+    } finally {
+      // Clean up - remove from playing set
+      setPlayingButtons(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(buttonId);
+        return newSet;
+      });
+    }
   };
 
   // Load sound effects on component mount
@@ -1083,7 +1154,77 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
   const [selectedSoundsLocal, setSelectedSoundsLocal] = useState<string[]>([]);
   const [playerSoundSet, setPlayerSoundSet] = useState<SoundEffect[]>([]);
   const [lastClearedRound, setLastClearedRound] = useState<number>(-1);
+  const [playingSounds, setPlayingSounds] = useState<Set<string>>(new Set());
+  const [playingButtons, setPlayingButtons] = useState<Set<string>>(new Set());
   const justClearedRoundRef = useRef<number>(-1);
+
+  // Helper function to play sound with button state management
+  const playSoundWithFeedback = async (soundId: string, buttonId?: string) => {
+    // If this specific sound is already playing, ignore the click
+    if (playingSounds.has(soundId)) {
+      console.log(`Sound ${soundId} is already playing, ignoring click`);
+      return;
+    }
+
+    // If a buttonId is provided and it's already in a playing state, ignore
+    if (buttonId && playingButtons.has(buttonId)) {
+      console.log(`Button ${buttonId} is already playing, ignoring click`);
+      return;
+    }
+
+    try {
+      // Mark sound and button as playing
+      setPlayingSounds(prev => new Set(prev).add(soundId));
+      if (buttonId) {
+        setPlayingButtons(prev => new Set(prev).add(buttonId));
+      }
+
+      // Play the sound and wait for it to finish
+      await audioSystem.playSound(soundId);
+    } catch (error) {
+      console.error(`Error playing sound ${soundId}:`, error);
+    } finally {
+      // Clean up - remove from playing sets
+      setPlayingSounds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(soundId);
+        return newSet;
+      });
+      if (buttonId) {
+        setPlayingButtons(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(buttonId);
+          return newSet;
+        });
+      }
+    }
+  };
+
+  // Helper function to play sound combinations with button state management
+  const playSoundCombinationWithFeedback = async (sounds: string[], buttonId: string) => {
+    // If this button is already playing, ignore the click
+    if (playingButtons.has(buttonId)) {
+      console.log(`Button ${buttonId} is already playing combination, ignoring click`);
+      return;
+    }
+
+    try {
+      // Mark button as playing
+      setPlayingButtons(prev => new Set(prev).add(buttonId));
+
+      // Play the sound combination and wait for it to finish
+      await audioSystem.playSoundsSequentially(sounds);
+    } catch (error) {
+      console.error(`Error playing sound combination:`, error);
+    } finally {
+      // Clean up - remove from playing set
+      setPlayingButtons(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(buttonId);
+        return newSet;
+      });
+    }
+  };
 
   // Generate random sound set for this player when component mounts or when entering new round
   useEffect(() => {
@@ -1185,13 +1326,6 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
     setSelectedSoundsLocal(newSelectedSounds);
     onSelectSounds(newSelectedSounds);
   };
-  
-  const playSound = (soundId: string) => {
-    const sound = soundEffects.find(s => s.id === soundId);
-    if (sound) {
-      audioSystem.playSound(sound.id);
-    }
-  };
 
   const getSoundButtonStyle = (soundId: string) => {
     const index = selectedSoundsLocal.indexOf(soundId);
@@ -1270,11 +1404,22 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
                   
                   {/* Preview button */}
                   <button
-                    onClick={() => playSound(soundId)}
-                    className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all hover:scale-110 border-2 border-gray-200"
-                    title="Preview sound"
+                    onClick={() => playSoundWithFeedback(soundId, `submission-preview-${index}`)}
+                    disabled={playingSounds.has(soundId) || playingButtons.has(`submission-preview-${index}`)}
+                    className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all border-2 border-gray-200 ${
+                      playingSounds.has(soundId) || playingButtons.has(`submission-preview-${index}`)
+                        ? 'bg-gray-300 cursor-not-allowed scale-95' 
+                        : 'bg-white hover:shadow-lg hover:scale-110'
+                    }`}
+                    title={playingSounds.has(soundId) || playingButtons.has(`submission-preview-${index}`) ? 'Playing...' : 'Preview sound'}
                   >
-                    <span className="text-gray-600 text-sm">🔊</span>
+                    <span className={`text-sm ${
+                      playingSounds.has(soundId) || playingButtons.has(`submission-preview-${index}`)
+                        ? 'text-gray-500' 
+                        : 'text-gray-600'
+                    }`}>
+                      {playingSounds.has(soundId) || playingButtons.has(`submission-preview-${index}`) ? '⏸️' : '🔊'}
+                    </span>
                   </button>
                 </div>
               ))}
@@ -1283,13 +1428,15 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
             {/* Preview combo button */}
             <div className="mt-6">
               <button
-                onClick={() => {
-                  // Play submitted sounds in sequence using the proper audio system method
-                  audioSystem.playSoundsSequentially(submission.sounds);
-                }}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-xl font-bold hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                onClick={() => playSoundCombinationWithFeedback(submission.sounds, 'submission-combo')}
+                disabled={playingButtons.has('submission-combo')}
+                className={`px-6 py-3 rounded-xl font-bold transition-all shadow-lg transform ${
+                  playingButtons.has('submission-combo')
+                    ? 'bg-gray-400 cursor-not-allowed scale-95 shadow-md'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 hover:shadow-xl hover:scale-105'
+                }`}
               >
-                🎧 Play Your Combo
+                {playingButtons.has('submission-combo') ? '⏸️ Playing...' : '🎧 Play Your Combo'}
               </button>
             </div>
           </div>
@@ -1335,12 +1482,17 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    playSound(sound.id);
+                    playSoundWithFeedback(sound.id, `grid-preview-${sound.id}`);
                   }}
-                  className="absolute top-1 right-1 w-6 h-6 bg-white bg-opacity-90 rounded-full flex items-center justify-center text-xs hover:bg-opacity-100 transition-all shadow-sm"
-                  title="Preview sound"
+                  disabled={playingSounds.has(sound.id) || playingButtons.has(`grid-preview-${sound.id}`)}
+                  className={`absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all shadow-sm ${
+                    playingSounds.has(sound.id) || playingButtons.has(`grid-preview-${sound.id}`)
+                      ? 'bg-gray-300 bg-opacity-90 cursor-not-allowed'
+                      : 'bg-white bg-opacity-90 hover:bg-opacity-100'
+                  }`}
+                  title={playingSounds.has(sound.id) || playingButtons.has(`grid-preview-${sound.id}`) ? 'Playing...' : 'Preview sound'}
                 >
-                  🔊
+                  {playingSounds.has(sound.id) || playingButtons.has(`grid-preview-${sound.id}`) ? '⏸️' : '🔊'}
                 </button>
               </div>
             ))}
@@ -1379,11 +1531,22 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
                 </div>
                 {selectedSoundsLocal.length > 0 && (
                   <button
-                    onClick={() => playSound(selectedSoundsLocal[0])}
-                    className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all hover:scale-110 border-2 border-blue-200"
-                    title="Preview sound"
+                    onClick={() => playSoundWithFeedback(selectedSoundsLocal[0], 'selected-sound-1')}
+                    disabled={playingSounds.has(selectedSoundsLocal[0]) || playingButtons.has('selected-sound-1')}
+                    className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all border-2 border-blue-200 ${
+                      playingSounds.has(selectedSoundsLocal[0]) || playingButtons.has('selected-sound-1')
+                        ? 'bg-gray-300 cursor-not-allowed scale-95'
+                        : 'bg-white hover:shadow-lg hover:scale-110'
+                    }`}
+                    title={playingSounds.has(selectedSoundsLocal[0]) || playingButtons.has('selected-sound-1') ? 'Playing...' : 'Preview sound'}
                   >
-                    <span className="text-blue-600 text-sm">🔊</span>
+                    <span className={`text-sm ${
+                      playingSounds.has(selectedSoundsLocal[0]) || playingButtons.has('selected-sound-1')
+                        ? 'text-gray-500'
+                        : 'text-blue-600'
+                    }`}>
+                      {playingSounds.has(selectedSoundsLocal[0]) || playingButtons.has('selected-sound-1') ? '⏸️' : '🔊'}
+                    </span>
                   </button>
                 )}
               </div>
@@ -1414,11 +1577,22 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
                 </div>
                 {selectedSoundsLocal.length > 1 && (
                   <button
-                    onClick={() => playSound(selectedSoundsLocal[1])}
-                    className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all hover:scale-110 border-2 border-green-200"
-                    title="Preview sound"
+                    onClick={() => playSoundWithFeedback(selectedSoundsLocal[1], 'selected-sound-2')}
+                    disabled={playingSounds.has(selectedSoundsLocal[1]) || playingButtons.has('selected-sound-2')}
+                    className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all border-2 border-green-200 ${
+                      playingSounds.has(selectedSoundsLocal[1]) || playingButtons.has('selected-sound-2')
+                        ? 'bg-gray-300 cursor-not-allowed scale-95'
+                        : 'bg-white hover:shadow-lg hover:scale-110'
+                    }`}
+                    title={playingSounds.has(selectedSoundsLocal[1]) || playingButtons.has('selected-sound-2') ? 'Playing...' : 'Preview sound'}
                   >
-                    <span className="text-green-600 text-sm">🔊</span>
+                    <span className={`text-sm ${
+                      playingSounds.has(selectedSoundsLocal[1]) || playingButtons.has('selected-sound-2')
+                        ? 'text-gray-500'
+                        : 'text-green-600'
+                    }`}>
+                      {playingSounds.has(selectedSoundsLocal[1]) || playingButtons.has('selected-sound-2') ? '⏸️' : '🔊'}
+                    </span>
                   </button>
                 )}
               </div>
@@ -1464,6 +1638,7 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
   soundEffects: SoundEffect[];
 }) {
   const isJudge = player.id === room.currentJudge;
+  const [playingButtons, setPlayingButtons] = useState<Set<string>>(new Set());
   
   // Debug logging for submissions
   console.log(`[JUDGING] Component render - Player: ${player.name}, isJudge: ${isJudge}`);
@@ -1476,18 +1651,40 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
     console.log(`[JUDGING] Submission ${index}: ${sub.playerName} - [${sub.sounds.join(', ')}]`);
   });
   
-  const playSubmissionSounds = (sounds: string[]) => {
+  const playSubmissionSounds = async (sounds: string[], submissionIndex: number) => {
+    const buttonId = `submission-${submissionIndex}`;
+    
+    // If this button is already playing, ignore the click
+    if (playingButtons.has(buttonId)) {
+      console.log(`Submission ${submissionIndex} is already playing, ignoring click`);
+      return;
+    }
+
     if (sounds.length === 0) return;
     
-    // Filter out any invalid sounds and get filenames
-    const validSounds = sounds
-      .map(soundId => soundEffects.find(s => s.id === soundId))
-      .filter(sound => sound !== undefined);
-    
-    if (validSounds.length > 0) {
-      console.log(`Playing ${validSounds.length} sound(s): [${sounds.join(', ')}]`);
-      // Use the proper sequence method that waits for each sound to finish
-      audioSystem.playSoundSequence(sounds, 200); // 200ms delay between sounds
+    try {
+      // Mark button as playing
+      setPlayingButtons(prev => new Set(prev).add(buttonId));
+
+      // Filter out any invalid sounds and get filenames
+      const validSounds = sounds
+        .map(soundId => soundEffects.find(s => s.id === soundId))
+        .filter(sound => sound !== undefined);
+      
+      if (validSounds.length > 0) {
+        console.log(`Playing ${validSounds.length} sound(s): [${sounds.join(', ')}]`);
+        // Use the proper sequence method that waits for each sound to finish
+        await audioSystem.playSoundSequence(sounds, 200); // 200ms delay between sounds
+      }
+    } catch (error) {
+      console.error(`Error playing submission sounds:`, error);
+    } finally {
+      // Clean up - remove from playing set
+      setPlayingButtons(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(buttonId);
+        return newSet;
+      });
     }
   };
 
@@ -1579,10 +1776,15 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
               {/* Action Buttons */}
               <div className="space-y-2">
                 <button 
-                  onClick={() => playSubmissionSounds(submission.sounds)}
-                  className="w-full bg-blue-500 text-white px-4 py-3 rounded-xl hover:bg-blue-600 transition-colors font-semibold"
+                  onClick={() => playSubmissionSounds(submission.sounds, index)}
+                  disabled={playingButtons.has(`submission-${index}`)}
+                  className={`w-full px-4 py-3 rounded-xl font-semibold transition-colors ${
+                    playingButtons.has(`submission-${index}`)
+                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
+                  }`}
                 >
-                  🔊 Play Sounds
+                  {playingButtons.has(`submission-${index}`) ? '⏸️ Playing...' : '🔊 Play Sounds'}
                 </button>
                 {isJudge && (
                   <button 
