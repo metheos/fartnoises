@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } from '@/types/game';
-import { getSoundEffects } from '@/data/gameData';
+import { getSoundEffects, GAME_CONFIG } from '@/data/gameData';
 import { audioSystem } from '@/utils/audioSystem';
 
 let socket: Socket;
@@ -948,24 +948,7 @@ export function PromptSelectionDisplay({ room }: { room: Room }) {
   return (
     <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
       {/* <h3 className="text-3xl font-bold text-gray-800 mb-6">Judge Selecting Prompt</h3> */}
-      
-      {/* Timer Display */}
-      {timeLeft !== null && (
-        <div className="mb-6">
-          <div className={`text-4xl font-bold mb-2 ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-blue-500'}`}>
-            {timeLeft}s
-          </div>
-          <div className="w-32 bg-gray-200 rounded-full h-3 mx-auto">
-            <div 
-              className={`h-3 rounded-full transition-all duration-1000 ${
-                timeLeft <= 5 ? 'bg-red-500' : 'bg-blue-500'
-              } ${
-                timeLeft <= 15 ? (timeLeft <= 12 ? (timeLeft <= 9 ? (timeLeft <= 6 ? (timeLeft <= 3 ? 'w-1/5' : 'w-2/5') : 'w-3/5') : 'w-4/5') : 'w-4/5') : 'w-full'
-              }`}
-            ></div>
-          </div>
-        </div>
-      )}
+
       {judge ? (
 
             <div className="inline-block mb-6">
@@ -1008,14 +991,33 @@ export function PromptSelectionDisplay({ room }: { room: Room }) {
         {room.currentPrompt ? (
           <span className="font-bold text-purple-600">Judge is selecting a prompt...</span>
         ) : (
-          <span className="text-gray-500">Waiting for judge to select a prompt...</span>
+          <span className="text-gray-500">Waiting for {judge?.name || 'The Judge'} to select a prompt...</span>
         )}
       </p>
-      <div className="animate-pulse flex justify-center space-x-2">
-        <div className="w-4 h-4 bg-purple-400 rounded-full"></div>
-        <div className="w-4 h-4 bg-purple-400 rounded-full"></div>
-        <div className="w-4 h-4 bg-purple-400 rounded-full"></div>
+            
+      {/* Timer Display */}
+      <div className="mb-6">
+        <div className="w-full bg-gray-200 rounded-full h-3 mx-auto">
+          <div 
+            className={`h-3 rounded-full transition-all duration-1000
+            ${
+              timeLeft !== null
+                ? timeLeft <= 5 ? 'bg-red-500' : 'bg-blue-500'
+                : 'bg-blue-500 opacity-50'
+            }`}
+            style={{
+              width: timeLeft !== null 
+                ? `${Math.max(0, Math.min(100, (timeLeft / GAME_CONFIG.PROMPT_SELECTION_TIME) * 100))}%`
+                : '100%'
+            }}
+          ></div>
+        </div>
       </div>
+      {/* <div className="animate-pulse flex justify-center space-x-2">
+        <div className="w-4 h-4 bg-purple-400 rounded-full"></div>
+        <div className="w-4 h-4 bg-purple-400 rounded-full"></div>
+        <div className="w-4 h-4 bg-purple-400 rounded-full"></div>
+      </div> */}
     </div>
   );
 }
@@ -1058,26 +1060,6 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
     <div className="bg-white rounded-3xl p-12 shadow-2xl">
       {/* <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Sound Selection Time!</h3> */}
       
-      {/* Timer Display - Only show after first submission */}
-      {timeLeft !== null && hasFirstSubmission && (
-        <div className="text-center mb-6">
-          <div className={`text-6xl font-bold mb-2 ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-green-500'}`}>
-            {timeLeft}s
-          </div>
-          <div className="w-64 bg-gray-200 rounded-full h-4 mx-auto">
-            <div 
-              className={`h-4 rounded-full transition-all duration-1000 ${
-                timeLeft <= 10 ? 'bg-red-500' : 'bg-green-500'
-              } ${
-                timeLeft <= 30 ? (timeLeft <= 25 ? (timeLeft <= 20 ? (timeLeft <= 15 ? (timeLeft <= 10 ? 'w-1/6' : 'w-2/6') : 'w-3/6') : 'w-4/6') : 'w-5/6') : 'w-full'
-              }`}
-            ></div>
-          </div>
-          {/* <p className="text-sm text-gray-600 mt-2">
-            ⏰ Countdown started after first submission
-          </p> */}
-        </div>
-      )}
       
       {/* Waiting for first submission message
       {!hasFirstSubmission && (
@@ -1156,6 +1138,25 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
           </div>
         </div>
       )}
+
+      {/* Timer Display */}
+      <div className="mb-6">
+        <div className="w-full bg-gray-200 rounded-full h-3 mx-auto">
+          <div 
+            className={`h-3 rounded-full transition-all duration-1000
+            ${
+              timeLeft !== null
+                ? timeLeft <= 5 ? 'bg-red-500' : 'bg-blue-500'
+                : 'bg-blue-500 opacity-50'
+            }`}
+            style={{
+              width: timeLeft !== null 
+                ? `${Math.max(0, Math.min(100, (timeLeft / GAME_CONFIG.PROMPT_SELECTION_TIME) * 100))}%`
+                : '100%'
+            }}
+          ></div>
+        </div>
+      </div>
 
       {/* Fallback for when no judge or prompt */}
       {room.currentPrompt && !judge && (
@@ -1423,6 +1424,13 @@ export function PlaybackSubmissionsDisplay({
         </div>
       )}
 
+      {/* Timer Display */}
+      <div className="mb-6">
+        <div className="w-full bg-gray-200 rounded-full h-3 mx-auto">
+          <div className="h-3 rounded-full transition-all duration-1000 bg-white" style={{ width: '100%' }}></div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {submissions.map((submission, index) => {
           const player = getPlayerById(submission.playerId);
@@ -1563,6 +1571,14 @@ export function JudgingDisplay({ room, soundEffects, currentPlayingSubmission }:
           <p className="text-2xl text-center text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt.text }}></p>
         </div>
       )}
+      
+
+      {/* Timer Display */}
+      <div className="mb-6">
+        <div className="w-full bg-gray-200 rounded-full h-3 mx-auto">
+          <div className="h-3 rounded-full transition-all duration-1000 bg-white" style={{ width: '100%' }}></div>
+        </div>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {(room.randomizedSubmissions || room.submissions).map((submission, index) => {

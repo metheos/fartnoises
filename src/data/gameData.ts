@@ -134,8 +134,8 @@ export const GAME_CONFIG = {
   MAX_ROUNDS_LIMIT: 20,
   MIN_SCORE: 1,
   MAX_SCORE_LIMIT: 10,
-  SOUND_SELECTION_TIME: 45, // seconds
-  PROMPT_SELECTION_TIME: 30, // seconds
+  SOUND_SELECTION_TIME: 999, // seconds 45 default
+  PROMPT_SELECTION_TIME: 999, // seconds 30 default
   ROOM_CODE_LENGTH: 4,
   // Disconnection handling
   RECONNECTION_GRACE_PERIOD: 30, // seconds to wait for reconnection

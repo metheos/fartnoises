@@ -1073,7 +1073,7 @@ export function JudgeSelectionComponent({ room, player }: { room: Room; player: 
   const judge = room.players.find(p => p.id === room.currentJudge);
   return (
     <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
-      <h2 className="text-2xl font-bold text-purple-600 mb-4">Judge Selection</h2>
+      {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Judge Selection</h2> */}
       {judge ? (
         <div className="flex flex-col items-center">
           <p className="text-gray-800 text-xl mb-4">The judge for this round is:</p>
@@ -1106,7 +1106,7 @@ export function PromptSelectionComponent({ room, player, onSelectPrompt }: {
   
   return (
     <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
-      <h2 className="text-2xl font-bold text-purple-600 mb-4">Prompt Selection</h2>
+      {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Prompt Selection</h2> */}
       {isJudge ? (
         <>
           <p className="text-gray-800 mb-4">Choose a prompt for this round:</p>
