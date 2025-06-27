@@ -1231,8 +1231,11 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
   useEffect(() => {
     console.log('🎵 SoundSelectionComponent useEffect triggered');
     console.log(`🎵 soundEffects.length: ${soundEffects.length}, gameState: ${room.gameState}, playerSoundSet.length: ${playerSoundSet.length}`);
+    console.log(`🎵 player.soundSet:`, player.soundSet);
+    console.log(`🎵 player.soundSet length:`, player.soundSet?.length || 0);
+    console.log(`🎵 All player properties:`, Object.keys(player));
     
-    if (soundEffects.length > 0 && room.gameState === GameState.SOUND_SELECTION && player.soundSet) {
+    if (soundEffects.length > 0 && room.gameState === GameState.SOUND_SELECTION) {
       // Check if this is a new round by seeing if we haven't submitted in this round yet
       const hasSubmittedThisRound = room.submissions.some(s => s.playerId === player.id);
       const needsNewSoundSet = playerSoundSet.length === 0;
@@ -1240,33 +1243,46 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
       console.log(`🎵 hasSubmittedThisRound: ${hasSubmittedThisRound}, needsNewSoundSet: ${needsNewSoundSet}, currentRound: ${room.currentRound}, lastClearedRound: ${lastClearedRound}`);
       
       if (needsNewSoundSet) {
-        // Use the server-provided sound set instead of generating random sounds
-        const playerSounds = player.soundSet
-          .map(soundId => soundEffects.find(s => s.id === soundId))
-          .filter(sound => sound !== undefined) as SoundEffect[];
-        
-        if (playerSounds.length > 0) {
-          console.log(`🎵 Using server-provided sound set: ${playerSounds.length} sounds`);
-          setPlayerSoundSet(playerSounds);
+        // Priority 1: Use server-provided sound set if available
+        if (player.soundSet && player.soundSet.length > 0) {
+          const playerSounds = player.soundSet
+            .map(soundId => soundEffects.find(s => s.id === soundId))
+            .filter(sound => sound !== undefined) as SoundEffect[];
+          
+          if (playerSounds.length > 0) {
+            console.log(`🎵 Using server-provided sound set: ${playerSounds.length} sounds`);
+            setPlayerSoundSet(playerSounds);
+            return; // Exit early - we have our sounds
+          } else {
+            console.warn(`🎵 Server-provided sound IDs not found in soundEffects. soundSet: [${player.soundSet.join(', ')}]`);
+          }
         } else {
-          console.warn('🎵 Server-provided sound set is empty, falling back to random generation');
-          // Fallback to client-side random generation if server set is invalid
-          const loadRandomSounds = async () => {
-            try {
-              const randomSounds = await getRandomSounds(10);
-              setPlayerSoundSet(randomSounds);
-            } catch (error) {
-              console.error('Failed to load random sounds:', error);
-              const shuffled = [...soundEffects].sort(() => Math.random() - 0.5);
-              const fallbackSounds = shuffled.slice(0, Math.min(8, soundEffects.length));
-              setPlayerSoundSet(fallbackSounds);
-            }
-          };
-          loadRandomSounds();
+          console.warn(`🎵 No server-provided sound set available. player.soundSet: ${player.soundSet}`);
         }
+        
+        // Priority 2: Fallback to random generation if server set is not available
+        console.warn('🎵 Falling back to random generation');
+        const loadRandomSounds = async () => {
+          try {
+            const randomSounds = await getRandomSounds(10);
+            console.log(`🎵 Generated ${randomSounds.length} random sounds`);
+            setPlayerSoundSet(randomSounds);
+          } catch (error) {
+            console.error('Failed to load random sounds:', error);
+            const shuffled = [...soundEffects].sort(() => Math.random() - 0.5);
+            const fallbackSounds = shuffled.slice(0, Math.min(8, soundEffects.length));
+            console.log(`🎵 Using fallback shuffled sounds: ${fallbackSounds.length} sounds`);
+            setPlayerSoundSet(fallbackSounds);
+          }
+        };
+        loadRandomSounds();
+      } else {
+        console.log(`🎵 Sound set already exists (${playerSoundSet.length} sounds), skipping generation`);
       }
+    } else {
+      console.log(`🎵 Conditions not met for sound set generation. soundEffects: ${soundEffects.length}, gameState: ${room.gameState}`);
     }
-  }, [room.gameState, room.currentRound, player.id, player.soundSet, soundEffects.length]);
+  }, [room.gameState, room.currentRound, player.id, player.soundSet, soundEffects.length, playerSoundSet.length]);
   
   // One-time clearing effect for new rounds - only clears once per round
   useEffect(() => {
@@ -1330,10 +1346,8 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
 
   const getSoundButtonStyle = (soundId: string) => {
     const index = selectedSoundsLocal.indexOf(soundId);
-    if (index === 0) {
-      return 'bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-700 shadow-lg transform scale-105';
-    } else if (index === 1) {
-      return 'bg-gradient-to-br from-green-500 to-green-600 text-white border-green-700 shadow-lg transform scale-105';
+    if (index !== -1) {
+      return 'bg-gradient-to-br from-purple-500 to-purple-600 text-white border-purple-700 shadow-lg transform scale-105';
     } else {
       return 'bg-gradient-to-br from-purple-100 to-pink-100 text-gray-800 border-purple-200 hover:from-purple-200 hover:to-pink-200 hover:scale-102';
     }
@@ -1391,16 +1405,17 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
             <div className="flex flex-row items-center justify-center gap-4">
               {submission.sounds.map((soundId, index) => (
                 <div key={soundId} className="relative">
-                  <div className={`w-40 h-20 rounded-xl flex items-center justify-center shadow-lg transform scale-105 transition-all duration-300 ${
-                    index === 0 
-                      ? 'bg-gradient-to-br from-blue-500 to-blue-600 border-2 border-blue-300' 
-                      : 'bg-gradient-to-br from-green-500 to-green-600 border-2 border-green-300'
-                  }`}>
+                  <div className={`w-40 h-20 rounded-xl flex items-center justify-center shadow-lg transform scale-105 transition-all duration-300 bg-gradient-to-br from-purple-500 to-purple-600 border-2 border-purple-300`}>
                     <div className="text-center text-white">
                       <div className="text-sm font-bold">
                         {soundEffects.find(s => s.id === soundId)?.name || `Sound ${index + 1}`}
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* Number marker */}
+                  <div className="absolute -top-2 -left-2 w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold text-purple-600 shadow-md border border-purple-300">
+                    {index === 0 ? '1st' : '2nd'}
                   </div>
                   
                   {/* Preview button */}
@@ -1479,6 +1494,13 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
                   </div>
                 </button>
                 
+                {/* Selection order marker */}
+                {selectedSoundsLocal.includes(sound.id) && (
+                  <div className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold text-purple-600 shadow-md border border-purple-300 z-10">
+                    {selectedSoundsLocal.indexOf(sound.id) === 0 ? '1st' : '2nd'}
+                  </div>
+                )}
+                
                 {/* Preview button */}
                 <button
                   onClick={(e) => {
@@ -1513,28 +1535,33 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
               <div className="relative">
                 <div className={`w-38 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
                   selectedSoundsLocal.length > 0 
-                    ? 'border-blue-400 bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg transform scale-105' 
-                    : 'border-blue-300 bg-blue-50 hover:border-blue-400 hover:bg-blue-100'
+                    ? 'border-purple-400 bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg transform scale-105' 
+                    : 'border-purple-300 bg-purple-50 hover:border-purple-400 hover:bg-purple-100'
                 }`}>
                   {selectedSoundsLocal.length > 0 ? (
                     <div className="text-center text-white">
-                      {/* <div className="text-sm font-bold opacity-90 mb-1">🔵 SOUND 1</div> */}
                       <div className="text-sm font-bold">
                         {playerSoundSet.find(s => s.id === selectedSoundsLocal[0])?.name || 'Unknown'}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center text-blue-600">
-                      <div className="text-2xl mb-1">🔵</div>
-                      <div className="text-sm font-semibold">Select First Sound</div>
+                    <div className="text-center text-purple-600">
+                      {/* <div className="text-2xl">1️⃣</div> */}
+                      {/* <div className="text-sm font-semibold">&nbsp;</div> */}
                     </div>
                   )}
                 </div>
+                {/* Number marker for selected sound */}
+                {selectedSoundsLocal.length > 0 && (
+                  <div className="absolute -top-2 -left-2 w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold text-purple-600 shadow-md border border-purple-300">
+                    1st
+                  </div>
+                )}
                 {selectedSoundsLocal.length > 0 && (
                   <button
                     onClick={() => playSoundWithFeedback(selectedSoundsLocal[0], 'selected-sound-1')}
                     disabled={playingSounds.has(selectedSoundsLocal[0]) || playingButtons.has('selected-sound-1')}
-                    className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all border-2 border-blue-200 ${
+                    className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all border-2 border-purple-200 ${
                       playingSounds.has(selectedSoundsLocal[0]) || playingButtons.has('selected-sound-1')
                         ? 'bg-gray-300 cursor-not-allowed scale-95'
                         : 'bg-white hover:shadow-lg hover:scale-110'
@@ -1544,7 +1571,7 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
                     <span className={`text-sm ${
                       playingSounds.has(selectedSoundsLocal[0]) || playingButtons.has('selected-sound-1')
                         ? 'text-gray-500'
-                        : 'text-blue-600'
+                        : 'text-purple-600'
                     }`}>
                       {playingSounds.has(selectedSoundsLocal[0]) || playingButtons.has('selected-sound-1') ? '⏸️' : '🔊'}
                     </span>
@@ -1556,31 +1583,36 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
               <div className="relative">
                 <div className={`w-38 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
                   selectedSoundsLocal.length > 1 
-                    ? 'border-green-400 bg-gradient-to-br from-green-500 to-green-600 shadow-lg transform scale-105' 
-                    : 'border-green-300 bg-green-50 hover:border-green-400 hover:bg-green-100'
+                    ? 'border-purple-400 bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg transform scale-105' 
+                    : 'border-purple-300 bg-purple-50 hover:border-purple-400 hover:bg-purple-100'
                 }`}>
                   {selectedSoundsLocal.length > 1 ? (
                     <div className="text-center text-white">
-                      {/* <div className="text-sm font-bold opacity-90 mb-1">🟢 SOUND 2</div> */}
                       <div className="text-sm font-bold">
                         {playerSoundSet.find(s => s.id === selectedSoundsLocal[1])?.name || 'Unknown'}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center text-green-600">
-                      <div className="text-2xl mb-1">🟢</div>
-                      <div className="text-sm font-semibold">
+                    <div className="text-center text-purple-600">
+                      {/* <div className="text-2xl mb-1">2️⃣</div> */}
+                      {/* <div className="text-sm font-semibold">
                         {selectedSoundsLocal.length === 0 ? 'Select Second Sound' : 'Add Second Sound'}
-                      </div>
+                      </div> */}
                       <div className="text-xs opacity-75 mt-1">(Optional)</div>
                     </div>
                   )}
                 </div>
+                {/* Number marker for selected sound */}
+                {selectedSoundsLocal.length > 1 && (
+                  <div className="absolute -top-2 -left-2 w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold text-purple-600 shadow-md border border-purple-300">
+                    2nd
+                  </div>
+                )}
                 {selectedSoundsLocal.length > 1 && (
                   <button
                     onClick={() => playSoundWithFeedback(selectedSoundsLocal[1], 'selected-sound-2')}
                     disabled={playingSounds.has(selectedSoundsLocal[1]) || playingButtons.has('selected-sound-2')}
-                    className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all border-2 border-green-200 ${
+                    className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all border-2 border-purple-200 ${
                       playingSounds.has(selectedSoundsLocal[1]) || playingButtons.has('selected-sound-2')
                         ? 'bg-gray-300 cursor-not-allowed scale-95'
                         : 'bg-white hover:shadow-lg hover:scale-110'
@@ -1590,7 +1622,7 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
                     <span className={`text-sm ${
                       playingSounds.has(selectedSoundsLocal[1]) || playingButtons.has('selected-sound-2')
                         ? 'text-gray-500'
-                        : 'text-green-600'
+                        : 'text-purple-600'
                     }`}>
                       {playingSounds.has(selectedSoundsLocal[1]) || playingButtons.has('selected-sound-2') ? '⏸️' : '🔊'}
                     </span>

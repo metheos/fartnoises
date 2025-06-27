@@ -15,10 +15,12 @@ export interface DisconnectedPlayer {
   id: string;
   name: string;
   color: string;
+  emoji?: string; // Player's selected emoji
   score: number;
   isVIP: boolean;
   disconnectedAt: number;
   socketId: string; // Original socket ID for reconnection matching
+  soundSet?: string[]; // Player's available sound IDs for current round
 }
 
 export interface ReconnectionVote {

@@ -767,9 +767,11 @@ function handlePlayerReconnection(
     id: socket.id, // Update with new socket ID
     name: disconnectedPlayer.name,
     color: disconnectedPlayer.color,
+    emoji: disconnectedPlayer.emoji, // Restore the player's emoji
     score: disconnectedPlayer.score,
     isVIP: disconnectedPlayer.isVIP,
     isDisconnected: false,
+    soundSet: disconnectedPlayer.soundSet, // Restore the player's sound set
   };
   room.players.push(reconnectedPlayer);
   playerRooms.set(socket.id, roomCode);
