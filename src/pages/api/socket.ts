@@ -809,6 +809,23 @@ function removePlayerFromRoom(
   playerRooms.delete(socketId);
 
   if (room.players.length === 0) {
+    // Notify any connected main screens that the room is closing
+    const roomMainScreens = mainScreens.get(roomCode);
+    console.log(`[MAIN SCREEN] Removing main screens for room ${roomCode}`);
+    console.log(`[MAIN SCREEN] Current main screens:`, roomMainScreens);
+    if (roomMainScreens && roomMainScreens.size > 0) {
+      console.log(
+        `[MAIN SCREEN] Notifying ${roomMainScreens.size} main screen(s) that room ${roomCode} is closing`
+      );
+      // Send to all main screens in this room
+      roomMainScreens.forEach((mainScreenId) => {
+        io.to(mainScreenId).emit("roomClosed", { roomCode });
+      });
+      // Clean up main screen tracking
+      mainScreens.delete(roomCode);
+      primaryMainScreens.delete(roomCode);
+    }
+
     rooms.delete(roomCode);
     clearTimer(roomCode);
     clearDisconnectionTimer(roomCode);

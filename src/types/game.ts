@@ -104,6 +104,7 @@ export interface ServerToClientEvents {
     canReconnect: boolean;
   }) => void;
   playerReconnected: (data: { playerId: string; playerName: string }) => void;
+  roomClosed: (data: { roomCode: string }) => void;
   reconnectionVoteRequest: (data: {
     disconnectedPlayerName: string;
     timeLeft: number;

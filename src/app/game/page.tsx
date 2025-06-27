@@ -1860,9 +1860,9 @@ export function ResultsComponent({ room, player, roundWinner, soundEffects }: {
           key={p.id} 
           className={`flex items-center p-3 rounded-2xl shadow-sm transition-all duration-300 ${isRoundWinner ? 'bg-green-100 border-2 border-green-400 scale-105' : 'bg-white'}`}
             >
-          <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center font-black text-sm shadow-md mr-3 ${rankStyles}`}>
+          {/* <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center font-black text-sm shadow-md mr-3 ${rankStyles}`}>
             {rankIcon}
-          </div>
+          </div> */}
           <div 
             className={`w-10 h-10 flex-shrink-0 rounded-full ${getPlayerColorClass(p.color)} flex items-center justify-center text-lg shadow-lg mr-3`}
           >

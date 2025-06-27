@@ -320,7 +320,21 @@ export default function MainScreen() {
     socket.on('gameResumed', () => {
       console.log('Main screen: Game resumed');
       // Could hide pause overlay
-    });    socket.on('playerReconnected', (data: any) => {
+    });
+
+    // Handle room being closed (when all players leave)
+    socket.on('roomClosed', (data: { roomCode: string }) => {
+      console.log(`Main screen: Room ${data.roomCode} was closed`);
+      // Clear current room and return to lobby
+      setCurrentRoom(null);
+      setRoundWinner(null);
+      setJoinError('');
+      setRoomCodeInput('');
+      updateURLWithRoom(null);
+      console.log('Main screen: Returned to lobby after room closure');
+    });
+
+    socket.on('playerReconnected', (data: any) => {
       console.log('Main screen: Player reconnected:', data);
       // Room will be updated via roomUpdated event
     });
