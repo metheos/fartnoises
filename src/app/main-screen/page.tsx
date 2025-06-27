@@ -12,14 +12,14 @@ let socket: Socket;
 // Helper function to convert hex colors to Tailwind classes
 export const getPlayerColorClass = (color: string): string => {
   const colorMap: { [key: string]: string } = {
-    '#FF6B6B': 'bg-red-400',
-    '#4ECDC4': 'bg-teal-400', 
-    '#45B7D1': 'bg-blue-400',
-    '#96CEB4': 'bg-green-400',
-    '#FFEAA7': 'bg-yellow-400',
-    '#DDA0DD': 'bg-purple-400',
-    '#98D8C8': 'bg-emerald-400',
-    '#F7DC6F': 'bg-amber-400',
+    "#FF6B6B": "bg-red-400", // Red
+    "#4ECDC4": "bg-teal-400", // Teal
+    "#45B7D1": "bg-blue-400", // Blue
+    "#96CEB4": "bg-green-400", // Green
+    "#9B59B6": "bg-purple-400", // Purple
+    "#F39C12": "bg-orange-400", // Orange
+    "#E91E63": "bg-pink-400", // Pink
+    "#34495E": "bg-gray-600", // Dark Gray
   };
   return colorMap[color] || 'bg-gray-400';
 };
@@ -485,7 +485,7 @@ export default function MainScreen() {
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
-        <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
+        <div className="bg-white rounded-3xl p-12 text-center shadow-2xl transition-all duration-300">
           <div className="animate-spin w-24 h-24 border-8 border-purple-500 border-t-transparent rounded-full mx-auto mb-8"></div>
           <h2 className="text-3xl font-bold text-gray-800 mb-4">Connecting to fartnoises</h2>
           <p className="text-gray-800 text-xl">Setting up the main screen...</p>
@@ -584,7 +584,7 @@ export function WaitingForGameScreen({
   roomCodeFromURL?: string | null;
 }) {
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
+    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl transition-all duration-300">
               {/* Logo/Title */}
         <div className="text-center mb-12">
             <h1 className="text-6xl font-black mb-4 drop-shadow-lg bg-gradient-to-r from-purple-600 via-pink-500 to-purple-700 bg-clip-text text-transparent">
@@ -867,7 +867,7 @@ export function MainScreenGameDisplay({
 
 export function LobbyDisplay({ room }: { room: Room }) {
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
+    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl transition-all duration-300">
       {/* Game Settings Display with Main Status */}
       <div className="flex items-center justify-between mb-4">
         {/* Score to Win (Left) */}
@@ -946,7 +946,7 @@ export function PromptSelectionDisplay({ room }: { room: Room }) {
   }, []);
   
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">
+    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl transition-all duration-300">
       {/* <h3 className="text-3xl font-bold text-gray-800 mb-6">Judge Selecting Prompt</h3> */}
 
       {judge ? (
@@ -1057,7 +1057,7 @@ export function SoundSelectionDisplay({ room }: { room: Room }) {
   }, []);
   
   return (
-    <div className="bg-white rounded-3xl p-12 shadow-2xl">
+    <div className="bg-white rounded-3xl p-12 shadow-2xl transition-all duration-300">
       {/* <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Sound Selection Time!</h3> */}
       
       
@@ -1323,7 +1323,10 @@ export function PlaybackSubmissionsDisplay({
       } catch (error) {
         console.error('Error playing submission sounds:', error);
       }      
+      
+      // Clear the playing state immediately after this submission finishes
       setCurrentPlayingSoundIndex(-1); // Reset when submission is done
+      setCurrentPlayingSubmission(null); // Clear the playing submission immediately
       setIsPlaying(false);
       
       // Add a delay between submissions for better pacing
@@ -1361,7 +1364,7 @@ export function PlaybackSubmissionsDisplay({
   const getPlayerById = (id: string) => room.players.find(p => p.id === id);
 
   return (
-    <div className="bg-white rounded-3xl p-12 shadow-2xl">
+    <div className="bg-white rounded-3xl p-12 shadow-2xl transition-all duration-300">
       
       
       {/* Judge and Prompt Display - Side by Side */}
@@ -1439,57 +1442,93 @@ export function PlaybackSubmissionsDisplay({
           return (
             <div
               key={index}
-              className={`relative rounded-3xl p-6 transition-all duration-500 ${
-                isCurrentlyPlaying ? 'bg-green-100 scale-105 ring-4 ring-green-400' : 'bg-gray-100'
+              className={`relative rounded-3xl p-8 transition-all duration-500 ${
+                isCurrentlyPlaying 
+                  ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
+                  : 'bg-gradient-to-br from-gray-200 to-gray-300'
               }`}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-xl font-bold text-gray-800">
-                  {`Submission ${index + 1}`}
-                </h4>
-                {isCurrentlyPlaying && (
-                  <div className="flex items-center space-x-2 text-green-600 font-semibold">
-                    <span className="animate-pulse">▶️</span>
-                    <span>Playing</span>
-                  </div>
-                )}
-              </div>              <div className="space-y-3">
-                {submission.sounds.map((soundId, soundIndex) => {
-                  const sound = soundEffects.find(s => s.id === soundId);
-                  const isCurrentSound = isCurrentlyPlaying && currentPlayingSoundIndex === soundIndex;
-                  const hasBeenRevealed = revealedSounds.has(soundId);
-                  
-                  return (
-                    <div
-                      key={soundIndex}
-                      className={`px-4 py-3 rounded-xl transition-all duration-300 ${
-                        isCurrentSound 
-                          ? 'bg-yellow-200 text-gray-900 shadow-lg scale-105 ring-2 ring-yellow-400' 
-                          : hasBeenRevealed 
-                            ? 'bg-green-100 text-gray-800 shadow-sm'
-                            : 'bg-white text-gray-800 shadow-sm'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg">
-                          {isCurrentSound ? '🔊' : hasBeenRevealed ? '🎵' : '🎵'}
-                        </span>                        <span className={`font-semibold ${
-                          isCurrentSound ? 'text-yellow-800' : ''
-                        }`}>
-                          {isCurrentSound || hasBeenRevealed ? (sound?.name || soundId) : '???'}
-                        </span>
-                        {/* {isCurrentSound && (
-                          <div className="ml-auto">
-                            <div className="flex items-center space-x-1">
-                              <div className="w-2 h-2 bg-yellow-600 rounded-full animate-pulse"></div>
-                              <span className="text-yellow-700 text-sm font-bold">NOW PLAYING</span>
-                            </div>
-                          </div>
-                        )} */}
+              {/* Pulsing Animation for Playing */}
+              {isCurrentlyPlaying && (
+                <>
+                  <div className="absolute inset-0 rounded-3xl bg-white opacity-20 animate-pulse"></div>
+                  <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-purple-400 to-pink-500 opacity-75 blur animate-pulse"></div>
+                </>
+              )}
+
+              <div className="relative z-10">
+                <div className="flex items-center justify-center mb-6">
+                   <h5 className={`text-2xl font-bold text-gray-800 ${isCurrentlyPlaying ? 'text-white' : ''}`}>
+                    🎵 Submission {index + 1} 🎵
+                  </h5>
+                </div>
+
+                <div className="space-y-4">
+                  {submission.sounds.map((soundId, soundIndex) => {
+                    const sound = soundEffects.find(s => s.id === soundId);
+                    const isCurrentSound = isCurrentlyPlaying && currentPlayingSoundIndex === soundIndex;
+                    const hasBeenRevealed = revealedSounds.has(soundId);
+                    
+                    return (
+                      <div
+                        key={soundIndex}
+                        className={`px-6 py-4 rounded-xl transition-all duration-300 ${
+                          isCurrentSound 
+                            ? 'bg-white bg-opacity-100 text-gray-800 shadow-lg ring-2 ring-white scale-105' 
+                            : isCurrentlyPlaying 
+                              ? 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
+                              : hasBeenRevealed 
+                                ? 'bg-white text-gray-800 shadow-md'
+                                : 'bg-white text-gray-800 shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center space-x-3">
+                          <span className="text-2xl">
+                            {isCurrentSound ? '🔊' : ''}
+                          </span>
+                          <span className={`text-xl font-bold ${
+                            isCurrentSound ? 'text-purple-600' : ''
+                          }`}>
+                            {isCurrentSound || hasBeenRevealed ? (sound?.name || soundId) : '???'}
+                          </span>
+                        </div>
                       </div>
+                    );
+                  })}
+                </div>
+
+                {/* Waveform Animation for Playing */}
+                {isCurrentlyPlaying ? (
+                  <div className="mt-6 flex justify-center space-x-1">
+                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                  </div>
+                ) : (
+                  <div className="mt-6 flex justify-center space-x-1"></div>
+
+                )}
+                
+                {/* Play Status */}
+                <div className="mt-6 text-center">
+                  {isCurrentlyPlaying ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      {/* <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
+                      <span className="text-white font-bold text-lg">PLAYING NOW</span>
+                      <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div> */}
                     </div>
-                  );
-                })}
+                  ) : (
+                    <div className="flex items-center justify-center space-x-2 text-yellow-800">
+                      {/* <span className="text-2xl">🎵</span>
+                      <span className="font-bold text-lg">Sound Combination</span> */}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -1503,7 +1542,7 @@ export function JudgingDisplay({ room, soundEffects, currentPlayingSubmission }:
   const judge = room.players.find(p => p.id === room.currentJudge);
   
   return (
-    <div className="bg-white rounded-3xl p-12 shadow-2xl">
+    <div className="bg-white rounded-3xl p-12 shadow-2xl transition-all duration-300">
       {/* <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">Judging Time!</h3> */}
       
       {/* Judge and Prompt Display - Side by Side */}
@@ -1587,54 +1626,77 @@ export function JudgingDisplay({ room, soundEffects, currentPlayingSubmission }:
           return (
             <div 
               key={index} 
-              className={`relative rounded-3xl p-6 transition-all duration-500 border-2 ${
+              className={`relative rounded-3xl p-8 transition-all duration-500 ${
                 isCurrentlyPlaying 
-                  ? 'bg-green-100 scale-105 ring-4 ring-green-400 border-green-300' 
-                  : 'bg-gray-100 hover:bg-gray-50 border-gray-200'
+                  ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
+                  : 'bg-gradient-to-br from-gray-200 to-gray-300'
               }`}
             >
+              {/* Pulsing Animation for Playing */}
+              {isCurrentlyPlaying && (
+                <>
+                  <div className="absolute inset-0 rounded-3xl bg-white opacity-20 animate-pulse"></div>
+                  <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-purple-400 to-pink-500 opacity-75 blur animate-pulse"></div>
+                </>
+              )}
+
               <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-xl font-bold text-gray-800">
-                    Submission {index + 1}
-                  </h4>
-                  
-                  {/* Status Indicator - either playing or waiting for judge decision */}
-                  {isCurrentlyPlaying ? (
-                    <div className="flex items-center space-x-2 text-green-600 font-semibold">
-                      <span className="animate-pulse">▶️</span>
-                      <span>Playing</span>
-                    </div>
-                  ) : (
-                    <div className="w-4 h-4 rounded-full bg-purple-400 animate-pulse"></div>
-                  )}
+                <div className="flex items-center justify-center mb-6">
+                   <h5 className={`text-2xl font-bold text-gray-800 ${isCurrentlyPlaying ? 'text-white' : ''}`}>
+                    🎵 Submission {index + 1} 🎵
+                  </h5>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {submission.sounds.map((soundId, soundIndex) => {
                     const sound = soundEffects.find(s => s.id === soundId);
                     
                     return (
                       <div 
                         key={soundIndex} 
-                        className="px-4 py-3 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
+                        className={`px-6 py-4 rounded-xl transition-all duration-300 ${
+                          isCurrentlyPlaying 
+                            ? 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
+                            : 'bg-white text-gray-800 shadow-md'
+                        }`}
                       >
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg">🎵</span>
-                          <span className="font-semibold">{sound?.name || soundId}</span>
+                        <div className="flex items-center justify-center space-x-3">
+                          <span className="text-xl font-bold">{sound?.name || soundId}</span>
                         </div>
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Judge consideration indicator */}
-                <div className="mt-4 text-center">
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
-                    <span className="text-purple-600 font-medium text-sm">UNDER REVIEW</span>
-                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                {/* Waveform Animation for Playing */}
+                {isCurrentlyPlaying ? (
+                  <div className="mt-6 flex justify-center space-x-1">
+                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
                   </div>
+                ) : (
+                  <div className="mt-6 flex justify-center space-x-1"></div>
+
+                )}
+                
+                {/* Play Status */}
+                <div className="mt-6 text-center">
+                  {isCurrentlyPlaying ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      {/* <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
+                      <span className="text-white font-bold text-lg">PLAYING NOW</span>
+                      <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div> */}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center space-x-2 text-yellow-800">
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1886,7 +1948,7 @@ export function ResultsDisplay({
   };
   
   return (
-    <div className="bg-white rounded-3xl p-12 shadow-2xl">
+    <div className="bg-white rounded-3xl p-12 shadow-2xl transition-all duration-300">
       {/* <h3 className="text-3xl font-bold text-gray-800 mb-8 text-center">🎉 Round Results! 🎉</h3> */}
       
       {/* Show loading state if roundWinner is null (e.g., after page refresh) */}
@@ -1984,31 +2046,34 @@ export function ResultsDisplay({
                   </div>
 
                   {/* Waveform Animation for Playing */}
-                  {isPlayingWinner && (
-                    <div className="mt-6 flex justify-center space-x-1">
-                      <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                      <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                      <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                      <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                      <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                      <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                      <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                      <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                    </div>
-                  )}
+                {isPlayingWinner ? (
+                  <div className="mt-6 flex justify-center space-x-1">
+                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
+                  </div>
+                ) : (
+                  <div className="mt-6 flex justify-center space-x-1"></div>
+
+                )}
                   
                   {/* Play Status */}
                   <div className="mt-6 text-center">
                     {isPlayingWinner ? (
                       <div className="flex items-center justify-center space-x-2">
-                        <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
+                        {/* <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
                         <span className="text-white font-bold text-lg">PLAYING NOW</span>
-                        <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
+                        <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div> */}
                       </div>
                     ) : (
                       <div className="flex items-center justify-center space-x-2 text-yellow-800">
-                        <span className="text-2xl">🎵</span>
-                        <span className="font-bold text-lg">Winner's Sounds</span>
+                        {/* <span className="text-2xl">🎵</span>
+                        <span className="font-bold text-lg">Winner's Sounds</span> */}
                       </div>
                     )}
                   </div>
@@ -2258,7 +2323,7 @@ export function JudgeSelectionDisplay({ room }: { room: Room }) {
   const judge = room.players.find(p => p.id === room.currentJudge);
   
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl">     
+    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl ">     
       {/* Judge Display*/} 
       {judge ? (
             <div className="inline-block">

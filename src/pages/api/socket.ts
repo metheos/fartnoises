@@ -1472,21 +1472,28 @@ export default function SocketHandler(
           );
           room.currentSubmissionIndex = index + 1;
         } else {
-          // All submissions played, move to judging
+          // All submissions played, add a delay before moving to judging
           console.log(
-            `[PLAYBACK] All randomized submissions played for room ${roomCode}, transitioning to JUDGING`
+            `[PLAYBACK] All randomized submissions played for room ${roomCode}, adding delay before transitioning to JUDGING`
           );
-          room.gameState = GameState.JUDGING;
-          room.isPlayingBack = false; // Reset playback flag
-          room.currentSubmissionIndex = 0; // Reset for next round
 
-          io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
-            submissions: room.submissions, // Send original submissions
-            randomizedSubmissions:
-              room.randomizedSubmissions || room.submissions, // Send randomized submissions separately
-            judgeId: room.currentJudge,
-          });
-          io.to(roomCode).emit("roomUpdated", room);
+          // Add a 2-second delay to let the final submission "breathe" before judging
+          setTimeout(() => {
+            console.log(
+              `[PLAYBACK] Delay complete, now transitioning room ${roomCode} to JUDGING`
+            );
+            room.gameState = GameState.JUDGING;
+            room.isPlayingBack = false; // Reset playback flag
+            room.currentSubmissionIndex = 0; // Reset for next round
+
+            io.to(roomCode).emit("gameStateChanged", GameState.JUDGING, {
+              submissions: room.submissions, // Send original submissions
+              randomizedSubmissions:
+                room.randomizedSubmissions || room.submissions, // Send randomized submissions separately
+              judgeId: room.currentJudge,
+            });
+            io.to(roomCode).emit("roomUpdated", room);
+          }, 2500); // 2.5 second delay
         }
       });
 

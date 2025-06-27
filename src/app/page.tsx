@@ -167,7 +167,7 @@ export default function Home() {
         </div>
 
         {/* Main Content Card */}
-        <div className="bg-white rounded-3xl p-8 shadow-2xl">
+        <div className="bg-white rounded-3xl p-4 shadow-2xl">
           {!mode ? (
             <>
               {/* Player Name Input */}

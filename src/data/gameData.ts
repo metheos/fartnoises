@@ -65,10 +65,10 @@ export const PLAYER_COLORS = [
   "#4ECDC4", // Teal
   "#45B7D1", // Blue
   "#96CEB4", // Green
-  "#FFEAA7", // Yellow
-  "#DDA0DD", // Plum
-  "#98D8C8", // Mint
-  "#F7DC6F", // Light yellow
+  "#9B59B6", // Purple
+  "#F39C12", // Orange
+  "#E91E63", // Pink
+  "#34495E", // Dark Gray
 ];
 
 // Player emoji options for avatars
@@ -167,14 +167,14 @@ export function getRandomEmoji(excludedEmojis: string[] = []): string {
 // Helper function to convert hex colors to Tailwind classes
 export function getPlayerColorClass(color: string): string {
   const colorMap: { [key: string]: string } = {
-    "#FF6B6B": "bg-red-400",
-    "#4ECDC4": "bg-teal-400",
-    "#45B7D1": "bg-blue-400",
-    "#96CEB4": "bg-green-400",
-    "#FFEAA7": "bg-yellow-400",
-    "#DDA0DD": "bg-purple-400",
-    "#98D8C8": "bg-emerald-400",
-    "#F7DC6F": "bg-amber-400",
+    "#FF6B6B": "bg-red-400", // Red
+    "#4ECDC4": "bg-teal-400", // Teal
+    "#45B7D1": "bg-blue-400", // Blue
+    "#96CEB4": "bg-green-400", // Green
+    "#9B59B6": "bg-purple-400", // Purple
+    "#F39C12": "bg-orange-400", // Orange
+    "#E91E63": "bg-pink-400", // Pink
+    "#34495E": "bg-gray-600", // Dark Gray
   };
   return colorMap[color] || "bg-gray-400";
 }

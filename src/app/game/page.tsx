@@ -12,14 +12,14 @@ import { audioSystem } from '@/utils/audioSystem';
 // Helper function to convert hex colors to Tailwind classes
 const getPlayerColorClass = (color: string): string => {
   const colorMap: { [key: string]: string } = {
-    '#FF6B6B': 'bg-red-400',
-    '#4ECDC4': 'bg-teal-400', 
-    '#45B7D1': 'bg-blue-400',
-    '#96CEB4': 'bg-green-400',
-    '#FFEAA7': 'bg-yellow-400',
-    '#DDA0DD': 'bg-purple-400',
-    '#98D8C8': 'bg-emerald-400',
-    '#F7DC6F': 'bg-amber-400',
+    "#FF6B6B": "bg-red-400", // Red
+    "#4ECDC4": "bg-teal-400", // Teal
+    "#45B7D1": "bg-blue-400", // Blue
+    "#96CEB4": "bg-green-400", // Green
+    "#9B59B6": "bg-purple-400", // Purple
+    "#F39C12": "bg-orange-400", // Orange
+    "#E91E63": "bg-pink-400", // Pink
+    "#34495E": "bg-gray-600", // Dark Gray
   };
   return colorMap[color] || 'bg-gray-400';
 };
@@ -1074,18 +1074,37 @@ export function JudgeSelectionComponent({ room, player }: { room: Room; player: 
   return (
     <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
       {/* <h2 className="text-2xl font-bold text-purple-600 mb-4">Judge Selection</h2> */}
+      {/* Main judge content */}
       {judge ? (
-        <div className="flex flex-col items-center">
-          <p className="text-gray-800 text-xl mb-4">The judge for this round is:</p>
-          <div className="flex flex-col items-center">
-            <div 
-              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white mb-2 ${getPlayerColorClass(judge.color)}`}
-            >
-              {judge.emoji || judge.name[0].toUpperCase()}
-            </div>
-            <span className="font-semibold text-lg">{judge.name}</span>
+          <div className="inline-block">
+            <div className="relative bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 rounded-3xl p-3 shadow-2xl border-1 border-yellow-400 overflow-hidden">
+            
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="bg-white bg-opacity-90 rounded-2xl p-4 shadow-lg border-1 border-yellow-300 min-w-50 text-center">
+                  
+                  
+                  {/* Judge Title */}
+                  <div className="mb-3">
+                    <span className="text-xl font-black text-amber-900 drop-shadow-sm underline">The Judge</span>
+                  </div>
+                  
+                  {/* Judge avatar - larger and more prominent */}
+                  <div className="relative mb-3">
+                    <div 
+                      className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-bold text-white shadow-2xl ring-6 ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge.color)}`}
+                    >
+                      {judge.emoji || judge.name[0].toUpperCase()}
+                    </div>
+                  </div>
+                  
+                  {/* Judge name with emphasis */}
+                  <div className="">
+                    <span className="text-xl font-black text-amber-900 drop-shadow-sm">{judge.name}</span>
+                  </div>
+                </div>
+              </div>
+             </div>
           </div>
-        </div>
       ) : (
         <p className="text-gray-800">Waiting for judge selection...</p>
       )}
@@ -1124,20 +1143,46 @@ export function PromptSelectionComponent({ room, player, onSelectPrompt }: {
         </>
       ) : (
         <div className="text-gray-800">
-          <p className="mb-4">Waiting for the Judge to select a prompt...</p>
           {(() => {
             const judge = room.players.find(p => p.id === room.currentJudge);
             return judge ? (
-              <div className="flex flex-col items-center">
-                <div 
-                  className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white mb-2 ${getPlayerColorClass(judge.color)}`}
-                >
-                  {judge.emoji || judge.name[0].toUpperCase()}
+
+            <div className="inline-block">
+            <div className="relative bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 rounded-3xl p-3 shadow-2xl border-1 border-yellow-400 overflow-hidden">
+              
+              {/* Main judge content */}
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="bg-white bg-opacity-90 rounded-2xl p-4 shadow-lg border-1 border-yellow-300 min-w-50 text-center">
+                  
+                  
+                  {/* Judge Title */}
+                  <div className="mb-3">
+                    <span className="text-xl font-black text-amber-900 drop-shadow-sm underline">The Judge</span>
+                  </div>
+                  
+                  {/* Judge avatar - larger and more prominent */}
+                  <div className="relative mb-3">
+                    <div 
+                      className={`w-28 h-28 rounded-full flex items-center justify-center text-5xl font-bold text-white shadow-2xl ring-6 ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge.color)}`}
+                    >
+                      {judge.emoji || judge.name[0].toUpperCase()}
+                    </div>
+                  </div>
+                  
+                  {/* Judge name with emphasis */}
+                  <div className="">
+                    <span className="text-xl font-black text-amber-900 drop-shadow-sm">{judge.name}</span>
+                  </div>
                 </div>
-                <span className="font-semibold text-lg">{judge.name}</span>
               </div>
+              
+              {/* Animated border glow effect */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 opacity-25 animate-pulse"></div>
+            </div>
+            </div>
             ) : null;
           })()}
+          <p className="mt-4">Waiting for the Judge to select a prompt...</p>
         </div>
       )}
     </div>
@@ -1398,10 +1443,7 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
           {/* Enhanced submission display */}
           <div className="bg-gradient-to-br from-green-50 via-white to-emerald-50 rounded-2xl p-6 max-w-2xl mx-auto border border-green-200 shadow-lg">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-lg">🎵</span>
-              </div>
-              <h4 className="text-xl font-bold text-gray-800">Your Sound Combo</h4>
+              <h4 className="text-xl font-bold text-gray-800">Your Sounds</h4>
             </div>
             
             <div className="flex flex-row items-center justify-center gap-4">
@@ -1454,7 +1496,7 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
                     : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 hover:shadow-xl hover:scale-105'
                 }`}
               >
-                {playingButtons.has('submission-combo') ? '⏸️ Playing...' : '🎧 Play Your Combo'}
+                {playingButtons.has('submission-combo') ? '⏸️ Playing...' : '🎧 Play Your Sounds'}
               </button>
             </div>
           </div>
@@ -1834,17 +1876,37 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
         <div className="flex items-center justify-center gap-2 mb-4">
           {(() => {
             const judge = room.players.find(p => p.id === room.currentJudge);
+            {/* Main judge content */}
             return judge ? (
-              <>
-                <div 
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${getPlayerColorClass(judge.color)}`}
-                >
-                  {judge.emoji || judge.name[0].toUpperCase()}
+                <div className="inline-block">
+                <div className="relative bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 rounded-2xl p-2 shadow-xl border-1 border-yellow-400 overflow-hidden">
+                
+                  <div className="relative z-10 flex flex-col items-center">
+                  <div className="bg-white bg-opacity-90 rounded-xl p-2 shadow-md border-1 border-yellow-300 min-w-32 text-center">
+                    
+                    
+                    {/* Judge Title */}
+                    <div className="mb-2">
+                    <span className="text-sm font-black text-amber-900 drop-shadow-sm underline">The Judge</span>
+                    </div>
+                    
+                    {/* Judge avatar - smaller */}
+                    <div className="relative mb-2">
+                    <div 
+                      className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-xl ring-3 ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge.color)}`}
+                    >
+                      {judge.emoji || judge.name[0].toUpperCase()}
+                    </div>
+                    </div>
+                    
+                    {/* Judge name with emphasis */}
+                    <div className="">
+                    <span className="text-sm font-black text-amber-900 drop-shadow-sm">{judge.name}</span>
+                    </div>
+                  </div>
+                  </div>
                 </div>
-                <p className="text-gray-800">
-                  <span className="font-semibold">{judge.name}</span> is choosing the winner...
-                </p>
-              </>
+                </div>
             ) : (
               <p className="text-gray-800">The judge is choosing the winner...</p>
             );

@@ -474,7 +474,7 @@ export async function loadEarwaxSounds(): Promise<SoundEffect[]> {
         if (sound.id === undefined || sound.name === undefined) return false;
         if (typeof sound.name !== "string" || sound.name.trim() === "")
           return false;
-        //   if (sound.x) return false; // Filter out explicit content
+        if (sound.x) return false; // Filter out explicit content
 
         // Check if ID is valid (either number > 0 or non-empty string)
         if (typeof sound.id === "number") {
@@ -642,7 +642,7 @@ export async function loadEarwaxPrompts(): Promise<GamePrompt[]> {
       if (!prompt.id || !prompt.name || !prompt.PromptAudio) return false;
       if (typeof prompt.name !== "string" || prompt.name.trim() === "")
         return false;
-      // if (prompt.x) return false; // Filter out explicit content
+      if (prompt.x) return false; // Filter out explicit content
       return true;
     });
 
