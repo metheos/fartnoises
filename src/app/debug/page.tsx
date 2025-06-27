@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } from '@/types/game';
 import { getSoundEffects, getGamePrompts } from '@/data/gameData';
+import { WaveformAnimation } from '@/components/WaveformAnimation';
+import { audioSystem } from '@/utils/audioSystem';
 
 // Import Main Screen Components
 import {
@@ -427,6 +429,64 @@ export default function DebugPage() {
     }
   };
 
+  // Audio Test Component for debugging our new waveform
+  function AudioTestComponent() {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [availableSounds, setAvailableSounds] = useState<SoundEffect[]>([]);
+
+    useEffect(() => {
+      // Load some sounds for testing
+      getSoundEffects().then(sounds => {
+        setAvailableSounds(sounds.slice(0, 5)); // Just get first 5 for testing
+      });
+    }, []);
+
+    const playTestSound = async () => {
+      if (availableSounds.length === 0) return;
+      
+      setIsPlaying(true);
+      try {
+        await audioSystem.initialize();
+        const randomSound = availableSounds[Math.floor(Math.random() * availableSounds.length)];
+        await audioSystem.playSound(randomSound.id);
+      } catch (error) {
+        console.error('Error playing sound:', error);
+      } finally {
+        setIsPlaying(false);
+      }
+    };
+
+    return (
+      <div className="bg-gray-800 p-6 rounded-lg">
+        <h3 className="text-white text-xl mb-4">🎵 Audio Waveform Test</h3>
+        <button 
+          onClick={playTestSound}
+          disabled={isPlaying || availableSounds.length === 0}
+          className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white px-4 py-2 rounded mb-4"
+        >
+          {isPlaying ? 'Playing...' : 'Play Random Sound'}
+        </button>
+        <p className="text-gray-300 mb-4">Watch the waveform react to real audio frequency data!</p>
+        
+        {/* Different sizes of our new waveform */}
+        <div className="space-y-4">
+          <div>
+            <p className="text-white text-sm mb-2">Small Waveform:</p>
+            <WaveformAnimation isPlaying={isPlaying} size="sm" color="bg-green-400" />
+          </div>
+          <div>
+            <p className="text-white text-sm mb-2">Medium Waveform:</p>
+            <WaveformAnimation isPlaying={isPlaying} size="md" color="bg-blue-400" />
+          </div>
+          <div>
+            <p className="text-white text-sm mb-2">Large Waveform:</p>
+            <WaveformAnimation isPlaying={isPlaying} size="lg" color="bg-purple-400" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
       <h1 className="text-3xl font-bold mb-4">🎵 fartnoises Debug Page</h1>
@@ -612,6 +672,9 @@ export default function DebugPage() {
           {viewType === 'main-screen' ? renderMainScreenView() : renderClientView()}
         </div>
       </div>
+
+      {/* Audio Test Section */}
+      <AudioTestComponent />
 
       {/* Help Section */}
       <div className="bg-gray-800 p-4 rounded-lg mt-4">

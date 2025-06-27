@@ -1305,51 +1305,41 @@ export function PlaybackSubmissionsDisplay({
 
       try {
         // Play the two sounds for this submission sequentially with sound index tracking.
-        const sounds = submission.sounds;        for (let i = 0; i < sounds.length; i++) {
+        const sounds = submission.sounds;        
+        for (let i = 0; i < sounds.length; i++) {
           console.log(`Playing sound ${i + 1} of ${sounds.length}: ${sounds[i]}`);
           setCurrentPlayingSoundIndex(i);
           
-          // Play this individual sound
-          const sound = soundEffects.find(s => s.id === sounds[i]);
-          if (sound) {
-            const soundUrl = `/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`;
-            const audio = new Audio(soundUrl);
-            audio.volume = 0.7;
-            
-            // Wait for this sound to complete before moving to the next
-            await new Promise<void>((resolve, reject) => {
-              audio.onended = () => {
-                console.log(`Sound ${i + 1} finished playing`);
-                // Add this sound to the revealed set so it stays visible
-                setRevealedSounds(prev => new Set(prev).add(sounds[i]));
-                resolve();
-              };
-              audio.onerror = () => {
-                console.error(`Error playing sound: ${sound.name}`);
-                reject(new Error(`Failed to play sound: ${sound.name}`));
-              };
-              audio.play().catch(reject);
-            });
-            
-            // Small pause between sounds within the same submission
-            if (i < sounds.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 300));
-            }
+          // Play this individual sound using our enhanced AudioSystem
+          const soundId = sounds[i];
+          try {
+            await audioSystem.playSound(soundId);
+            console.log(`Sound ${i + 1} finished playing`);
+            // Add this sound to the revealed set so it stays visible
+            setRevealedSounds(prev => new Set(prev).add(sounds[i]));
+          } catch (error) {
+            console.error(`Error playing sound ${soundId}:`, error);
+          }
+          
+          // Small pause between sounds within the same submission
+          if (i < sounds.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300));
           }
         }
       } catch (error) {
         console.error('Error playing submission sounds:', error);
       }      
       
-      // Clear the playing state immediately after this submission finishes
+      // Reset sound index but keep submission active until next one starts
       setCurrentPlayingSoundIndex(-1); // Reset when submission is done
-      setCurrentPlayingSubmission(null); // Clear the playing submission immediately
-      setIsPlaying(false);
+      // Don't clear currentPlayingSubmission or isPlaying yet - keep for waveform animation
       
       // Add a delay between submissions for better pacing
       console.log('Playback finished for submission, waiting before requesting next.');
       await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 second delay
       
+      // Clear playing state only right before requesting next submission
+      setCurrentPlayingSubmission(null);
       console.log('Requesting next submission after delay.');
       socket.emit('requestNextSubmission', { roomCode: room.code });
     };
@@ -1516,7 +1506,7 @@ export function PlaybackSubmissionsDisplay({
 
                 {/* Waveform Animation for Playing */}
                 <WaveformAnimation 
-                  isPlaying={isCurrentlyPlaying}
+                  isPlaying={isPlaying && isCurrentlyPlaying}
                   color="bg-white"
                 />
                 
@@ -1798,32 +1788,12 @@ export function ResultsDisplay({
     setPlaybackProgress(0);
     
     try {
-      // Create and play audio elements for the winning sounds
+      // Get the winning sounds
       const sounds = roundWinner.winningSubmission.sounds;
-      const audioElements: HTMLAudioElement[] = [];
       
-      // Prepare audio elements - using the same approach as PlaybackSubmissionsDisplay
-      sounds.forEach((soundId: string) => {
-        const sound = soundEffects.find(s => s.id === soundId);
-        if (sound) {
-          const soundUrl = `/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`;
-          const audio = new Audio(soundUrl);
-          audio.volume = 0.7; // Same volume as main playback
-          audio.preload = 'auto';
-          audioElements.push(audio);
-          
-          // Add error handling
-          audio.onerror = () => {
-            console.error(`Failed to load sound: ${sound.name} (${soundUrl})`);
-          };
-          
-          console.log(`[WINNER AUDIO] Prepared audio for ${sound.name}: ${soundUrl}`);
-        }
-      });
-
-      // Play sounds sequentially with progress updates - same as main playback
-      const playNextSound = (soundIndex: number) => {
-        if (soundIndex >= audioElements.length) {
+      // Play sounds sequentially using audioSystem
+      const playNextSound = async (soundIndex: number) => {
+        if (soundIndex >= sounds.length) {
           console.log(`[WINNER AUDIO] All sounds finished`);
           setIsPlayingWinner(false);
           setPlaybackProgress(0);
@@ -1890,44 +1860,72 @@ export function ResultsDisplay({
           return;
         }
 
-        const audio = audioElements[soundIndex];
-        console.log(`[WINNER AUDIO] Playing sound ${soundIndex + 1} of ${audioElements.length}`);
+        const soundId = sounds[soundIndex];
+        const sound = soundEffects.find(s => s.id === soundId);
         
-        // Update progress based on current sound
-        const updateProgress = () => {
-          if (audio.duration > 0) {
-            const currentSoundProgress = audio.currentTime / audio.duration;
-            const overallProgress = (soundIndex + currentSoundProgress) / audioElements.length;
-            setPlaybackProgress(overallProgress);
-          }
-        };
+        if (!sound) {
+          console.warn(`[WINNER AUDIO] Sound effect not found for ID: ${soundId}`);
+          // Move to next sound if this one isn't found
+          setTimeout(() => playNextSound(soundIndex + 1), 300);
+          return;
+        }
 
-        // Set up progress tracking
-        const progressInterval = setInterval(updateProgress, 100);
+        console.log(`[WINNER AUDIO] Playing sound ${soundIndex + 1} of ${sounds.length}: ${sound.name}`);
         
-        // Set up event listener for when this sound ends
-        const onEnded = () => {
-          audio.removeEventListener('ended', onEnded);
-          clearInterval(progressInterval);
-          console.log(`[WINNER AUDIO] Sound ${soundIndex + 1} finished, moving to next`);
+        try {
+          // Load and play using audioSystem for real-time waveform analysis
+          await audioSystem.loadSound(sound.id, sound.fileName);
+          
+          // Set up progress tracking before playing
+          let startTime = Date.now();
+          let duration = 0;
+          
+          // Get approximate duration - we'll update progress based on time
+          const tempAudio = new Audio(`/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`);
+          await new Promise<void>((resolve, reject) => {
+            tempAudio.onloadedmetadata = () => {
+              duration = tempAudio.duration;
+              resolve();
+            };
+            tempAudio.onerror = () => reject(new Error('Failed to load metadata'));
+            tempAudio.load();
+          });
+          
+          // Progress tracking during playback
+          const updateProgress = () => {
+            if (duration > 0) {
+              const elapsed = (Date.now() - startTime) / 1000;
+              const currentSoundProgress = Math.min(elapsed / duration, 1);
+              const overallProgress = (soundIndex + currentSoundProgress) / sounds.length;
+              setPlaybackProgress(overallProgress);
+              
+              if (currentSoundProgress < 1) {
+                requestAnimationFrame(updateProgress);
+              }
+            }
+          };
+          
+          // Start progress tracking
+          startTime = Date.now();
+          updateProgress();
+          
+          // Play the sound and wait for completion
+          await audioSystem.playSound(sound.id);
+          
+          console.log(`[WINNER AUDIO] Sound ${soundIndex + 1} finished playing`);
           
           // Wait a brief moment between sounds, then play the next one
           setTimeout(() => {
             playNextSound(soundIndex + 1);
           }, 300); // 300ms pause between sounds
-        };
-        
-        audio.addEventListener('ended', onEnded);
-        
-        // Start playing this sound
-        audio.play().catch(error => {
-          console.error(`Failed to play winner audio ${soundIndex}:`, error);
-          clearInterval(progressInterval);
-          // If this sound fails, try the next one
+          
+        } catch (audioError) {
+          console.error(`[WINNER AUDIO] AudioSystem failed for ${sound.name}, skipping:`, audioError);
+          // Move to next sound if this one fails
           setTimeout(() => {
             playNextSound(soundIndex + 1);
           }, 500);
-        });
+        }
       };
 
       // Start with the first sound after a brief delay
@@ -2041,21 +2039,10 @@ export function ResultsDisplay({
                   </div>
 
                   {/* Waveform Animation for Playing */}
-                {isPlayingWinner ? (
-                  <div className="mt-6 flex justify-center space-x-1">
-                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                  </div>
-                ) : (
-                  <div className="mt-6 flex justify-center space-x-1"></div>
-
-                )}
+                  <WaveformAnimation 
+                    isPlaying={isPlayingWinner}
+                    color="bg-white"
+                  />
                   
                   {/* Play Status */}
                   <div className="mt-6 text-center">

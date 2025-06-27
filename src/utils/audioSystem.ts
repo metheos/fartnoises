@@ -5,6 +5,12 @@ export class AudioSystem {
   private loadedSounds: Map<string, AudioBuffer> = new Map();
   private failedSounds: Set<string> = new Set();
   private activeSources: Set<AudioBufferSourceNode> = new Set();
+  // Real-time audio analysis properties
+  private analyser: AnalyserNode | null = null;
+  private gainNode: GainNode | null = null;
+  private frequencyData: Uint8Array | null = null;
+  private timeData: Uint8Array | null = null;
+  private isAnalysisActive: boolean = false;
 
   static getInstance(): AudioSystem {
     if (!AudioSystem.instance) {
@@ -29,6 +35,9 @@ export class AudioSystem {
         console.log("🔊 Resuming suspended AudioContext...");
         await this.audioContext.resume();
       }
+
+      // Set up audio analysis nodes
+      this.setupAudioAnalysis();
 
       console.log(
         `✅ AudioContext initialized successfully (state: ${this.audioContext.state})`
@@ -110,7 +119,14 @@ export class AudioSystem {
     return new Promise<void>((resolve) => {
       const source = this.audioContext!.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(this.audioContext!.destination);
+
+      // Connect through analysis chain if available, otherwise direct to destination
+      if (this.gainNode) {
+        source.connect(this.gainNode);
+        this.setAnalysisActive(true);
+      } else {
+        source.connect(this.audioContext!.destination);
+      }
 
       // Track this source so we can stop it if needed
       this.activeSources.add(source);
@@ -118,6 +134,10 @@ export class AudioSystem {
       // Resolve the promise and clean up when the sound finishes
       source.onended = () => {
         this.activeSources.delete(source);
+        // Stop analysis if no more sounds are playing
+        if (this.activeSources.size === 0) {
+          this.setAnalysisActive(false);
+        }
         resolve();
       };
 
@@ -198,7 +218,15 @@ export class AudioSystem {
 
     const source = this.audioContext!.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(this.audioContext!.destination);
+
+    // Connect through analysis chain if available, otherwise direct to destination
+    if (this.gainNode) {
+      source.connect(this.gainNode);
+      this.setAnalysisActive(true);
+    } else {
+      source.connect(this.audioContext!.destination);
+    }
+
     source.start();
   }
 
@@ -261,6 +289,64 @@ export class AudioSystem {
       );
       this.failedSounds.add(promptId);
     }
+  }
+
+  private setupAudioAnalysis(): void {
+    if (!this.audioContext) return;
+
+    try {
+      // Create analyser node for frequency analysis
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256; // Gives us 128 frequency bins
+      this.analyser.smoothingTimeConstant = 0.8;
+
+      // Create gain node for volume control
+      this.gainNode = this.audioContext.createGain();
+      this.gainNode.gain.value = 1.0;
+
+      // Connect: gainNode -> analyser -> destination
+      this.gainNode.connect(this.analyser);
+      this.analyser.connect(this.audioContext.destination);
+
+      // Initialize data arrays
+      const bufferLength = this.analyser.frequencyBinCount;
+      this.frequencyData = new Uint8Array(bufferLength);
+      this.timeData = new Uint8Array(bufferLength);
+
+      console.log("✅ Audio analysis nodes set up successfully");
+    } catch (error) {
+      console.error("❌ Failed to set up audio analysis:", error);
+    }
+  }
+
+  // Get real-time frequency data for visualization
+  getFrequencyData(): Uint8Array | null {
+    if (!this.analyser || !this.frequencyData) return null;
+
+    this.analyser.getByteFrequencyData(this.frequencyData);
+    return this.frequencyData;
+  }
+
+  // Get real-time waveform data
+  getTimeData(): Uint8Array | null {
+    if (!this.analyser || !this.timeData) return null;
+
+    this.analyser.getByteTimeDomainData(this.timeData);
+    return this.timeData;
+  }
+
+  // Check if audio analysis is available
+  isAnalysisReady(): boolean {
+    return this.analyser !== null && this.frequencyData !== null;
+  }
+
+  // Start/stop analysis tracking
+  setAnalysisActive(active: boolean): void {
+    this.isAnalysisActive = active;
+  }
+
+  getAnalysisActive(): boolean {
+    return this.isAnalysisActive;
   }
 }
 
