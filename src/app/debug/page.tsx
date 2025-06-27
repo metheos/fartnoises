@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } from '@/types/game';
+import { getSoundEffects, getGamePrompts } from '@/data/gameData';
 
 // Import Main Screen Components
 import {
@@ -39,7 +40,8 @@ const mockPlayers: Player[] = [
 const mockPlayerView = mockPlayers[1]; // Bob's view (non-VIP, non-judge)
 const mockJudgeView = mockPlayers[0]; // Alice's view (VIP, judge)
 
-const mockSoundEffects: SoundEffect[] = [
+// Fallback mock data in case real data fails to load
+const fallbackSoundEffects: SoundEffect[] = [
   { id: 'sound1', name: 'Fart', fileName: 'fart.ogg', category: 'Gross' },
   { id: 'sound2', name: 'Burp', fileName: 'burp.ogg', category: 'Gross' },
   { id: 'sound3', name: 'Scream', fileName: 'scream.ogg', category: 'Vocal' },
@@ -52,39 +54,21 @@ const mockSoundEffects: SoundEffect[] = [
   { id: 'sound10', name: 'Meow', fileName: 'meow.ogg', category: 'Animals' },
 ];
 
+const fallbackPrompts: GamePrompt[] = [
+  { id: 'p1', text: 'The sound of a robot trying to love.', category: 'Modern Life' },
+  { id: 'p2', text: 'What a cat really thinks about you.', category: 'Animals' },
+  { id: 'p3', text: 'The noise that finally breaks the internet.', category: 'Absurd' },
+  { id: 'p4', text: 'Your morning routine but make it dramatic.', category: 'Daily Life' },
+  { id: 'p5', text: 'The secret language of houseplants.', category: 'Nature' },
+  { id: 'p6', text: 'What happens when WiFi gets jealous.', category: 'Technology' },
+];
+
+// Default submissions using fallback sound IDs
 const mockSubmissions: SoundSubmission[] = [
   { playerId: 'player2', playerName: 'Bob', sounds: ['sound1', 'sound3'] },
   { playerId: 'player3', playerName: 'Charlie', sounds: ['sound2', 'sound4'] },
   { playerId: 'player4', playerName: 'Diana', sounds: ['sound5', 'sound6'] },
 ];
-
-const mockAvailablePrompts: GamePrompt[] = [
-    { id: 'p1', text: 'The sound of a robot trying to love.', category: 'Modern Life' },
-    { id: 'p2', text: 'What a cat really thinks about you.', category: 'Animals' },
-    { id: 'p3', text: 'The noise that finally breaks the internet.', category: 'Absurd' },
-    { id: 'p4', text: 'Your morning routine but make it dramatic.', category: 'Daily Life' },
-    { id: 'p5', text: 'The secret language of houseplants.', category: 'Nature' },
-    { id: 'p6', text: 'What happens when WiFi gets jealous.', category: 'Technology' },
-];
-
-const baseMockRoom: Omit<Room, 'gameState'> = {
-  code: 'DBUG',
-  players: mockPlayers,
-  currentJudge: 'player1',
-  currentPrompt: { id: 'p1', text: 'The sound of a robot trying to love.', category: 'Modern Life' },
-  currentRound: 2,
-  maxRounds: 5,
-  maxScore: 3,
-  submissions: [],
-  winner: null,
-  availablePrompts: mockAvailablePrompts,
-  usedPromptIds: ['p0'],
-  isPlayingBack: false,
-  soundSelectionTimerStarted: false,
-  promptChoices: mockAvailablePrompts,
-  lastWinner: null,
-  lastWinningSubmission: null,
-};
 
 const mockRoundWinner = {
   winnerId: 'player2',
@@ -101,6 +85,82 @@ export default function DebugPage() {
   const [clientPlayerType, setClientPlayerType] = useState<'regular' | 'judge' | 'vip'>('regular');
   const [selectedSounds, setSelectedSounds] = useState<string[]>(['sound1', 'sound3']);
   const [timeLeft, setTimeLeft] = useState<number>(45);
+  
+  // State for real game data
+  const [realSoundEffects, setRealSoundEffects] = useState<SoundEffect[]>([]);
+  const [realPrompts, setRealPrompts] = useState<GamePrompt[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [useRealData, setUseRealData] = useState(true);
+
+  // Get currently used data (real or fallback)
+  const mockSoundEffects = useRealData && realSoundEffects.length > 0 ? realSoundEffects.slice(0, 10) : fallbackSoundEffects;
+  const mockAvailablePrompts = useRealData && realPrompts.length > 0 ? realPrompts.slice(0, 6) : fallbackPrompts;
+
+  // Load real game data on component mount
+  useEffect(() => {
+    const loadGameData = async () => {
+      setIsLoadingData(true);
+      try {
+        console.log('🎮 Debug Page: Loading real game data...');
+        
+        // Load real sound effects and prompts
+        const [sounds, prompts] = await Promise.all([
+          getSoundEffects(),
+          getGamePrompts(['Alice', 'Bob', 'Charlie', 'Diana']) // Process prompts with player names
+        ]);
+        
+        console.log(`🎮 Debug Page: Loaded ${sounds.length} sound effects and ${prompts.length} prompts`);
+        
+        setRealSoundEffects(sounds);
+        setRealPrompts(prompts);
+        
+        // Update selected sounds to use real sound IDs if available
+        if (sounds.length >= 2) {
+          setSelectedSounds([sounds[0].id, sounds[1].id]);
+        }
+      } catch (error) {
+        console.error('🎮 Debug Page: Failed to load real game data:', error);
+        // Will fall back to mock data
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadGameData();
+  }, []);
+
+  const baseMockRoom: Omit<Room, 'gameState'> = {
+    code: 'DBUG',
+    players: mockPlayers,
+    currentJudge: 'player1',
+    currentPrompt: mockAvailablePrompts.length > 0 ? mockAvailablePrompts[0] : fallbackPrompts[0],
+    currentRound: 2,
+    maxRounds: 5,
+    maxScore: 3,
+    submissions: [],
+    winner: null,
+    availablePrompts: mockAvailablePrompts,
+    usedPromptIds: ['p0'],
+    isPlayingBack: false,
+    soundSelectionTimerStarted: false,
+    promptChoices: mockAvailablePrompts,
+    lastWinner: null,
+    lastWinningSubmission: null,
+  };
+
+  // Update submissions to use real sound IDs when available
+  const mockSubmissionsWithRealSounds: SoundSubmission[] = [
+    { playerId: 'player2', playerName: 'Bob', sounds: mockSoundEffects.length >= 4 ? [mockSoundEffects[0].id, mockSoundEffects[2].id] : ['sound1', 'sound3'] },
+    { playerId: 'player3', playerName: 'Charlie', sounds: mockSoundEffects.length >= 4 ? [mockSoundEffects[1].id, mockSoundEffects[3].id] : ['sound2', 'sound4'] },
+    { playerId: 'player4', playerName: 'Diana', sounds: mockSoundEffects.length >= 6 ? [mockSoundEffects[4].id, mockSoundEffects[5].id] : ['sound5', 'sound6'] },
+  ];
+
+  const mockRoundWinner = {
+    winnerId: 'player2',
+    winnerName: 'Bob',
+    winningSubmission: mockSubmissionsWithRealSounds[0],
+    submissionIndex: 0,
+  };
 
   const getMockRoomForState = (state: GameState | 'WAITING'): Room => {
     switch (state) {
@@ -111,20 +171,20 @@ export default function DebugPage() {
       case GameState.PROMPT_SELECTION:
         return { ...baseMockRoom, gameState: GameState.PROMPT_SELECTION, currentPrompt: null, submissions: [] };
       case GameState.SOUND_SELECTION:
-        return { ...baseMockRoom, gameState: GameState.SOUND_SELECTION, submissions: mockSubmissions.slice(0, 1) };
+        return { ...baseMockRoom, gameState: GameState.SOUND_SELECTION, submissions: mockSubmissionsWithRealSounds.slice(0, 1) };
       case GameState.PLAYBACK:
-        return { ...baseMockRoom, gameState: GameState.PLAYBACK, submissions: mockSubmissions, currentSubmissionIndex: 1 };
+        return { ...baseMockRoom, gameState: GameState.PLAYBACK, submissions: mockSubmissionsWithRealSounds, currentSubmissionIndex: 1 };
       case GameState.JUDGING:
-        return { ...baseMockRoom, gameState: GameState.JUDGING, submissions: mockSubmissions, randomizedSubmissions: mockSubmissions };
+        return { ...baseMockRoom, gameState: GameState.JUDGING, submissions: mockSubmissionsWithRealSounds, randomizedSubmissions: mockSubmissionsWithRealSounds };
       case GameState.ROUND_RESULTS:
-        return { ...baseMockRoom, gameState: GameState.ROUND_RESULTS, submissions: mockSubmissions };
+        return { ...baseMockRoom, gameState: GameState.ROUND_RESULTS, submissions: mockSubmissionsWithRealSounds };
       case GameState.GAME_OVER:
-        return { ...baseMockRoom, gameState: GameState.GAME_OVER, submissions: mockSubmissions, winner: 'player4' };
+        return { ...baseMockRoom, gameState: GameState.GAME_OVER, submissions: mockSubmissionsWithRealSounds, winner: 'player4' };
       case GameState.PAUSED_FOR_DISCONNECTION:
         return { 
           ...baseMockRoom, 
           gameState: GameState.PAUSED_FOR_DISCONNECTION, 
-          submissions: mockSubmissions,
+          submissions: mockSubmissionsWithRealSounds,
           disconnectedPlayers: [{ 
             id: 'player3', 
             name: 'Charlie', 
@@ -157,6 +217,87 @@ export default function DebugPage() {
 
   const currentPlayer = getCurrentPlayer();
 
+  // Create a more sophisticated mock socket for playback testing
+  const createMockSocket = () => {
+    const eventHandlers: { [key: string]: Function[] } = {};
+    let currentSubmissionIndex = 0;
+    let isPlaybackActive = false;
+    
+    const mockSocket = {
+      on: (event: string, handler: Function) => {
+        if (!eventHandlers[event]) {
+          eventHandlers[event] = [];
+        }
+        eventHandlers[event].push(handler);
+        console.log(`🔌 Mock Socket: Registered handler for event: ${event}`);
+      },
+      off: (event: string, handler: Function) => {
+        if (eventHandlers[event]) {
+          eventHandlers[event] = eventHandlers[event].filter(h => h !== handler);
+          console.log(`🔌 Mock Socket: Removed handler for event: ${event}`);
+        }
+      },
+      emit: (event: string, ...args: any[]) => {
+        console.log(`🔌 Mock Socket: Emitting event: ${event}`, args);
+        
+        if (event === 'requestNextSubmission') {
+          // If this is the first request, reset the index
+          if (!isPlaybackActive) {
+            currentSubmissionIndex = 0;
+            isPlaybackActive = true;
+            console.log(`🔌 Mock Socket: Starting new playback cycle`);
+          }
+          
+          // Simulate server response with next submission
+          setTimeout(() => {
+            const submissions = mockSubmissionsWithRealSounds;
+            console.log(`🔌 Mock Socket: Processing request for submission ${currentSubmissionIndex + 1}/${submissions.length}`);
+            
+            if (currentSubmissionIndex < submissions.length) {
+              const submission = submissions[currentSubmissionIndex];
+              console.log(`🔌 Mock Socket: 🎵 Sending submission ${currentSubmissionIndex + 1}/${submissions.length} (${submission.playerName}):`, submission);
+              console.log(`🎵 Playing sounds: ${submission.sounds.map(soundId => {
+                const sound = mockSoundEffects.find(s => s.id === soundId);
+                return sound ? sound.name : soundId;
+              }).join(' + ')}`);
+              
+              // Trigger playSubmission event
+              if (eventHandlers['playSubmission']) {
+                eventHandlers['playSubmission'].forEach(handler => {
+                  handler(submission, currentSubmissionIndex);
+                });
+              }
+              currentSubmissionIndex++;
+            } else {
+              console.log('🔌 Mock Socket: ✅ All submissions played, sending null to indicate completion');
+              // Send null submission to indicate playback is complete
+              if (eventHandlers['playSubmission']) {
+                eventHandlers['playSubmission'].forEach(handler => {
+                  handler(null); // Null indicates end of playback
+                });
+              }
+              // Reset state for next playback cycle
+              currentSubmissionIndex = 0;
+              isPlaybackActive = false;
+              console.log('🔌 Mock Socket: Playback cycle complete, ready for next cycle');
+            }
+          }, 300); // Slightly faster response for better debug experience
+        }
+      },
+      disconnect: () => {
+        console.log('🔌 Mock Socket: Disconnect called');
+        isPlaybackActive = false;
+        currentSubmissionIndex = 0;
+      },
+      connect: () => {
+        console.log('🔌 Mock Socket: Connect called');
+      },
+      connected: true
+    };
+    
+    return mockSocket;
+  };
+
   const renderMainScreenView = () => {
     switch (view) {
       case 'WAITING':
@@ -170,7 +311,7 @@ export default function DebugPage() {
       case GameState.SOUND_SELECTION:
         return <SoundSelectionDisplay room={mockRoom} />;
       case GameState.PLAYBACK:
-        return <PlaybackSubmissionsDisplay room={mockRoom} soundEffects={mockSoundEffects} socket={{ on: () => {}, off: () => {}, emit: () => {}, disconnect: () => {}, connect: () => {}, connected: false } as any} />;
+        return <PlaybackSubmissionsDisplay room={mockRoom} soundEffects={mockSoundEffects} socket={createMockSocket() as any} />;
       case GameState.JUDGING:
         return <JudgingDisplay room={mockRoom} soundEffects={mockSoundEffects} />;
       case GameState.ROUND_RESULTS:
@@ -322,6 +463,31 @@ export default function DebugPage() {
             </div>
           </div>
         )}
+        
+        {/* Data Source Selection */}
+        <div className="mt-3">
+          <h3 className="text-lg mb-2">Data Source</h3>
+          <div className="flex gap-2 items-center">
+            <button 
+              onClick={() => setUseRealData(true)} 
+              className={`px-3 py-1 rounded text-sm ${useRealData ? 'bg-blue-500' : 'bg-gray-600'}`}
+            >
+              🎵 Real Game Data
+            </button>
+            <button 
+              onClick={() => setUseRealData(false)} 
+              className={`px-3 py-1 rounded text-sm ${!useRealData ? 'bg-orange-500' : 'bg-gray-600'}`}
+            >
+              🧪 Fallback Mock Data
+            </button>
+            {isLoadingData && <span className="text-yellow-400 text-sm">⏳ Loading...</span>}
+            {useRealData && realSoundEffects.length > 0 && (
+              <span className="text-green-400 text-sm">
+                ✅ {realSoundEffects.length} sounds, {realPrompts.length} prompts
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Game State Selection */}
@@ -393,6 +559,18 @@ export default function DebugPage() {
             <span className="text-gray-400">Players:</span>
             <span className="ml-2 text-purple-400">{mockRoom.players.length}</span>
           </div>
+          <div>
+            <span className="text-gray-400">Data Source:</span>
+            <span className="ml-2 text-indigo-400">{useRealData ? 'Real' : 'Mock'}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Sounds:</span>
+            <span className="ml-2 text-teal-400">{mockSoundEffects.length}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Prompts:</span>
+            <span className="ml-2 text-emerald-400">{mockAvailablePrompts.length}</span>
+          </div>
           {viewType === 'client' && (
             <>
               <div>
@@ -436,12 +614,12 @@ export default function DebugPage() {
             <p>Shows what individual players see on their phones/devices. Switch between Regular, Judge, and VIP player types to test different experiences.</p>
           </div>
           <div>
-            <h3 className="text-white font-medium mb-1">Game States:</h3>
-            <p>Test every phase of the game from lobby through game over. Each state shows different UI and interactions.</p>
+            <h3 className="text-white font-medium mb-1">Real vs Mock Data:</h3>
+            <p>Toggle between real game data loaded from EarwaxAudio.jet and EarwaxPrompts.jet files, or fallback mock data for testing when real data isn't available.</p>
           </div>
           <div>
             <h3 className="text-white font-medium mb-1">Interactive Controls:</h3>
-            <p>Some states (like Sound Selection) include debug controls to simulate timer changes and player actions.</p>
+            <p>Some states (like Sound Selection) include debug controls to simulate timer changes and player actions. Real data provides authentic sound names and prompts.</p>
           </div>
         </div>
       </div>
