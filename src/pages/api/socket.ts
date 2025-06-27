@@ -1670,8 +1670,7 @@ export default function SocketHandler(
                         room.submissionSeed = undefined; // Clear the seed
                         room.soundSelectionTimerStarted = false;
 
-                        // Generate individual random sound sets for each non-judge player
-                        await generatePlayerSoundSets(room);
+                        const soundOptions = await getRandomSounds(10);
 
                         io.to(roomCode).emit("roomUpdated", room);
                         io.to(roomCode).emit("promptSelected", firstPrompt);
@@ -1680,12 +1679,14 @@ export default function SocketHandler(
                           GameState.SOUND_SELECTION,
                           {
                             prompt: firstPrompt,
+                            promptAudio: firstPrompt.audioFile, // Include audio file for main screen
+                            sounds: soundOptions,
                             timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                           }
                         );
 
                         console.log(
-                          `[TIMER] Transitioned to sound selection (no main screen), waiting for first submission to start timer`
+                          `[TIMER] Transitioned to sound selection (post-audio), waiting for first submission to start timer`
                         );
                       }
                     },
@@ -1709,6 +1710,114 @@ export default function SocketHandler(
           console.error("Error selecting winner:", error);
         }
       });
+
+      // Handle judging playback requests - route to main screen if available
+      socket.on(
+        "requestJudgingPlayback",
+        (data: { submissionIndex: number; sounds: string[] }) => {
+          try {
+            const roomCode = playerRooms.get(socket.id);
+            if (!roomCode) {
+              socket.emit("judgingPlaybackResponse", {
+                success: false,
+                submissionIndex: data.submissionIndex,
+              });
+              return;
+            }
+
+            const room = rooms.get(roomCode);
+            if (!room || room.gameState !== GameState.JUDGING) {
+              socket.emit("judgingPlaybackResponse", {
+                success: false,
+                submissionIndex: data.submissionIndex,
+              });
+              return;
+            }
+
+            // Only allow the judge to request playback
+            if (room.currentJudge !== socket.id) {
+              console.log(
+                `[JUDGING PLAYBACK] Non-judge ${socket.id} attempted to request playback. Ignoring.`
+              );
+              socket.emit("judgingPlaybackResponse", {
+                success: false,
+                submissionIndex: data.submissionIndex,
+              });
+              return;
+            }
+
+            console.log(
+              `[JUDGING PLAYBACK] Judge requesting playback for submission ${data.submissionIndex} in room ${roomCode}`
+            );
+
+            // Check if we have main screens connected
+            if (hasMainScreens(roomCode)) {
+              console.log(
+                `[JUDGING PLAYBACK] Main screens available, routing to main screen`
+              );
+
+              // Get the submission data from the room to send to main screen
+              const submissionsToShow =
+                room.randomizedSubmissions || room.submissions;
+              const submission = submissionsToShow[data.submissionIndex];
+              if (submission) {
+                // Emit the playJudgingSubmission event to main screens only
+                // Get all main screen socket IDs for this room
+                const roomMainScreens = mainScreens.get(roomCode);
+                if (roomMainScreens) {
+                  roomMainScreens.forEach((mainScreenSocketId) => {
+                    const mainScreenSocket =
+                      io.sockets.sockets.get(mainScreenSocketId);
+                    if (mainScreenSocket) {
+                      console.log(
+                        `[JUDGING PLAYBACK] Sending submission to main screen ${mainScreenSocketId}`
+                      );
+                      console.log(`[JUDGING PLAYBACK] Submission data:`, {
+                        playerName: submission.playerName,
+                        sounds: submission.sounds,
+                      });
+                      mainScreenSocket.emit(
+                        "playJudgingSubmission",
+                        submission,
+                        data.submissionIndex
+                      );
+                    }
+                  });
+                }
+
+                // Respond to judge that main screen playback was initiated
+                socket.emit("judgingPlaybackResponse", {
+                  success: true,
+                  submissionIndex: data.submissionIndex,
+                });
+              } else {
+                console.log(
+                  `[JUDGING PLAYBACK] Submission ${data.submissionIndex} not found`
+                );
+                socket.emit("judgingPlaybackResponse", {
+                  success: false,
+                  submissionIndex: data.submissionIndex,
+                });
+              }
+            } else {
+              console.log(
+                `[JUDGING PLAYBACK] No main screens connected, requesting local fallback`
+              );
+              // No main screens available, tell judge to play locally
+              socket.emit("judgingPlaybackResponse", {
+                success: false,
+                submissionIndex: data.submissionIndex,
+              });
+            }
+          } catch (error) {
+            console.error("Error handling judging playback request:", error);
+            socket.emit("judgingPlaybackResponse", {
+              success: false,
+              submissionIndex: data.submissionIndex,
+            });
+          }
+        }
+      );
 
       // Handle winner audio completion to trigger next round
       socket.on("winnerAudioComplete", () => {

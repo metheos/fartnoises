@@ -313,7 +313,7 @@ export default function DebugPage() {
       case GameState.PLAYBACK:
         return <PlaybackSubmissionsDisplay room={mockRoom} soundEffects={mockSoundEffects} socket={createMockSocket() as any} />;
       case GameState.JUDGING:
-        return <JudgingDisplay room={mockRoom} soundEffects={mockSoundEffects} />;
+        return <JudgingDisplay room={mockRoom} soundEffects={mockSoundEffects} currentPlayingSubmission={null} />;
       case GameState.ROUND_RESULTS:
         return <ResultsDisplay room={mockRoom} roundWinner={mockRoundWinner} soundEffects={mockSoundEffects} />;
       case GameState.GAME_OVER:
@@ -396,6 +396,7 @@ export default function DebugPage() {
             player={currentPlayer} 
             onJudgeSubmission={(index) => console.log('Judge submission:', index)}
             soundEffects={mockSoundEffects}
+            socket={createMockSocket() as any}
           />
         );
       case GameState.ROUND_RESULTS:

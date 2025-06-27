@@ -824,6 +824,7 @@ function GamePageContent() {
             player={player} 
             onJudgeSubmission={judgeSubmission}
             soundEffects={soundEffects}
+            socket={socketRef.current}
           />
         )}{room.gameState === GameState.ROUND_RESULTS && (
           <ResultsComponent room={room} player={player} roundWinner={roundWinner} soundEffects={soundEffects} />
@@ -1631,11 +1632,12 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
   );
 }
 
-export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects }: { 
+export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects, socket }: { 
   room: Room; 
   player: Player; 
   onJudgeSubmission: (submissionIndex: number) => void;
   soundEffects: SoundEffect[];
+  socket: Socket | null;
 }) {
   const isJudge = player.id === room.currentJudge;
   const [playingButtons, setPlayingButtons] = useState<Set<string>>(new Set());
@@ -1666,16 +1668,68 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
       // Mark button as playing
       setPlayingButtons(prev => new Set(prev).add(buttonId));
 
-      // Filter out any invalid sounds and get filenames
-      const validSounds = sounds
-        .map(soundId => soundEffects.find(s => s.id === soundId))
-        .filter(sound => sound !== undefined);
-      
-      if (validSounds.length > 0) {
-        console.log(`Playing ${validSounds.length} sound(s): [${sounds.join(', ')}]`);
-        // Use the proper sequence method that waits for each sound to finish
-        await audioSystem.playSoundSequence(sounds, 200); // 200ms delay between sounds
+      // Check if we have a socket connection and should try main screen playback
+      if (socket && socket.connected) {
+        console.log(`[JUDGING] Attempting to play submission ${submissionIndex} on main screen via socket`);
+        
+        // Emit event to server to request main screen playback
+        socket.emit('requestJudgingPlayback', {
+          submissionIndex,
+          sounds
+        });
+        
+        // Note: We don't await here because the server will handle the routing
+        // If main screens are available, they'll play the audio
+        // If not, the server should send back a fallback event for local playback
+        
+        // For now, we'll still have a timeout to fall back to local playback
+        // if we don't get a response from the server within a reasonable time
+        const fallbackTimeout = setTimeout(async () => {
+          console.log(`[JUDGING] No main screen response for submission ${submissionIndex}, falling back to local playback`);
+          await performLocalPlayback();
+        }, 1000); // 1 second timeout
+        
+        // Listen for server response (we'll implement this listener separately)
+        const handleMainScreenResponse = (response: { success: boolean; submissionIndex: number }) => {
+          if (response.submissionIndex === submissionIndex) {
+            clearTimeout(fallbackTimeout);
+            socket.off('judgingPlaybackResponse', handleMainScreenResponse);
+            if (!response.success) {
+              console.log(`[JUDGING] Main screen playback failed for submission ${submissionIndex}, falling back to local`);
+              performLocalPlayback();
+            } else {
+              console.log(`[JUDGING] Main screen playback successful for submission ${submissionIndex}`);
+            }
+          }
+        };
+        
+        socket.on('judgingPlaybackResponse', handleMainScreenResponse);
+        
+        // Clean up the listener after a timeout regardless
+        setTimeout(() => {
+          socket.off('judgingPlaybackResponse', handleMainScreenResponse);
+        }, 5000);
+        
+      } else {
+        // No socket connection, play locally
+        console.log(`[JUDGING] No socket connection, playing submission ${submissionIndex} locally`);
+        await performLocalPlayback();
       }
+      
+      // Local playback function
+      async function performLocalPlayback() {
+        // Filter out any invalid sounds and get filenames
+        const validSounds = sounds
+          .map(soundId => soundEffects.find(s => s.id === soundId))
+          .filter(sound => sound !== undefined);
+        
+        if (validSounds.length > 0) {
+          console.log(`Playing ${validSounds.length} sound(s) locally: [${sounds.join(', ')}]`);
+          // Use the proper sequence method that waits for each sound to finish
+          await audioSystem.playSoundSequence(sounds, 200); // 200ms delay between sounds
+        }
+      }
+      
     } catch (error) {
       console.error(`Error playing submission sounds:`, error);
     } finally {

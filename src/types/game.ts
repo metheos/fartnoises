@@ -139,6 +139,10 @@ export interface ServerToClientEvents {
     submissionIndex: number;
   }) => void;
   playbackComplete: () => void;
+  judgingPlaybackResponse: (response: {
+    success: boolean;
+    submissionIndex: number;
+  }) => void;
 }
 
 // Player data for socket events
@@ -177,4 +181,8 @@ export interface ClientToServerEvents {
   restartGame: () => void;
   submissionPlaybackComplete: (submissionIndex: number) => void;
   winnerAudioComplete: () => void;
+  requestJudgingPlayback: (data: {
+    submissionIndex: number;
+    sounds: string[];
+  }) => void;
 }

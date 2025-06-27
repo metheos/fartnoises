@@ -32,12 +32,14 @@ export default function MainScreen() {
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [joinError, setJoinError] = useState('');
   const [soundEffects, setSoundEffects] = useState<SoundEffect[]>([]);
+  const [isAudioReady, setIsAudioReady] = useState(false);
   const [roundWinner, setRoundWinner] = useState<{
     winnerId: string;
     winnerName: string;
     winningSubmission: any;
     submissionIndex: number;
   } | null>(null);
+  const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
   
   // Helper function to update URL with room code
   const updateURLWithRoom = (roomCode: string | null) => {
@@ -366,9 +368,86 @@ export default function MainScreen() {
       console.log('Main screen disconnected from server');
     });
 
+    // Handler for judging phase playback - plays submissions when judge requests
+    socket.on('playJudgingSubmission', async (submission: any, submissionIndex: number) => {
+      console.log('🎵 Main screen received playJudgingSubmission event:', submission, 'index:', submissionIndex);
+      console.log('🎵 Available sound effects count:', soundEffects.length);
+      console.log('🎵 Audio ready:', isAudioReady);
+      
+      // Set the current playing submission for animation
+      setCurrentPlayingSubmission(submission);
+      
+      // If audio is not ready, try to activate it first
+      if (!isAudioReady) {
+        console.log('🎵 Audio not ready, attempting to activate...');
+        try {
+          await audioSystem.initialize();
+          setIsAudioReady(true);
+        } catch (error) {
+          console.error('🎵 Failed to activate audio, user interaction required');
+          setCurrentPlayingSubmission(null); // Clear animation state on error
+          return;
+        }
+      }
+      
+      try {
+        // Play the two sounds for this submission sequentially using audioSystem
+        const sounds = submission.sounds;
+        console.log('🎵 Playing judging submission sounds:', sounds);
+        
+        for (let i = 0; i < sounds.length; i++) {
+          console.log(`🎵 Playing judging submission sound ${i + 1} of ${sounds.length}: ${sounds[i]}`);
+          
+          const sound = soundEffects.find((s: any) => s.id === sounds[i]);
+          if (sound) {
+            console.log(`🎵 Found sound effect: ${sound.name} (${sound.fileName})`);
+            
+            // Load and play using audioSystem instead of new Audio()
+            try {
+              await audioSystem.loadSound(sound.id, sound.fileName);
+              await audioSystem.playSound(sound.id);
+              console.log(`🎵 Judging submission sound ${i + 1} finished playing`);
+            } catch (audioError) {
+              console.error(`🎵 AudioSystem failed for ${sound.name}, falling back to HTML Audio:`, audioError);
+              
+              // Fallback to HTML Audio if audioSystem fails
+              const soundUrl = `/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`;
+              const audio = new Audio(soundUrl);
+              audio.volume = 0.7;
+              
+              await new Promise<void>((resolve, reject) => {
+                audio.onended = () => {
+                  console.log(`🎵 Judging submission sound ${i + 1} finished playing (fallback)`);
+                  resolve();
+                };
+                audio.onerror = () => {
+                  console.error(`🎵 Fallback audio also failed for: ${sound.name}`);
+                  reject(new Error(`Failed to play sound: ${sound.name}`));
+                };
+                audio.play().catch(reject);
+              });
+            }
+            
+            // Small pause between sounds within the same submission
+            if (i < sounds.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 300));
+            }
+          } else {
+            console.warn(`🎵 Sound effect not found for ID: ${sounds[i]}`);
+          }
+        }
+        console.log('🎵 Judging submission playback complete');
+      } catch (error) {
+        console.error('🎵 Error playing judging submission sounds:', error);
+      } finally {
+        // Clear the current playing submission after playback is complete
+        setCurrentPlayingSubmission(null);
+      }
+    });
+
     return () => {
       socket.disconnect();
-    };  }, []); // Empty dependency array - only run once on mount
+    };  }, [soundEffects, isAudioReady, setCurrentPlayingSubmission]); // Include soundEffects, isAudioReady, and setCurrentPlayingSubmission so judging playback handler has access to them
   
   const joinRoom = () => {
     if (roomCodeInput.length === 4) {
@@ -379,6 +458,17 @@ export default function MainScreen() {
       }
     } else {
       setJoinError('Room code must be 4 letters');
+    }
+  };
+
+  const activateAudio = async () => {
+    try {
+      console.log('🔊 Activating audio system...');
+      await audioSystem.initialize();
+      setIsAudioReady(true);
+      console.log('✅ Audio system activated successfully');
+    } catch (error) {
+      console.error('❌ Failed to activate audio system:', error);
     }
   };
   
@@ -428,7 +518,14 @@ export default function MainScreen() {
         ) : null} */}
 
         {currentRoom ? (
-          <MainScreenGameDisplay room={currentRoom} roundWinner={roundWinner} soundEffects={soundEffects} />
+          <MainScreenGameDisplay 
+            room={currentRoom} 
+            roundWinner={roundWinner} 
+            soundEffects={soundEffects}
+            isAudioReady={isAudioReady}
+            onActivateAudio={activateAudio}
+            currentPlayingSubmission={currentPlayingSubmission}
+          />
         ) : (          <WaitingForGameScreen 
             onJoinRoom={joinRoom}
             roomCodeInput={roomCodeInput}
@@ -654,7 +751,10 @@ export function WaitingForGameScreen({
 export function MainScreenGameDisplay({ 
   room, 
   roundWinner,
-  soundEffects 
+  soundEffects,
+  isAudioReady,
+  onActivateAudio,
+  currentPlayingSubmission
 }: { 
   room: Room; 
   roundWinner: {
@@ -664,9 +764,31 @@ export function MainScreenGameDisplay({
     submissionIndex: number;
   } | null;
   soundEffects: SoundEffect[];
+  isAudioReady: boolean;
+  onActivateAudio: () => Promise<void>;
+  currentPlayingSubmission: SoundSubmission | null;
 }) {
   return (
     <div className="space-y-8">
+      {/* Audio Activation Banner */}
+      {!isAudioReady && (
+        <div className="bg-yellow-100 border-2 border-yellow-400 rounded-3xl p-6 text-center">
+          <div className="flex items-center justify-center space-x-4">
+            <div className="text-3xl">🔊</div>
+            <div>
+              <h3 className="text-xl font-bold text-yellow-800 mb-2">Enable Audio</h3>
+              <p className="text-yellow-700 mb-4">Click to enable sound for the main screen</p>
+              <button
+                onClick={onActivateAudio}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-xl transition-colors"
+              >
+                🎵 Enable Audio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Game Header */}
       <div className="bg-white rounded-3xl p-8 shadow-2xl">
         <div className="flex justify-between items-center">
@@ -729,7 +851,7 @@ export function MainScreenGameDisplay({
       )}
 
       {room.gameState === GameState.JUDGING && (
-        <JudgingDisplay room={room} soundEffects={soundEffects} />
+        <JudgingDisplay room={room} soundEffects={soundEffects} currentPlayingSubmission={currentPlayingSubmission} />
       )}
       
       {room.gameState === GameState.ROUND_RESULTS && (
@@ -1212,11 +1334,14 @@ export function PlaybackSubmissionsDisplay({
     };
 
     socket.on('playSubmission', handlePlaySubmission);
+    
+    // Debug: Log when this effect runs
+    console.log('🔧 Main screen: Setting up playback event handlers. Sound effects loaded:', soundEffects.length);
 
     return () => {
       socket.off('playSubmission', handlePlaySubmission);
     };
-  }, [socket, room.code]);
+  }, [socket, room.code, soundEffects]);
   // This effect handles cleanup on unmount
   useEffect(() => {
     return () => {
@@ -1366,7 +1491,7 @@ export function PlaybackSubmissionsDisplay({
   );
 }
 
-export function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffects: SoundEffect[] }) {
+export function JudgingDisplay({ room, soundEffects, currentPlayingSubmission }: { room: Room; soundEffects: SoundEffect[]; currentPlayingSubmission: SoundSubmission | null }) {
   const judge = room.players.find(p => p.id === room.currentJudge);
   
   return (
@@ -1440,50 +1565,65 @@ export function JudgingDisplay({ room, soundEffects }: { room: Room; soundEffect
       )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {(room.randomizedSubmissions || room.submissions).map((submission, index) => (
-          <div 
-            key={index} 
-            className="relative rounded-3xl p-6 transition-all duration-500 bg-gray-100 hover:bg-gray-50 border-2 border-gray-200"
-          >
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-xl font-bold text-gray-800">
-                  Submission {index + 1}
-                </h4>
-                
-                {/* Status Indicator - waiting for judge decision */}
-                <div className="w-4 h-4 rounded-full bg-purple-400 animate-pulse"></div>
-              </div>
-
-              <div className="space-y-3">
-                {submission.sounds.map((soundId, soundIndex) => {
-                  const sound = soundEffects.find(s => s.id === soundId);
+        {(room.randomizedSubmissions || room.submissions).map((submission, index) => {
+          const isCurrentlyPlaying = currentPlayingSubmission?.playerId === submission.playerId;
+          
+          return (
+            <div 
+              key={index} 
+              className={`relative rounded-3xl p-6 transition-all duration-500 border-2 ${
+                isCurrentlyPlaying 
+                  ? 'bg-green-100 scale-105 ring-4 ring-green-400 border-green-300' 
+                  : 'bg-gray-100 hover:bg-gray-50 border-gray-200'
+              }`}
+            >
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-xl font-bold text-gray-800">
+                    Submission {index + 1}
+                  </h4>
                   
-                  return (
-                    <div 
-                      key={soundIndex} 
-                      className="px-4 py-3 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg">🎵</span>
-                        <span className="font-semibold">{sound?.name || soundId}</span>
-                      </div>
+                  {/* Status Indicator - either playing or waiting for judge decision */}
+                  {isCurrentlyPlaying ? (
+                    <div className="flex items-center space-x-2 text-green-600 font-semibold">
+                      <span className="animate-pulse">▶️</span>
+                      <span>Playing</span>
                     </div>
-                  );
-                })}
-              </div>
+                  ) : (
+                    <div className="w-4 h-4 rounded-full bg-purple-400 animate-pulse"></div>
+                  )}
+                </div>
 
-              {/* Judge consideration indicator */}
-              <div className="mt-4 text-center">
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
-                  <span className="text-purple-600 font-medium text-sm">UNDER REVIEW</span>
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                <div className="space-y-3">
+                  {submission.sounds.map((soundId, soundIndex) => {
+                    const sound = soundEffects.find(s => s.id === soundId);
+                    
+                    return (
+                      <div 
+                        key={soundIndex} 
+                        className="px-4 py-3 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="text-lg">🎵</span>
+                          <span className="font-semibold">{sound?.name || soundId}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Judge consideration indicator */}
+                <div className="mt-4 text-center">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                    <span className="text-purple-600 font-medium text-sm">UNDER REVIEW</span>
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

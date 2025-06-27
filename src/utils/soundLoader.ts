@@ -181,16 +181,16 @@ export function cleanSoundName(name: string): string {
         )
         .toLowerCase();
 
-      // Debug logging for specific problematic words
-      if (word.includes('"') || startsWithQuote) {
-        console.log(`🔍 DEBUG: word="${word}", index=${index}`);
-        console.log(`   - startsAfterQuote: ${startsAfterQuote}`);
-        console.log(`   - startsWithQuote: ${startsWithQuote}`);
-        console.log(`   - isEnclosedInQuotes: ${isEnclosedInQuotes}`);
-        console.log(`   - wordWithoutQuotes: "${wordWithoutQuotes}"`);
-        console.log(`   - is in articles: ${articles.has(wordWithoutQuotes)}`);
-        console.log(`   - first char code: ${word.charCodeAt(0)}`);
-      }
+      // // Debug logging for specific problematic words
+      // if (word.includes('"') || startsWithQuote) {
+      //   console.log(`🔍 DEBUG: word="${word}", index=${index}`);
+      //   console.log(`   - startsAfterQuote: ${startsAfterQuote}`);
+      //   console.log(`   - startsWithQuote: ${startsWithQuote}`);
+      //   console.log(`   - isEnclosedInQuotes: ${isEnclosedInQuotes}`);
+      //   console.log(`   - wordWithoutQuotes: "${wordWithoutQuotes}"`);
+      //   console.log(`   - is in articles: ${articles.has(wordWithoutQuotes)}`);
+      //   console.log(`   - first char code: ${word.charCodeAt(0)}`);
+      // }
 
       // Capitalization rules:
       // 1. Always capitalize first word of entire string
@@ -205,20 +205,20 @@ export function cleanSoundName(name: string): string {
         isEnclosedInQuotes || // Entirely enclosed in quotes ("hi")
         !articles.has(wordWithoutQuotes); // Not an article
 
-      if (
-        word.toLowerCase().includes("bye") ||
-        word.includes('"') ||
-        startsWithQuote
-      ) {
-        console.log(`   - shouldCapitalize: ${shouldCapitalize}`);
-        console.log(
-          `   - final result: "${
-            shouldCapitalize
-              ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-              : word.toLowerCase()
-          }"`
-        );
-      }
+      // if (
+      //   word.toLowerCase().includes("bye") ||
+      //   word.includes('"') ||
+      //   startsWithQuote
+      // ) {
+      //   console.log(`   - shouldCapitalize: ${shouldCapitalize}`);
+      //   console.log(
+      //     `   - final result: "${
+      //       shouldCapitalize
+      //         ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      //         : word.toLowerCase()
+      //     }"`
+      //   );
+      // }
 
       if (shouldCapitalize) {
         // Find the first alphabetic character to capitalize, preserving any leading quotes
