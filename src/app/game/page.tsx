@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react'; // Added useMemo
+import { flushSync } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { Player, PlayerData, Room, GameState, SoundEffect, GamePrompt } from '@/types/game';
@@ -1523,18 +1524,18 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
           </div>
 
           {/* Selected sounds display */}
-          <div className="bg-gradient-to-br from-purple-50 via-white to-pink-50 rounded-2xl p-6 max-w-2xl mx-auto border border-purple-100 shadow-lg">
+          <div className="bg-gradient-to-br from-purple-300 to-pink-300 rounded-2xl p-3 max-w-2xl mx-auto border border-purple-100 shadow-lg">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+              {/* <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-lg">🎵</span>
-              </div>
+              </div> */}
               <h3 className="text-xl font-bold text-gray-800">Your Sounds</h3>
             </div>
             
-            <div className="flex flex-row items-center justify-center gap-4">
+            <div className="flex flex-row items-center justify-center gap-6">
               {/* Sound 1 Slot */}
-              <div className="relative">
-                <div className={`w-38 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
+              <div className="relative flex-1 max-w-xs">
+                <div className={`w-full h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
                   selectedSoundsLocal.length > 0 
                     ? 'border-purple-400 bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg transform scale-105' 
                     : 'border-purple-300 bg-purple-50 hover:border-purple-400 hover:bg-purple-100'
@@ -1581,8 +1582,8 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
               </div>
 
               {/* Sound 2 Slot */}
-              <div className="relative">
-                <div className={`w-38 h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
+              <div className="relative flex-1 max-w-xs">
+                <div className={`w-full h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
                   selectedSoundsLocal.length > 1 
                     ? 'border-purple-400 bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg transform scale-105' 
                     : 'border-purple-300 bg-purple-50 hover:border-purple-400 hover:bg-purple-100'
@@ -1690,59 +1691,76 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
   const playSubmissionSounds = async (sounds: string[], submissionIndex: number) => {
     const buttonId = `submission-${submissionIndex}`;
     
+    console.log(`[PLAYBACK] Starting playSubmissionSounds for ${buttonId}`);
+    console.log(`[PLAYBACK] Current playingButtons before check:`, Array.from(playingButtons));
+    
     // If this button is already playing, ignore the click
     if (playingButtons.has(buttonId)) {
-      console.log(`Submission ${submissionIndex} is already playing, ignoring click`);
+      console.log(`[PLAYBACK] ${buttonId} is already playing, ignoring`);
       return;
     }
 
-    if (sounds.length === 0) return;
+    if (sounds.length === 0) {
+      console.log(`[PLAYBACK] No sounds provided for ${buttonId}`);
+      return;
+    }
+    
+    console.log(`[PLAYBACK] Setting ${buttonId} to playing state`);
+    // Mark button as playing IMMEDIATELY and force synchronous render
+    flushSync(() => {
+      setPlayingButtons(prev => {
+        const newSet = new Set(prev).add(buttonId);
+        console.log(`[PLAYBACK] Updated playingButtons:`, Array.from(newSet));
+        return newSet;
+      });
+    });
+    
+    console.log(`[PLAYBACK] After flushSync, should be playing now`);
     
     try {
-      // Mark button as playing
-      setPlayingButtons(prev => new Set(prev).add(buttonId));
-
       // Check if we have a socket connection and should try main screen playback
       if (socket && socket.connected) {
         console.log(`[JUDGING] Attempting to play submission ${submissionIndex} on main screen via socket`);
         
-        // Emit event to server to request main screen playback
-        socket.emit('requestJudgingPlayback', {
-          submissionIndex,
-          sounds
-        });
-        
-        // Note: We don't await here because the server will handle the routing
-        // If main screens are available, they'll play the audio
-        // If not, the server should send back a fallback event for local playback
-        
-        // For now, we'll still have a timeout to fall back to local playback
-        // if we don't get a response from the server within a reasonable time
-        const fallbackTimeout = setTimeout(async () => {
-          console.log(`[JUDGING] No main screen response for submission ${submissionIndex}, falling back to local playback`);
-          await performLocalPlayback();
-        }, 1000); // 1 second timeout
-        
-        // Listen for server response (we'll implement this listener separately)
-        const handleMainScreenResponse = (response: { success: boolean; submissionIndex: number }) => {
-          if (response.submissionIndex === submissionIndex) {
-            clearTimeout(fallbackTimeout);
-            socket.off('judgingPlaybackResponse', handleMainScreenResponse);
-            if (!response.success) {
-              console.log(`[JUDGING] Main screen playback failed for submission ${submissionIndex}, falling back to local`);
-              performLocalPlayback();
-            } else {
-              console.log(`[JUDGING] Main screen playback successful for submission ${submissionIndex}`);
+        // Create a promise that resolves when playback is complete
+        await new Promise<void>((resolve) => {
+          // Emit event to server to request main screen playback
+          socket.emit('requestJudgingPlayback', {
+            submissionIndex,
+            sounds
+          });
+          
+          // Set up fallback timeout for local playback
+          const fallbackTimeout = setTimeout(async () => {
+            console.log(`[JUDGING] No main screen response for submission ${submissionIndex}, falling back to local playback`);
+            await performLocalPlayback();
+            resolve(); // Resolve the promise when local playback is done
+          }, 1000); // 1 second timeout
+          
+          // Listen for server response
+          const handleMainScreenResponse = (response: { success: boolean; submissionIndex: number }) => {
+            if (response.submissionIndex === submissionIndex) {
+              clearTimeout(fallbackTimeout);
+              socket.off('judgingPlaybackResponse', handleMainScreenResponse);
+              if (!response.success) {
+                console.log(`[JUDGING] Main screen playback failed for submission ${submissionIndex}, falling back to local`);
+                performLocalPlayback().then(() => resolve()); // Resolve when local playback is done
+              } else {
+                console.log(`[JUDGING] Main screen playback successful for submission ${submissionIndex}, waiting for audio duration...`);
+                // For main screen playback, we need to wait for the estimated audio duration
+                // Calculate approximate duration and wait for it
+                waitForMainScreenPlayback().then(() => resolve());
+              }
             }
-          }
-        };
-        
-        socket.on('judgingPlaybackResponse', handleMainScreenResponse);
-        
-        // Clean up the listener after a timeout regardless
-        setTimeout(() => {
-          socket.off('judgingPlaybackResponse', handleMainScreenResponse);
-        }, 5000);
+          };
+          
+          socket.on('judgingPlaybackResponse', handleMainScreenResponse);
+          
+          // Clean up the listener after a timeout regardless
+          setTimeout(() => {
+            socket.off('judgingPlaybackResponse', handleMainScreenResponse);
+          }, 5000);
+        });
         
       } else {
         // No socket connection, play locally
@@ -1752,6 +1770,7 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
       
       // Local playback function
       async function performLocalPlayback() {
+        console.log(`[PLAYBACK] Starting local playback for ${buttonId}`);
         // Filter out any invalid sounds and get filenames
         const validSounds = sounds
           .map(soundId => soundEffects.find(s => s.id === soundId))
@@ -1762,16 +1781,39 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
           // Use the proper sequence method that waits for each sound to finish
           await audioSystem.playSoundSequence(sounds, 200); // 200ms delay between sounds
         }
+        console.log(`[PLAYBACK] Finished local playback for ${buttonId}`);
+      }
+      
+      // Main screen playback duration wait function
+      async function waitForMainScreenPlayback() {
+        console.log(`[PLAYBACK] Waiting for main screen playback duration for ${buttonId}`);
+        
+        // Calculate estimated playback duration
+        // Each sound is roughly 1-3 seconds, plus 200ms delays between sounds
+        const estimatedDurationPerSound = 2000; // 2 seconds average per sound
+        const delayBetweenSounds = 200; // 200ms delay as used in local playback
+        const totalEstimatedDuration = (sounds.length * estimatedDurationPerSound) + ((sounds.length - 1) * delayBetweenSounds);
+        
+        console.log(`[PLAYBACK] Estimated duration for ${sounds.length} sounds: ${totalEstimatedDuration}ms`);
+        
+        // Wait for the estimated duration
+        await new Promise(resolve => setTimeout(resolve, totalEstimatedDuration));
+        
+        console.log(`[PLAYBACK] Finished waiting for main screen playback duration for ${buttonId}`);
       }
       
     } catch (error) {
       console.error(`Error playing submission sounds:`, error);
     } finally {
-      // Clean up - remove from playing set
-      setPlayingButtons(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(buttonId);
-        return newSet;
+      console.log(`[PLAYBACK] Cleaning up ${buttonId} from playing state`);
+      // Clean up - remove from playing set with immediate render
+      flushSync(() => {
+        setPlayingButtons(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(buttonId);
+          console.log(`[PLAYBACK] Final playingButtons:`, Array.from(newSet));
+          return newSet;
+        });
       });
     }
   };
@@ -1864,30 +1906,21 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
               {/* Action Buttons */}
               <div className="space-y-2">
                 <button 
-                  onClick={async () => {
+                  onClick={() => {
                     const buttonId = `submission-${index}`;
                     
-                    // If this button is already playing, ignore the click
+                    console.log(`[BUTTON] Button clicked for ${buttonId}`);
+                    console.log(`[BUTTON] Current playingButtons state:`, Array.from(playingButtons));
+                    
+                    // Immediate state check and early return to prevent race conditions
                     if (playingButtons.has(buttonId)) {
+                      console.log(`[BUTTON] ${buttonId} is already playing, ignoring click`);
                       return;
                     }
-
-                    try {
-                      // Mark button as playing in local state
-                      setPlayingButtons(prev => new Set(prev).add(buttonId));
-                      
-                      // Call the parent's function to play the sounds
-                      await playSoundCombinationWithFeedback(submission.sounds, buttonId);
-                    } catch (error) {
-                      console.error(`Error playing submission sounds:`, error);
-                    } finally {
-                      // Clean up - remove from playing set
-                      setPlayingButtons(prev => {
-                        const newSet = new Set(prev);
-                        newSet.delete(buttonId);
-                        return newSet;
-                      });
-                    }
+                    
+                    console.log(`[BUTTON] Calling playSubmissionSounds for ${buttonId}`);
+                    // Call the function that handles main screen logic
+                    playSubmissionSounds(submission.sounds, index);
                   }}
                   disabled={playingButtons.has(`submission-${index}`)}
                   className={`w-full px-4 py-3 rounded-xl font-semibold transition-colors ${
