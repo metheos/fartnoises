@@ -187,13 +187,26 @@ function selectNextJudge(room: Room): string {
 async function getRandomPrompts(
   count: number = 6,
   excludePromptIds: string[] = [],
-  playerNames: string[] = []
+  playerNames: string[] = [],
+  allowExplicitContent: boolean = false
 ) {
-  return await getRandomPromptsFromLoader(count, excludePromptIds, playerNames);
+  return await getRandomPromptsFromLoader(
+    count,
+    excludePromptIds,
+    playerNames,
+    allowExplicitContent
+  );
 }
 
-async function getRandomSounds(count: number = 10) {
-  return await getRandomSoundsFromLoader(count);
+async function getRandomSounds(
+  count: number = 10,
+  allowExplicitContent: boolean = false
+) {
+  return await getRandomSoundsFromLoader(
+    count,
+    undefined,
+    allowExplicitContent
+  );
 }
 
 // Timer utility functions
@@ -655,7 +668,8 @@ function resumeGame(
           const prompts = await getRandomPrompts(
             6,
             currentRoom.usedPromptIds || [],
-            currentRoom.players.map((p) => p.name)
+            currentRoom.players.map((p) => p.name),
+            currentRoom.allowExplicitContent
           );
           console.log(
             "Generated prompts:",
@@ -732,11 +746,15 @@ async function generatePlayerSoundSets(room: Room): Promise<void> {
   );
 
   for (const player of nonJudgePlayers) {
-    // Generate 10 random sounds for each player
-    const playerSounds = await getRandomSoundsFromLoader(10);
+    // Generate 10 random sounds for each player, respecting explicit content setting
+    const playerSounds = await getRandomSoundsFromLoader(
+      10,
+      undefined,
+      room.allowExplicitContent
+    );
     player.soundSet = playerSounds.map((sound) => sound.id);
     console.log(
-      `🎯 SERVER: Generated ${player.soundSet.length} sounds for player ${player.name}`
+      `🎯 SERVER: Generated ${player.soundSet.length} sounds for player ${player.name} (explicit: ${room.allowExplicitContent})`
     );
   }
 }
@@ -950,6 +968,7 @@ export default function SocketHandler(
             currentRound: 0,
             maxRounds: GAME_CONFIG.DEFAULT_MAX_ROUNDS,
             maxScore: GAME_CONFIG.MAX_SCORE, // Add configurable max score
+            allowExplicitContent: GAME_CONFIG.DEFAULT_ALLOW_EXPLICIT_CONTENT, // Default to family-friendly mode
             submissions: [],
             winner: null,
             usedPromptIds: [], // Track prompts used during this game session
@@ -1045,17 +1064,19 @@ export default function SocketHandler(
           }
 
           // Validate settings
-          const { maxRounds, maxScore } = settings;
+          const { maxRounds, maxScore, allowExplicitContent } = settings;
           if (
             !Number.isInteger(maxRounds) ||
             maxRounds < 1 ||
             maxRounds > 20 ||
             !Number.isInteger(maxScore) ||
             maxScore < 1 ||
-            maxScore > 10
+            maxScore > 10 ||
+            typeof allowExplicitContent !== "boolean"
           ) {
             socket.emit("error", {
-              message: "Invalid game settings. Rounds: 1-20, Score: 1-10",
+              message:
+                "Invalid game settings. Rounds: 1-20, Score: 1-10, Explicit: true/false",
             });
             return;
           }
@@ -1063,13 +1084,18 @@ export default function SocketHandler(
           // Update room settings
           room.maxRounds = maxRounds;
           room.maxScore = maxScore;
+          room.allowExplicitContent = allowExplicitContent;
 
           console.log(
-            `VIP ${player.name} updated game settings for room ${roomCode}: maxRounds=${maxRounds}, maxScore=${maxScore}`
+            `VIP ${player.name} updated game settings for room ${roomCode}: maxRounds=${maxRounds}, maxScore=${maxScore}, allowExplicitContent=${allowExplicitContent}`
           );
 
           // Notify all players in the room
-          io.to(roomCode).emit("gameSettingsUpdated", { maxRounds, maxScore });
+          io.to(roomCode).emit("gameSettingsUpdated", {
+            maxRounds,
+            maxScore,
+            allowExplicitContent,
+          });
           io.to(roomCode).emit("roomUpdated", room);
         } catch (error) {
           console.error("Error updating game settings:", error);
@@ -1116,7 +1142,8 @@ export default function SocketHandler(
               const prompts = await getRandomPrompts(
                 6,
                 room.usedPromptIds || [],
-                room.players.map((p) => p.name)
+                room.players.map((p) => p.name),
+                room.allowExplicitContent
               );
               console.log(
                 "Generated prompts:",
@@ -1639,7 +1666,8 @@ export default function SocketHandler(
                   const prompts = await getRandomPrompts(
                     6,
                     room.usedPromptIds || [],
-                    room.players.map((p) => p.name)
+                    room.players.map((p) => p.name),
+                    room.allowExplicitContent
                   );
                   console.log(
                     "Generated prompts:",
@@ -1679,7 +1707,10 @@ export default function SocketHandler(
                         room.submissionSeed = undefined; // Clear the seed
                         room.soundSelectionTimerStarted = false;
 
-                        const soundOptions = await getRandomSounds(10);
+                        const soundOptions = await getRandomSounds(
+                          10,
+                          room.allowExplicitContent
+                        );
 
                         io.to(roomCode).emit("roomUpdated", room);
                         io.to(roomCode).emit("promptSelected", firstPrompt);
@@ -1949,7 +1980,8 @@ export default function SocketHandler(
                 const prompts = await getRandomPrompts(
                   6,
                   room.usedPromptIds || [],
-                  room.players.map((p) => p.name)
+                  room.players.map((p) => p.name),
+                  room.allowExplicitContent
                 );
                 console.log(
                   "Generated prompts:",
@@ -1989,7 +2021,10 @@ export default function SocketHandler(
                       room.submissionSeed = undefined; // Clear the seed
                       room.soundSelectionTimerStarted = false;
 
-                      const soundOptions = await getRandomSounds(10);
+                      const soundOptions = await getRandomSounds(
+                        10,
+                        room.allowExplicitContent
+                      );
 
                       io.to(roomCode).emit("roomUpdated", room);
                       io.to(roomCode).emit("promptSelected", firstPrompt);

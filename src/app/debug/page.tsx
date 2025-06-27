@@ -146,6 +146,7 @@ export default function DebugPage() {
     promptChoices: mockAvailablePrompts,
     lastWinner: null,
     lastWinningSubmission: null,
+    allowExplicitContent: false
   };
 
   // Update submissions to use real sound IDs when available

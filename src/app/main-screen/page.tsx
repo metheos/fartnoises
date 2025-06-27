@@ -899,6 +899,22 @@ export function LobbyDisplay({ room }: { room: Room }) {
           </div>
         </div>
       </div>
+      
+      {/* Content Rating Display */}
+      <div className="flex justify-center mb-6">
+        <div className="flex flex-col items-center">
+          <div className="text-sm font-bold text-gray-600 mb-1">Content Rating</div>
+          <div className={`rounded-lg px-3 py-1 border-2 ${
+            room.allowExplicitContent 
+              ? 'bg-red-100 border-red-300 text-red-700' 
+              : 'bg-green-100 border-green-300 text-green-700'
+          }`}>
+            <span className="text-sm font-bold">
+              {room.allowExplicitContent ? '🔞 Adult Content' : '👨‍👩‍👧‍👦 Family Friendly'}
+            </span>
+          </div>
+        </div>
+      </div>
       <p className="text-xl text-purple-600 mb-6">
       {room.players.length < 3
         ? "Need at least 3 players to play!"

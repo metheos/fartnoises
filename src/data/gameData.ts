@@ -129,6 +129,7 @@ export const GAME_CONFIG = {
   MAX_PLAYERS: 8,
   DEFAULT_MAX_ROUNDS: 8,
   MAX_SCORE: 3, // Default score needed to win the game
+  DEFAULT_ALLOW_EXPLICIT_CONTENT: false, // Default explicit content setting
   // Game settings validation ranges for VIP configuration
   MIN_ROUNDS: 1,
   MAX_ROUNDS_LIMIT: 20,

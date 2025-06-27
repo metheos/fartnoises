@@ -660,12 +660,13 @@ function GamePageContent() {
     }
   };
 
-  const updateGameSetting = (setting: 'maxScore' | 'maxRounds', value: number) => {
+  const updateGameSetting = (setting: 'maxScore' | 'maxRounds' | 'allowExplicitContent', value: number | boolean) => {
     if (socketRef.current && room && player?.isVIP) {
       addDebugLog(`Updating ${setting} to ${value}`);
       const settings = {
-        maxScore: setting === 'maxScore' ? value : room.maxScore,
-        maxRounds: setting === 'maxRounds' ? value : room.maxRounds,
+        maxScore: setting === 'maxScore' ? value as number : room.maxScore,
+        maxRounds: setting === 'maxRounds' ? value as number : room.maxRounds,
+        allowExplicitContent: setting === 'allowExplicitContent' ? value as boolean : room.allowExplicitContent,
       };
       socketRef.current.emit('updateGameSettings', settings);
     }
@@ -917,7 +918,7 @@ export function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting 
   room: Room; 
   player: Player; 
   onStartGame: () => void;
-  onUpdateGameSetting: (setting: 'maxScore' | 'maxRounds', value: number) => void;
+  onUpdateGameSetting: (setting: 'maxScore' | 'maxRounds' | 'allowExplicitContent', value: number | boolean) => void;
 }) {
   // Basic Lobby UI
   return (
@@ -929,7 +930,7 @@ export function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting 
       {/* Game Settings Display for non-VIP players */}
       {!player.isVIP && (
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-4 mb-6 max-w-sm mx-auto">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-2">
             <div className="text-center">
               <p className="text-sm font-medium text-gray-600">Score to Win</p>
               <p className="text-2xl font-bold text-purple-600">{room.maxScore}</p>
@@ -939,13 +940,21 @@ export function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting 
               <p className="text-2xl font-bold text-purple-600">{room.maxRounds}</p>
             </div>
           </div>
+          <div className="border-t border-purple-200 pt-2">
+            <div className="text-center">
+              <p className="text-xs font-medium text-gray-600">Content Rating</p>
+              <p className={`text-sm font-bold ${room.allowExplicitContent ? 'text-red-600' : 'text-green-600'}`}>
+                {room.allowExplicitContent ? 'Adult Content' : 'Family Friendly'}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Game Settings Controls for VIP players */}
       {player.isVIP && (
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-4 mb-6 max-w-sm mx-auto border border-yellow-200">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-4">
             <div className="text-center">
               <p className="text-sm font-medium text-gray-600">Score to Win</p>
               <div className="flex items-center justify-center gap-2 mt-1">
@@ -986,6 +995,32 @@ export function LobbyComponent({ room, player, onStartGame, onUpdateGameSetting 
                 </button>
               </div>
             </div>
+          </div>
+          
+          {/* Explicit Content Toggle */}
+          <div className="border-t border-yellow-200 pt-4">
+            <div className="flex items-center justify-center gap-3">
+              <p className="text-sm font-medium text-gray-600">Allow Explicit Content</p>
+              <button
+                onClick={() => onUpdateGameSetting('allowExplicitContent', !room.allowExplicitContent)}
+                title={`Toggle explicit content ${room.allowExplicitContent ? 'off' : 'on'}`}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                  room.allowExplicitContent ? 'bg-purple-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    room.allowExplicitContent ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className={`text-xs font-medium ${room.allowExplicitContent ? 'text-purple-600' : 'text-gray-400'}`}>
+                {room.allowExplicitContent ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              {room.allowExplicitContent ? 'Adult content enabled' : 'Family-friendly mode'}
+            </p>
           </div>
         </div>
       )}

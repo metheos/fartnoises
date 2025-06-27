@@ -37,6 +37,7 @@ export interface Room {
   currentRound: number;
   maxRounds: number;
   maxScore: number; // Added configurable max score
+  allowExplicitContent: boolean; // Host setting for explicit content filtering
   currentJudge: string | null;
   currentPrompt: GamePrompt | null;
   promptChoices: GamePrompt[];
@@ -175,6 +176,7 @@ export interface ClientToServerEvents {
   updateGameSettings: (settings: {
     maxRounds: number;
     maxScore: number;
+    allowExplicitContent: boolean;
   }) => void; // Added for VIP to update game settings
   selectPrompt: (promptId: string) => void;
   submitSounds: (sounds: string[]) => void;

@@ -429,7 +429,9 @@ let soundCache: SoundEffect[] | null = null;
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-export async function loadEarwaxSounds(): Promise<SoundEffect[]> {
+export async function loadEarwaxSounds(
+  allowExplicitContent: boolean = false
+): Promise<SoundEffect[]> {
   // Check if we have a valid cache
   const now = Date.now();
   if (soundCache && now - cacheTimestamp < CACHE_DURATION) {
@@ -474,7 +476,7 @@ export async function loadEarwaxSounds(): Promise<SoundEffect[]> {
         if (sound.id === undefined || sound.name === undefined) return false;
         if (typeof sound.name !== "string" || sound.name.trim() === "")
           return false;
-        if (sound.x) return false; // Filter out explicit content
+        if (!allowExplicitContent && sound.x) return false; // Filter out explicit content based on setting
 
         // Check if ID is valid (either number > 0 or non-empty string)
         if (typeof sound.id === "number") {
@@ -541,18 +543,20 @@ export async function loadEarwaxSounds(): Promise<SoundEffect[]> {
 
 // Get sounds by category
 export async function getSoundsByCategory(
-  category: string
+  category: string,
+  allowExplicitContent: boolean = false
 ): Promise<SoundEffect[]> {
-  const allSounds = await loadEarwaxSounds();
+  const allSounds = await loadEarwaxSounds(allowExplicitContent);
   return allSounds.filter((sound) => sound.category === category);
 }
 
 // Get random sounds
 export async function getRandomSounds(
   count: number,
-  category?: string
+  category?: string,
+  allowExplicitContent: boolean = false
 ): Promise<SoundEffect[]> {
-  const allSounds = await loadEarwaxSounds();
+  const allSounds = await loadEarwaxSounds(allowExplicitContent);
   const sourceSounds = category
     ? allSounds.filter((sound) => sound.category === category)
     : allSounds;
@@ -582,8 +586,10 @@ export function clearSoundCache(): void {
 }
 
 // Get all available categories
-export async function getSoundCategories(): Promise<string[]> {
-  const allSounds = await loadEarwaxSounds();
+export async function getSoundCategories(
+  allowExplicitContent: boolean = false
+): Promise<string[]> {
+  const allSounds = await loadEarwaxSounds(allowExplicitContent);
   return [...new Set(allSounds.map((s) => s.category))].sort();
 }
 
@@ -595,7 +601,9 @@ export async function getSoundCategories(): Promise<string[]> {
 let promptCache: GamePrompt[] | null = null;
 let promptCacheTimestamp: number = 0;
 
-export async function loadEarwaxPrompts(): Promise<GamePrompt[]> {
+export async function loadEarwaxPrompts(
+  allowExplicitContent: boolean = false
+): Promise<GamePrompt[]> {
   // Check if we have a valid cache
   const now = Date.now();
   if (promptCache && now - promptCacheTimestamp < CACHE_DURATION) {
@@ -642,7 +650,7 @@ export async function loadEarwaxPrompts(): Promise<GamePrompt[]> {
       if (!prompt.id || !prompt.name || !prompt.PromptAudio) return false;
       if (typeof prompt.name !== "string" || prompt.name.trim() === "")
         return false;
-      if (prompt.x) return false; // Filter out explicit content
+      if (!allowExplicitContent && prompt.x) return false; // Filter out explicit content based on setting
       return true;
     });
 
@@ -682,9 +690,10 @@ export async function loadEarwaxPrompts(): Promise<GamePrompt[]> {
 export async function getRandomPrompts(
   count: number = 6,
   excludePromptIds: string[] = [],
-  playerNames: string[] = []
+  playerNames: string[] = [],
+  allowExplicitContent: boolean = false
 ): Promise<GamePrompt[]> {
-  const allPrompts = await loadEarwaxPrompts();
+  const allPrompts = await loadEarwaxPrompts(allowExplicitContent);
 
   // Filter out already used prompts
   const availablePrompts = allPrompts.filter(
