@@ -8,6 +8,7 @@ import { Player, PlayerData, Room, GameState, SoundEffect, GamePrompt } from '@/
 import { getSoundEffects } from '@/data/gameData';
 import { getRandomSounds } from '@/utils/soundLoader';
 import { audioSystem } from '@/utils/audioSystem';
+import { WaveformAnimation } from '@/components/WaveformAnimation';
 
 // Helper function to convert hex colors to Tailwind classes
 const getPlayerColorClass = (color: string): string => {
@@ -2241,18 +2242,11 @@ export function ResultsComponent({ room, player, roundWinner, soundEffects }: {
               </div>
 
               {/* Waveform Animation for Playing */}
-              {isPlayingWinner && (
-                <div className="mt-4 flex justify-center space-x-1">
-                  <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                  <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                  <div className="w-1 h-2 bg-white rounded-full animate-pulse"></div>
-                  <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                  <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                  <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                  <div className="w-1 h-2 bg-white rounded-full animate-pulse"></div>
-                  <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                </div>
-              )}
+              <WaveformAnimation 
+                isPlaying={isPlayingWinner}
+                color="bg-white"
+                size="sm"
+              />
 
               {/* Play Button/Status */}
               <div className="mt-4 text-center">

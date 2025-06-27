@@ -6,6 +6,7 @@ import { io, Socket } from 'socket.io-client';
 import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } from '@/types/game';
 import { getSoundEffects, GAME_CONFIG } from '@/data/gameData';
 import { audioSystem } from '@/utils/audioSystem';
+import { WaveformAnimation } from '@/components/WaveformAnimation';
 
 let socket: Socket;
 
@@ -1514,21 +1515,10 @@ export function PlaybackSubmissionsDisplay({
                 </div>
 
                 {/* Waveform Animation for Playing */}
-                {isCurrentlyPlaying ? (
-                  <div className="mt-6 flex justify-center space-x-1">
-                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                  </div>
-                ) : (
-                  <div className="mt-6 flex justify-center space-x-1"></div>
-
-                )}
+                <WaveformAnimation 
+                  isPlaying={isCurrentlyPlaying}
+                  color="bg-white"
+                />
                 
                 {/* Play Status */}
                 <div className="mt-6 text-center">
@@ -1685,21 +1675,10 @@ export function JudgingDisplay({ room, soundEffects, currentPlayingSubmission }:
                 </div>
 
                 {/* Waveform Animation for Playing */}
-                {isCurrentlyPlaying ? (
-                  <div className="mt-6 flex justify-center space-x-1">
-                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-4 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-6 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-3 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-1 h-5 bg-white rounded-full animate-pulse"></div>
-                  </div>
-                ) : (
-                  <div className="mt-6 flex justify-center space-x-1"></div>
-
-                )}
+                <WaveformAnimation 
+                  isPlaying={isCurrentlyPlaying}
+                  color="bg-white"
+                />
                 
                 {/* Play Status */}
                 <div className="mt-6 text-center">
