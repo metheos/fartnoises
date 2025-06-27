@@ -1463,7 +1463,7 @@ export function PlaybackSubmissionsDisplay({
                 </>
               )}
 
-              <div className="relative z-10">
+              <div className="relative z-10 flex flex-col h-full">
                 <div className="flex items-center justify-center mb-6">
                    <h5 className={`text-2xl font-bold text-gray-800 ${isCurrentlyPlaying ? 'text-white' : ''}`}>
                     🎵 Submission {index + 1} 🎵
@@ -1636,7 +1636,7 @@ export function JudgingDisplay({ room, soundEffects, currentPlayingSubmission }:
                 </>
               )}
 
-              <div className="relative z-10">
+              <div className="relative z-10 flex flex-col h-full">
                 <div className="flex items-center justify-center mb-6">
                    <h5 className={`text-2xl font-bold text-gray-800 ${isCurrentlyPlaying ? 'text-white' : ''}`}>
                     🎵 Submission {index + 1} 🎵
@@ -1669,20 +1669,6 @@ export function JudgingDisplay({ room, soundEffects, currentPlayingSubmission }:
                   isPlaying={isCurrentlyPlaying}
                   color="bg-white"
                 />
-                
-                {/* Play Status */}
-                <div className="mt-6 text-center">
-                  {isCurrentlyPlaying ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      {/* <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
-                      <span className="text-white font-bold text-lg">PLAYING NOW</span>
-                      <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div> */}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center space-x-2 text-yellow-800">
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           );
@@ -2008,7 +1994,7 @@ export function ResultsDisplay({
                   </>
                 )}
 
-                <div className="relative z-10">
+                <div className="relative z-10 flex flex-col h-full">
                   <div className="flex items-center justify-center mb-6">
                     <h5 className={`text-2xl font-bold ${
                       isPlayingWinner ? 'text-white' : 'text-yellow-800'
@@ -2043,22 +2029,6 @@ export function ResultsDisplay({
                     isPlaying={isPlayingWinner}
                     color="bg-white"
                   />
-                  
-                  {/* Play Status */}
-                  <div className="mt-6 text-center">
-                    {isPlayingWinner ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        {/* <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
-                        <span className="text-white font-bold text-lg">PLAYING NOW</span>
-                        <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div> */}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center space-x-2 text-yellow-800">
-                        {/* <span className="text-2xl">🎵</span>
-                        <span className="font-bold text-lg">Winner's Sounds</span> */}
-                      </div>
-                    )}
-                  </div>
                 </div>
                 </div>
               </div>

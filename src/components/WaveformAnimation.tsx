@@ -19,30 +19,30 @@ export function WaveformAnimation({
   color = 'bg-white', 
   className = '', 
   size = 'md',
-  barCount = 8
+  barCount = 24
 }: WaveformAnimationProps) {
   const animationRef = useRef<number | undefined>(undefined);
-  const [frequencyData, setFrequencyData] = useState<number[]>(new Array(barCount).fill(0));
+  const [frequencyData, setFrequencyData] = useState<number[]>(new Array(barCount).fill(0.1)); // Start with stub values
 
   // Different size configurations
   const sizeConfig = {
     sm: {
-      container: 'mt-4',
-      barWidth: 'w-1',
-      maxHeight: 16, // h-4 in pixels (roughly)
-      minHeight: 8   // h-2 in pixels (roughly)
+      container: 'h-10 py-2 ', // Removed mt-4 to avoid conflicts with mt-auto
+      barWidth: 'w-0.5', // Thinner bars for more density
+      maxHeight: 28, // Much taller maximum height
+      minHeight: 1   // Keep minimum low for contrast
     },
     md: {
-      container: 'mt-6',
-      barWidth: 'w-1',
-      maxHeight: 24, // h-6 in pixels (roughly)
-      minHeight: 16  // h-4 in pixels (roughly)
+      container: 'h-20 py-2 ', // Removed mt-6 to avoid conflicts with mt-auto
+      barWidth: 'w-2', // Thinner bars for more density
+      maxHeight: 56, // Much taller maximum height
+      minHeight: 2  // Keep minimum low for contrast
     },
     lg: {
-      container: 'mt-8',
-      barWidth: 'w-1.5',
-      maxHeight: 32, // h-8 in pixels (roughly)
-      minHeight: 20  // h-5 in pixels (roughly)
+      container: 'h-30 py-3 ', // Removed mt-8 to avoid conflicts with mt-auto
+      barWidth: 'w-3', // Slightly thicker for large variant
+      maxHeight: 72, // Much taller maximum height
+      minHeight: 3  // Keep minimum low for contrast
     }
   };
 
@@ -51,8 +51,12 @@ export function WaveformAnimation({
   // Real-time frequency analysis
   const updateFrequencyData = () => {
     if (!isPlaying || !audioSystem.isAnalysisReady() || !audioSystem.getAnalysisActive()) {
-      // Gradually fade out the bars when not playing
-      setFrequencyData(prev => prev.map(val => Math.max(0, val * 0.85)));
+      // Gradually fade out the bars when not playing, but keep minimum stub height
+      setFrequencyData(prev => prev.map(val => {
+        const fadedValue = Math.max(0, val * 0.85);
+        // Ensure we always have at least a small stub visible
+        return Math.max(0.1, fadedValue);
+      }));
       animationRef.current = requestAnimationFrame(updateFrequencyData);
       return;
     }
@@ -65,26 +69,81 @@ export function WaveformAnimation({
 
     // Process frequency data to create visual bars
     const newFrequencyData: number[] = [];
-    const segmentSize = Math.floor(rawFrequencyData.length / barCount);
+    const totalBins = rawFrequencyData.length; // 128 bins from FFT size 256
     
+    // Map to human hearing range: 20Hz to 20kHz
+    // With standard sample rate of 44.1kHz, Nyquist frequency is 22.05kHz
+    // Each bin represents: sampleRate / (fftSize) = 44100 / 256 = ~172.3 Hz per bin
+    const sampleRate = 44100; // Standard audio sample rate
+    const nyquistFreq = sampleRate / 2; // 22.05kHz
+    const freqPerBin = nyquistFreq / totalBins; // ~172.3 Hz per bin
+    
+    // Human hearing: 20Hz to 20kHz, but focus more on musical range
+    const minFreq = 60; // Start at 60Hz (more musical content)
+    const maxFreq = 16000; // End at 16kHz (covers most audio content)
+    
+    // Use logarithmic distribution across musical range
     for (let i = 0; i < barCount; i++) {
-      const start = i * segmentSize;
-      const end = start + segmentSize;
+      // More aggressive logarithmic mapping for better separation
+      const logMin = Math.log(minFreq);
+      const logMax = Math.log(maxFreq);
+      const logStep = (logMax - logMin) / barCount;
       
-      // Average the frequency data for this segment
-      let sum = 0;
+      const startFreq = Math.exp(logMin + i * logStep);
+      const endFreq = Math.exp(logMin + (i + 1) * logStep);
+      
+      // Convert frequencies to bin indices
+      const startBin = Math.floor(startFreq / freqPerBin);
+      const endBin = Math.floor(endFreq / freqPerBin);
+      
+      // Ensure we stay within bounds and have at least 1 bin per bar
+      const start = Math.max(0, Math.min(startBin, totalBins - 1));
+      const end = Math.max(start + 1, Math.min(endBin, totalBins - 1));
+      
+      // Get the maximum value in this frequency range instead of average
+      // This makes peaks more prominent and creates more variation
+      let maxValue = 0;
       for (let j = start; j < end; j++) {
-        sum += rawFrequencyData[j];
+        maxValue = Math.max(maxValue, rawFrequencyData[j]);
       }
       
-      const average = sum / segmentSize;
-      // Normalize to 0-1 range and apply some smoothing
-      const normalized = Math.min(1, average / 255);
+      // Normalize to 0-1 range
+      const normalized = Math.min(1, maxValue / 255);
       
-      // Apply logarithmic scaling for better visual representation
-      const scaled = Math.pow(normalized, 0.5);
+      // Apply frequency-dependent scaling for more realistic response
+      const freqCenter = (startFreq + endFreq) / 2;
+      let scaled = normalized;
       
-      newFrequencyData.push(scaled);
+      // Correct frequency-dependent scaling for human hearing
+      // Sub-bass and bass (60Hz - 200Hz) - drums, bass instruments
+      if (freqCenter < 200) {
+        scaled = Math.pow(normalized, 0.8) * 0.8; // Much less sensitive bass response
+      }
+      // Low-mids (200Hz - 500Hz) - male vocal fundamentals, lower instruments  
+      else if (freqCenter >= 200 && freqCenter <= 500) {
+        scaled = Math.pow(normalized, 0.65) * 0.95; // Reduced sensitivity for low-mids
+      }
+      // Mid-range (500Hz - 2kHz) - vocal formants, most musical content
+      else if (freqCenter > 500 && freqCenter <= 2000) {
+        scaled = Math.pow(normalized, 0.4) * 1.15; // Boost the important vocal range
+      }
+      // Upper-mids/presence (2kHz - 5kHz) - vocal clarity, attack transients
+      else if (freqCenter > 2000 && freqCenter <= 5000) {
+        scaled = Math.pow(normalized, 0.45) * 1.2; // Strong boost for presence
+      }
+      // Treble (5kHz+) - air, shimmer, sibilants
+      else {
+        scaled = Math.pow(normalized, 0.55) * 1.1; // Moderate treble enhancement
+      }
+      
+      // Gentle dynamic range compression for low values only
+      if (scaled < 0.15) {
+        scaled = scaled * 1.6; // Modest boost for very low values
+      } else if (scaled < 0.3) {
+        scaled = scaled * 1.3; // Small boost for low-mid values
+      }
+      
+      newFrequencyData.push(Math.min(1, scaled)); // Cap at 1.0 to prevent clipping
     }
     
     setFrequencyData(newFrequencyData);
@@ -99,15 +158,15 @@ export function WaveformAnimation({
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      // Keep a gentle fade-out animation even when stopped
+      // Keep a gentle fade-out animation even when stopped, but maintain stubs
       const fadeInterval = setInterval(() => {
         setFrequencyData(prev => {
-          const newData = prev.map(val => Math.max(0, val * 0.9));
-          const hasValues = newData.some(val => val > 0.01);
-          if (!hasValues) {
-            clearInterval(fadeInterval);
-            return new Array(barCount).fill(0);
-          }
+          const newData = prev.map(val => {
+            const fadedValue = Math.max(0, val * 0.9);
+            // Always maintain at least 0.1 intensity for visible stubs
+            return Math.max(0.1, fadedValue);
+          });
+          // Since we always have stub values, we don't need to clear the interval
           return newData;
         });
       }, 50);
@@ -131,51 +190,37 @@ export function WaveformAnimation({
     };
   }, []);
 
-  if (!isPlaying && frequencyData.every(val => val === 0)) {
-    return <div className={`${config.container} flex justify-center space-x-1 ${className}`}></div>;
-  }
-
+  // Always render the waveform with stubs - remove the empty state check
   return (
-    <div className={`${config.container} flex justify-center items-end space-x-1 ${className}`}>
+    <div className={`${config.container} flex justify-center items-end space-x-1 mt-auto ${className}`}>
       {frequencyData.map((intensity, index) => {
-        // Map intensity to Tailwind height classes
-        const getHeightClass = (intensity: number, size: string) => {
+        // Calculate actual height in pixels based on intensity and size
+        const getBarHeight = (intensity: number, size: string) => {
           if (size === 'sm') {
-            if (intensity < 0.2) return 'h-2';
-            if (intensity < 0.4) return 'h-3';
-            if (intensity < 0.6) return 'h-4';
-            if (intensity < 0.8) return 'h-5';
-            return 'h-6';
+            return Math.max(config.minHeight, Math.floor(intensity * config.maxHeight));
           } else if (size === 'md') {
-            if (intensity < 0.2) return 'h-4';
-            if (intensity < 0.4) return 'h-5';
-            if (intensity < 0.6) return 'h-6';
-            if (intensity < 0.8) return 'h-7';
-            return 'h-8';
-          } else { // lg
-            if (intensity < 0.2) return 'h-5';
-            if (intensity < 0.4) return 'h-6';
-            if (intensity < 0.6) return 'h-8';
-            if (intensity < 0.8) return 'h-10';
-            return 'h-12';
+            return Math.max(config.minHeight, Math.floor(intensity * config.maxHeight));
+          } else {
+            return Math.max(config.minHeight, Math.floor(intensity * config.maxHeight));
           }
         };
 
-        const getOpacityClass = (intensity: number) => {
-          if (intensity < 0.2) return 'opacity-70';
-          if (intensity < 0.4) return 'opacity-75';
-          if (intensity < 0.6) return 'opacity-80';
-          if (intensity < 0.8) return 'opacity-90';
-          return 'opacity-100';
+        const getOpacityValue = (intensity: number) => {
+          // Smooth opacity transition from 0.7 to 1.0
+          return Math.max(0.7, 0.7 + (intensity * 0.3));
         };
 
-        const heightClass = getHeightClass(intensity, size);
-        const opacityClass = getOpacityClass(intensity);
+        const barHeight = getBarHeight(intensity, size);
+        const opacity = getOpacityValue(intensity);
         
         return (
           <div 
             key={index}
-            className={`${config.barWidth} ${color} ${heightClass} ${opacityClass} rounded-full transition-all duration-75 ease-out`}
+            className={`${config.barWidth} ${color} rounded-full transition-all duration-75 ease-out`}
+            style={{
+              height: `${barHeight}px`,
+              opacity: opacity
+            }}
           />
         );
       })}
