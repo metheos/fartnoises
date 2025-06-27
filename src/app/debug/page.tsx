@@ -397,6 +397,16 @@ export default function DebugPage() {
             onJudgeSubmission={(index) => console.log('Judge submission:', index)}
             soundEffects={mockSoundEffects}
             socket={createMockSocket() as any}
+            playSoundCombinationWithFeedback={async (sounds: string[], buttonId: string) => {
+              console.log('🔊 Debug: Playing sound combination:', sounds, 'for button:', buttonId);
+              // Mock implementation for debug - just log the sounds being played
+              const soundNames = sounds.map(soundId => {
+                const sound = mockSoundEffects.find(s => s.id === soundId);
+                return sound ? sound.name : soundId;
+              }).join(' + ');
+              console.log(`🎵 Mock playing: ${soundNames}`);
+              return Promise.resolve();
+            }}
           />
         );
       case GameState.ROUND_RESULTS:

@@ -825,6 +825,7 @@ function GamePageContent() {
             onJudgeSubmission={judgeSubmission}
             soundEffects={soundEffects}
             socket={socketRef.current}
+            playSoundCombinationWithFeedback={playSoundCombinationWithFeedback}
           />
         )}{room.gameState === GameState.ROUND_RESULTS && (
           <ResultsComponent room={room} player={player} roundWinner={roundWinner} soundEffects={soundEffects} />
@@ -1664,12 +1665,13 @@ export function SoundSelectionComponent({ room, player, selectedSounds, onSelect
   );
 }
 
-export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects, socket }: { 
+export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects, socket, playSoundCombinationWithFeedback }: { 
   room: Room; 
   player: Player; 
   onJudgeSubmission: (submissionIndex: number) => void;
   soundEffects: SoundEffect[];
   socket: Socket | null;
+  playSoundCombinationWithFeedback: (sounds: string[], buttonId: string) => Promise<void>;
 }) {
   const isJudge = player.id === room.currentJudge;
   const [playingButtons, setPlayingButtons] = useState<Set<string>>(new Set());
@@ -1862,7 +1864,31 @@ export function JudgingComponent({ room, player, onJudgeSubmission, soundEffects
               {/* Action Buttons */}
               <div className="space-y-2">
                 <button 
-                  onClick={() => playSubmissionSounds(submission.sounds, index)}
+                  onClick={async () => {
+                    const buttonId = `submission-${index}`;
+                    
+                    // If this button is already playing, ignore the click
+                    if (playingButtons.has(buttonId)) {
+                      return;
+                    }
+
+                    try {
+                      // Mark button as playing in local state
+                      setPlayingButtons(prev => new Set(prev).add(buttonId));
+                      
+                      // Call the parent's function to play the sounds
+                      await playSoundCombinationWithFeedback(submission.sounds, buttonId);
+                    } catch (error) {
+                      console.error(`Error playing submission sounds:`, error);
+                    } finally {
+                      // Clean up - remove from playing set
+                      setPlayingButtons(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(buttonId);
+                        return newSet;
+                      });
+                    }
+                  }}
                   disabled={playingButtons.has(`submission-${index}`)}
                   className={`w-full px-4 py-3 rounded-xl font-semibold transition-colors ${
                     playingButtons.has(`submission-${index}`)
