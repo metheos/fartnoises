@@ -11,7 +11,6 @@ interface ClientPausedForDisconnectionProps {
 
 export default function ClientPausedForDisconnection({ 
   room, 
-  player, 
   onAttemptReconnection 
 }: ClientPausedForDisconnectionProps) {
   const disconnectedPlayers = room.disconnectedPlayers || [];

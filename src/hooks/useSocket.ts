@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import {
@@ -26,14 +26,22 @@ interface UseSocketReturn {
   roundWinner: {
     winnerId: string;
     winnerName: string;
-    winningSubmission: any;
+    winningSubmission: {
+      sounds: string[];
+      playerId: string;
+      playerName: string;
+    };
     submissionIndex: number;
   } | null;
   setRoundWinner: React.Dispatch<
     React.SetStateAction<{
       winnerId: string;
       winnerName: string;
-      winningSubmission: any;
+      winningSubmission: {
+        sounds: string[];
+        playerId: string;
+        playerName: string;
+      };
       submissionIndex: number;
     } | null>
   >;
@@ -57,7 +65,7 @@ export function useSocket({
   const [roundWinner, setRoundWinner] = useState<{
     winnerId: string;
     winnerName: string;
-    winningSubmission: any;
+    winningSubmission: SoundSubmission;
     submissionIndex: number;
   } | null>(null);
   const [joinError, setJoinError] = useState("");
@@ -207,6 +215,8 @@ export function useSocket({
       }
     });
 
+    // Server event data has dynamic structure that varies by game state - runtime type checking needed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketInstance.on("gameStateChanged", (newState: GameState, data?: any) => {
       console.log("useSocket: Game state changed:", newState, data);
 
@@ -321,6 +331,8 @@ export function useSocket({
       console.log("useSocket: Time update received:", data);
     });
 
+    // Server event data has optional dynamic structure - runtime type checking needed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketInstance.on("playbackStarted", (data?: any) => {
       console.log("useSocket: Playback started:", data);
       if (data && data.submissions) {
@@ -330,6 +342,8 @@ export function useSocket({
       }
     });
 
+    // Server event data contains winner information with dynamic structure - runtime type checking needed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketInstance.on("winnerSelected", (data: any) => {
       console.log("useSocket: Winner selected:", data);
       if (data) {
@@ -337,6 +351,8 @@ export function useSocket({
       }
     });
 
+    // Server event data contains disconnection info with dynamic structure - runtime type checking needed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketInstance.on("gamePausedForDisconnection", (data: any) => {
       console.log("useSocket: Game paused for disconnection:", data);
     });
@@ -353,10 +369,14 @@ export function useSocket({
       updateURLWithRoom(null);
     });
 
+    // Server event data contains reconnection info with dynamic structure - runtime type checking needed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketInstance.on("playerReconnected", (data: any) => {
       console.log("useSocket: Player reconnected:", data);
     });
 
+    // Server event data contains game start info with dynamic structure - runtime type checking needed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketInstance.on("gameStarted", (data: any) => {
       console.log("useSocket: Game started:", data);
     });
@@ -386,6 +406,8 @@ export function useSocket({
     // Handler for judging phase playback
     socketInstance.on(
       "playJudgingSubmission",
+      // Server event contains submission data with dynamic structure - runtime type checking needed
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (submission: any, submissionIndex: number) => {
         console.log(
           "🎵 useSocket: Play judging submission event:",
@@ -403,7 +425,7 @@ export function useSocket({
           try {
             await audioSystem.initialize();
             setIsAudioReady(true);
-          } catch (error) {
+          } catch {
             console.error(
               "🎵 useSocket: Failed to activate audio, user interaction required"
             );
@@ -426,7 +448,9 @@ export function useSocket({
               }`
             );
 
-            const sound = soundEffects.find((s: any) => s.id === sounds[i]);
+            const sound = soundEffects.find(
+              (s: SoundEffect) => s.id === sounds[i]
+            );
             if (sound) {
               try {
                 await audioSystem.loadSound(sound.id, sound.fileName);
@@ -483,6 +507,8 @@ export function useSocket({
     return () => {
       socketInstance.disconnect();
     };
+    // Complex dependency management for socket connection - intentionally simplified deps to avoid reconnection loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     soundEffects,
     isAudioReady,

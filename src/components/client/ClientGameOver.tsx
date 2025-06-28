@@ -8,10 +8,9 @@ interface ClientGameOverProps {
   player: Player;
 }
 
-export default function ClientGameOver({ room, player }: ClientGameOverProps) {
+export default function ClientGameOver({ room }: ClientGameOverProps) {
   const sortedPlayers = [...room.players].sort((a, b) => b.score - a.score);
   const overallWinner = sortedPlayers[0];
-  const runnerUps = sortedPlayers.slice(1);
   
   return (
     <div className="bg-white rounded-3xl p-6 shadow-lg text-center">

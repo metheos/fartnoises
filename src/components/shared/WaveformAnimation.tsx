@@ -16,7 +16,6 @@ interface WaveformAnimationProps {
 
 export function WaveformAnimation({ 
   isPlaying, 
-  color = 'bg-white', 
   className = '', 
   size = 'md',
   barCount = 24
@@ -161,6 +160,8 @@ export function WaveformAnimation({
         cancelAnimationFrame(animationRef.current);
       }
     };
+  // Animation dependency management - simplified deps to avoid animation restart loops
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, barCount]);
 
   // Cleanup animation on unmount
@@ -184,7 +185,7 @@ export function WaveformAnimation({
           return Math.max(minHeight, (intensity * heightRange) + minHeight);
         };
 
-        const getAnimationClass = (intensity: number) => {
+        const getAnimationClass = () => {
         //   if (intensity > 0.7) return 'animate-pulse';
         //   if (intensity > 0.4) return 'animate-bounce';
           return '';
@@ -208,7 +209,7 @@ export function WaveformAnimation({
         };
 
         const barHeight = getBarHeight(intensity);
-        const animationClass = getAnimationClass(intensity);
+        const animationClass = getAnimationClass();
         const barColor = getBarColor(index, intensity);
         const glowIntensity = getGlowIntensity(intensity);
         

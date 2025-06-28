@@ -155,6 +155,8 @@ export default function ClientSoundSelection({
     } else {
       console.log(`🎵 Conditions not met for sound set generation. soundEffects: ${soundEffects.length}, gameState: ${room.gameState}`);
     }
+    // Complex dependency management for sound set generation - intentionally simplified deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.gameState, room.currentRound, player.id, player.soundSet, soundEffects.length, playerSoundSet.length]);
   
   // One-time clearing effect for new rounds - only clears once per round
@@ -171,6 +173,8 @@ export default function ClientSoundSelection({
         setLastClearedRound(room.currentRound); // Mark this round as cleared
       }
     }
+    // Complex dependency management for round clearing logic - intentionally simplified deps to avoid clearing loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.gameState, room.currentRound, room.submissions.length]);
   
   useEffect(() => {
@@ -192,6 +196,8 @@ export default function ClientSoundSelection({
     } else {
       console.log(`🎵 Parent selectedSounds is null, keeping local selections: [${selectedSoundsLocal.join(', ')}]`);
     }
+    // Complex dependency management for sound selection sync - intentionally simplified deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSounds, selectedSoundsLocal.length, room.currentRound, lastClearedRound]);
 
   const handleSoundSelect = (soundId: string) => {

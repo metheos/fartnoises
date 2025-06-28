@@ -12,7 +12,7 @@ interface ResultsDisplayProps {
   roundWinner: {
     winnerId: string;
     winnerName: string;
-    winningSubmission: any;
+    winningSubmission: { sounds: string[]; playerId: string; playerName: string };
     submissionIndex: number;
   } | null;
   soundEffects: SoundEffect[];
@@ -63,7 +63,7 @@ export function ResultsDisplay({
       
       setAnimatedScores(initialScores);
     }
-  }, [roundWinner?.winnerId, room.currentRound]); // Trigger when winner changes or new round
+  }, [roundWinner?.winnerId, room.currentRound, room.players, roundWinner]); // Trigger when winner changes or new round
 
   // Clean up if game state changes away from ROUND_RESULTS while audio is playing
   useEffect(() => {
@@ -89,6 +89,8 @@ export function ResultsDisplay({
     } else if (playbackStartedRef.current) {
       console.log('[WINNER AUDIO] Playback already started for this round, skipping');
     }
+    // playWinningCombination is stable function defined below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundWinner?.winningSubmission, soundEffects.length, isPlayingWinner]);
 
   const playWinningCombination = async () => {

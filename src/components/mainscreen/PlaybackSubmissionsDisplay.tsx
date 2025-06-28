@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Room, SoundEffect, SoundSubmission, GameState } from '@/types/game';
+import { Room, SoundEffect, SoundSubmission } from '@/types/game';
 import { Socket } from 'socket.io-client';
 import { audioSystem } from '@/utils/audioSystem';
 import { JudgePromptDisplay } from './JudgePromptDisplay';
@@ -20,8 +20,6 @@ export function PlaybackSubmissionsDisplay({
 }: PlaybackSubmissionsDisplayProps) {
   const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
   const [currentPlayingSoundIndex, setCurrentPlayingSoundIndex] = useState(-1);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [promptPlaying, setPromptPlaying] = useState(false);
   const [revealedSounds, setRevealedSounds] = useState<Set<string>>(new Set());
   
   const promptAudioPlayingRef = useRef(false);
@@ -46,13 +44,11 @@ export function PlaybackSubmissionsDisplay({
     // Reset state for new playback sequence
     setCurrentPlayingSubmission(null);
     setCurrentPlayingSoundIndex(-1);
-    setIsPlaying(false);
     setRevealedSounds(new Set());
 
     const startSequence = async () => {
       // 1. Play the prompt audio first (if there is one)
       if (room.currentPrompt?.audioFile) {
-        setPromptPlaying(true);
         promptAudioPlayingRef.current = true;
         console.log('Playing prompt audio:', room.currentPrompt.audioFile);
         try {
@@ -62,7 +58,6 @@ export function PlaybackSubmissionsDisplay({
         } catch (error) {
           console.error('Error playing prompt audio:', error);
         }
-        setPromptPlaying(false);
         promptAudioPlayingRef.current = false;
         // Add a small delay after prompt for pacing
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -75,6 +70,8 @@ export function PlaybackSubmissionsDisplay({
 
     startSequence();
     
+  // Complex dependency management for playback sequence - intentionally simplified deps to avoid restart loops
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, room.code, room.currentPrompt?.id, soundEffects.length]); // Only run when these dependencies change
 
   // Reset the playback started flag when the prompt changes (new round)
@@ -97,7 +94,6 @@ export function PlaybackSubmissionsDisplay({
         console.log('Received null submission, playback is complete.');
         setCurrentPlayingSubmission(null);
         setCurrentPlayingSoundIndex(-1);
-        setIsPlaying(false);
         // The server will now transition the game to the JUDGING state.
         // No further action is needed on the client side here.
         return;
@@ -106,7 +102,6 @@ export function PlaybackSubmissionsDisplay({
       console.log('Main screen received playSubmission event:', submission);
       setCurrentPlayingSubmission(submission);
       setCurrentPlayingSoundIndex(-1); // Reset to -1 before starting
-      setIsPlaying(true);
 
       try {
         // Play the two sounds for this submission sequentially with sound index tracking.
@@ -174,7 +169,6 @@ export function PlaybackSubmissionsDisplay({
   }, []); // Empty dependency array ensures this runs only on unmount
 
   const submissions = room.randomizedSubmissions || room.submissions; // Use randomized order if available
-  const getPlayerById = (id: string) => room.players.find(p => p.id === id);
 
   return (
     <div className="bg-white rounded-3xl p-12 shadow-2xl transition-all duration-300">
@@ -192,14 +186,12 @@ export function PlaybackSubmissionsDisplay({
       {/* Timer Display */}
       <div className="mb-6">
         <div className="w-full bg-gray-200 rounded-full h-3 mx-auto">
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="h-3 rounded-full transition-all duration-1000 bg-white" style={{ width: '100%' }}></div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {submissions.map((submission, index) => {
-          const player = getPlayerById(submission.playerId);
           const isCurrentlyPlaying = currentPlayingSubmission?.playerId === submission.playerId;
 
           return (

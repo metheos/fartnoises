@@ -163,7 +163,7 @@ export class AudioSystem {
     this.activeSources.forEach((source) => {
       try {
         source.stop();
-      } catch (e) {
+      } catch {
         // Ignore errors if the source is already stopped
       }
     });
@@ -352,7 +352,6 @@ export class AudioSystem {
 
 // Hook for React components
 import { useEffect, useState } from "react";
-import { getSoundEffects } from "@/data/gameData";
 
 export function useAudioSystem() {
   const [audioSystem, setAudioSystem] = useState<AudioSystem | null>(null);

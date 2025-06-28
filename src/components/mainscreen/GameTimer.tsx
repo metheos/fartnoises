@@ -23,7 +23,7 @@ export default function GameTimer({
   useEffect(() => {
     if (!socket) return;
     
-    const handleTimeUpdate = (data: any) => {
+    const handleTimeUpdate = (data: { timeLeft?: number }) => {
       // Server sends simple { timeLeft: number } format during timed phases
       if (data.timeLeft !== undefined) {
         setTimeLeft(data.timeLeft);
@@ -42,7 +42,6 @@ export default function GameTimer({
   return (
     <div className={`mb-6 ${className}`}>
       <div className="w-full bg-gray-200 rounded-full h-3 mx-auto">
-        {/* eslint-disable-next-line @next/next/no-inline-styles */}
         <div 
           className={`h-3 rounded-full transition-all duration-1000
           ${

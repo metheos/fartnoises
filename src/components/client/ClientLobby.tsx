@@ -117,7 +117,7 @@ export default function ClientLobby({
       )}
       
       <ul className="mb-8 text-left max-w-xs mx-auto space-y-3">
-        {room.players.map((p, idx) => (
+        {room.players.map((p) => (
           <li
         key={p.id}
         className={`

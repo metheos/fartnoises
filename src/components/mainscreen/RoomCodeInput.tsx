@@ -57,25 +57,17 @@ export default function RoomCodeInput({
           <div className="absolute inset-0 bg-gradient-to-tr from-blue-400 via-purple-400 to-pink-400 rounded-2xl opacity-50"></div>
           
           {/* Floating decorative bokeh balls - with custom animation durations */}
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="absolute -top-8 -left-8 w-12 h-12 bg-yellow-400 rounded-full opacity-60 animate-bounce z-10" style={{ animationDuration: '3s' }}></div>
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="absolute -top-12 -right-6 w-8 h-8 bg-pink-400 rounded-full opacity-70 animate-bounce delay-500 z-10" style={{ animationDuration: '4s' }}></div>
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="absolute -bottom-6 -left-10 w-10 h-10 bg-purple-400 rounded-full opacity-50 animate-bounce delay-1000 z-10" style={{ animationDuration: '3.5s' }}></div>
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="absolute -bottom-10 -right-8 w-14 h-14 bg-orange-400 rounded-full opacity-60 animate-bounce delay-700 z-10" style={{ animationDuration: '2.8s' }}></div>
           
           {/* Additional mid-layer bokeh for more depth */}
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="absolute top-1/2 -left-6 w-6 h-6 bg-blue-300 rounded-full opacity-40 animate-pulse delay-300 z-5" style={{ animationDuration: '4s' }}></div>
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="absolute top-1/3 -right-4 w-5 h-5 bg-green-300 rounded-full opacity-50 animate-pulse delay-800 z-5" style={{ animationDuration: '3.2s' }}></div>
           
           {/* Extra floating balls for visual richness */}
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="absolute top-0 left-1/2 w-7 h-7 bg-indigo-300 rounded-full opacity-45 animate-bounce delay-1200 z-10" style={{ animationDuration: '3.8s' }}></div>
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="absolute bottom-0 right-1/3 w-9 h-9 bg-rose-300 rounded-full opacity-55 animate-pulse delay-1500 z-5" style={{ animationDuration: '4.2s' }}></div>
           
           <div className="relative z-20 flex justify-center items-center space-x-4">

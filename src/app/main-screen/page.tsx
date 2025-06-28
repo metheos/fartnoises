@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { SoundSubmission } from '@/types/game';
 import ConnectionStatus from '@/components/mainscreen/ConnectionStatus';
 import { WaitingForGameScreen } from '@/components/mainscreen/WaitingForGameScreen';
@@ -9,8 +9,7 @@ import { MainScreenGameDisplay } from '@/components/mainscreen/MainScreenGameDis
 import { useSocket } from '@/hooks/useSocket';
 import { useAudio } from '@/hooks/useAudio';
 
-export default function MainScreen() {
-  const router = useRouter();
+function MainScreenContent() {
   const searchParams = useSearchParams();
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
@@ -21,14 +20,9 @@ export default function MainScreen() {
     socket, 
     isConnected, 
     currentRoom, 
-    setCurrentRoom, 
     roundWinner, 
-    setRoundWinner, 
     joinError, 
-    setJoinError, 
-    updateURLWithRoom,
-    joinRoom,
-    leaveRoom
+    joinRoom
   } = useSocket({ 
     soundEffects, 
     isAudioReady, 
@@ -85,6 +79,14 @@ export default function MainScreen() {
 
       </div>
     </div>
+  );
+}
+
+export default function MainScreen() {
+  return (
+    <Suspense fallback={<div>Loading Main Screen...</div>}>
+      <MainScreenContent />
+    </Suspense>
   );
 }
 

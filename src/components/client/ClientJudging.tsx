@@ -21,8 +21,7 @@ export default function ClientJudging({
   player, 
   onJudgeSubmission, 
   soundEffects, 
-  socket, 
-  playSoundCombinationWithFeedback 
+  socket
 }: ClientJudgingProps) {
   const isJudge = player.id === room.currentJudge;
   const [playingButtons, setPlayingButtons] = useState<Set<string>>(new Set());

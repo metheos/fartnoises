@@ -39,7 +39,6 @@ export function JudgingDisplay({
       {/* Timer Display */}
       <div className="mb-6">
         <div className="w-full bg-gray-200 rounded-full h-3 mx-auto">
-          {/* eslint-disable-next-line @next/next/no-inline-styles */}
           <div className="h-3 rounded-full transition-all duration-1000 bg-white" style={{ width: '100%' }}></div>
         </div>
       </div>

@@ -11,7 +11,7 @@ interface ClientResultsProps {
   roundWinner: { 
     winnerId: string; 
     winnerName: string; 
-    winningSubmission: any; 
+    winningSubmission: { sounds: string[]; playerId: string; playerName: string }; 
     submissionIndex: number 
   } | null;
   soundEffects: SoundEffect[];
@@ -19,7 +19,6 @@ interface ClientResultsProps {
 
 export default function ClientResults({ 
   room, 
-  player, 
   roundWinner, 
   soundEffects 
 }: ClientResultsProps) {
@@ -232,25 +231,9 @@ export default function ClientResults({
         <ul className="space-y-3">
           {room.players
         .sort((a, b) => b.score - a.score)
-        .map((p, index) => {
-          const rank = index + 1;
+        .map((p) => {
           const isRoundWinner = p.id === roundWinner.winnerId;
           
-          let rankIcon = '🏅';
-          let rankStyles = 'bg-gray-200 text-gray-700';
-          if (rank === 1) {
-            rankIcon = '🥇';
-            rankStyles = 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900 shadow-md';
-          }
-          if (rank === 2) {
-            rankIcon = '🥈';
-            rankStyles = 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800 shadow-md';
-          }
-          if (rank === 3) {
-            rankIcon = '🥉';
-            rankStyles = 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900 shadow-md';
-          }
-
           return (
             <li 
           key={p.id} 

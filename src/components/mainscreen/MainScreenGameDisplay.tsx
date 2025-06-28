@@ -17,7 +17,7 @@ interface MainScreenGameDisplayProps {
   roundWinner: {
     winnerId: string;
     winnerName: string;
-    winningSubmission: any;
+    winningSubmission: { sounds: string[]; playerId: string; playerName: string };
     submissionIndex: number;
   } | null;
   soundEffects: SoundEffect[];

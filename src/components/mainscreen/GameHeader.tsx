@@ -1,4 +1,4 @@
-import { Room, GameState } from '@/types/game';
+import { Room } from '@/types/game';
 import { getGameStateDisplay } from '@/utils/gameUtils';
 
 interface GameHeaderProps {

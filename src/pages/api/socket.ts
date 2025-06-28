@@ -1,19 +1,17 @@
 // Socket server setup for Next.js API routes
 import { NextApiRequest } from "next";
 import { Server as NetServer } from "http";
-import { Server as SocketIOServer } from "socket.io";
-import { EventEmitter } from "events";
+import { Server as SocketIOServer, Socket } from "socket.io";
 import {
   Room,
   Player,
-  PlayerData,
   GameState,
+  GamePrompt,
   ServerToClientEvents,
   ClientToServerEvents,
 } from "@/types/game";
 import {
   getGamePrompts,
-  getSoundEffects,
   PLAYER_COLORS,
   PLAYER_EMOJIS,
   GAME_CONFIG,
@@ -46,14 +44,14 @@ const mainScreens: Map<string, Set<string>> = new Map(); // roomCode -> Set of m
 const primaryMainScreens: Map<string, string> = new Map(); // roomCode -> primary main screen socket ID
 
 // Global event emitter for internal server events
-const serverEvents = new EventEmitter();
+// const serverEvents = new EventEmitter(); // Currently unused
 
 // Constants for disconnection handling
 const RECONNECTION_GRACE_PERIOD = 30000; // 30 seconds
 const RECONNECTION_VOTE_TIMEOUT = 20000; // 20 seconds to vote
 
 // Helper function to ensure prompts are always processed with player names
-function processAndAssignPrompt(room: Room, prompt: any): void {
+function processAndAssignPrompt(room: Room, prompt: GamePrompt): void {
   if (!prompt) {
     room.currentPrompt = null;
     return;
@@ -625,7 +623,7 @@ function resumeGame(
           );
           console.log(
             "Generated prompts:",
-            prompts.map((p: any) => ({ id: p.id, text: p.text }))
+            prompts.map((p: GamePrompt) => ({ id: p.id, text: p.text }))
           );
           currentRoom.availablePrompts = prompts;
 
@@ -713,7 +711,7 @@ async function generatePlayerSoundSets(room: Room): Promise<void> {
 
 function handlePlayerReconnection(
   io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
-  socket: any,
+  socket: Socket<ClientToServerEvents, ServerToClientEvents>,
   roomCode: string,
   playerName: string,
   originalPlayerId: string
@@ -1099,7 +1097,7 @@ export default function SocketHandler(
               );
               console.log(
                 "Generated prompts:",
-                prompts.map((p: any) => ({ id: p.id, text: p.text }))
+                prompts.map((p: GamePrompt) => ({ id: p.id, text: p.text }))
               );
               room.availablePrompts = prompts;
 
@@ -1413,6 +1411,8 @@ export default function SocketHandler(
         if (!roomCode) return;
 
         // Security: Only the primary main screen should control playback
+        // Socket augmentation for custom properties - proper interface extension would require module declaration
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (!(socket as any).isViewer) {
           console.log(
             `[SECURITY] Player socket ${socket.id} attempted to control playback. Ignoring.`
@@ -1629,7 +1629,7 @@ export default function SocketHandler(
                   );
                   console.log(
                     "Generated prompts:",
-                    prompts.map((p: any) => ({ id: p.id, text: p.text }))
+                    prompts.map((p: GamePrompt) => ({ id: p.id, text: p.text }))
                   );
                   room.availablePrompts = prompts;
 
@@ -1826,6 +1826,8 @@ export default function SocketHandler(
 
           // Only accept winner audio completion from primary main screen or if no main screens exist
           if (
+            // Socket augmentation for custom properties - proper interface extension would require module declaration
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (socket as any).isViewer &&
             primaryMainScreens.get(roomCode) !== socket.id
           ) {
@@ -1844,6 +1846,8 @@ export default function SocketHandler(
 
           console.log(
             `Winner audio complete from ${
+              // Socket augmentation for custom properties - proper interface extension would require module declaration
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (socket as any).isViewer ? "primary main screen" : "player"
             } ${socket.id}, checking if game should continue...`
           );
@@ -1944,7 +1948,7 @@ export default function SocketHandler(
                 );
                 console.log(
                   "Generated prompts:",
-                  prompts.map((p: any) => ({ id: p.id, text: p.text }))
+                  prompts.map((p: GamePrompt) => ({ id: p.id, text: p.text }))
                 );
                 room.availablePrompts = prompts;
 
@@ -2060,7 +2064,11 @@ export default function SocketHandler(
               `[VIEWER] Socket ${socket.id} is now in room ${normalizedRoomCode}`
             );
 
+            // Socket augmentation for custom properties - proper interface extension would require module declaration
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (socket as any).isViewer = true; // Mark this socket as a viewer
+            // Socket augmentation for custom properties - proper interface extension would require module declaration
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (socket as any).isPrimaryMainScreen =
               primaryMainScreens.get(normalizedRoomCode) === socket.id; // Mark if primary
 
@@ -2086,6 +2094,8 @@ export default function SocketHandler(
             const room = rooms.get(roomCode);
             if (room) {
               // Check if this is a main screen leaving
+              // Socket augmentation for custom properties - proper interface extension would require module declaration
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               if ((socket as any).isViewer) {
                 console.log(
                   `[MAIN SCREEN] Main screen ${socket.id} leaving room ${roomCode}`
@@ -2141,6 +2151,8 @@ export default function SocketHandler(
           const roomCode = playerRooms.get(socket.id);
           if (roomCode) {
             // Check if this was a main screen and clean up tracking
+            // Socket augmentation for custom properties - proper interface extension would require module declaration
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if ((socket as any).isViewer) {
               console.log(
                 `[MAIN SCREEN] Main screen ${socket.id} disconnected from room ${roomCode}`
