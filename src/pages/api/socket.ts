@@ -17,12 +17,9 @@ import {
   PLAYER_COLORS,
   PLAYER_EMOJIS,
   GAME_CONFIG,
-  processPromptText,
 } from "@/data/gameData";
-import {
-  getRandomPrompts as getRandomPromptsFromLoader,
-  getRandomSounds as getRandomSoundsFromLoader,
-} from "@/utils/soundLoader";
+import { getRandomPrompts, getRandomSounds } from "@/utils/soundLoader";
+import { processPromptText } from "@/utils/gameUtils";
 
 interface SocketServer extends NetServer {
   io?: SocketIOServer<ClientToServerEvents, ServerToClientEvents>;
@@ -136,15 +133,6 @@ function removeMainScreen(roomCode: string, socketId: string): void {
   }
 }
 
-function isPrimaryMainScreen(roomCode: string, socketId: string): boolean {
-  return primaryMainScreens.get(roomCode) === socketId;
-}
-
-function hasMainScreens(roomCode: string): boolean {
-  const roomMainScreens = mainScreens.get(roomCode);
-  return roomMainScreens ? roomMainScreens.size > 0 : false;
-}
-
 // Utility functions
 function generateRoomCode(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -182,31 +170,6 @@ function selectNextJudge(room: Room): string {
   const currentIndex = playerIds.indexOf(room.currentJudge);
   const nextIndex = (currentIndex + 1) % playerIds.length;
   return playerIds[nextIndex];
-}
-
-async function getRandomPrompts(
-  count: number = 6,
-  excludePromptIds: string[] = [],
-  playerNames: string[] = [],
-  allowExplicitContent: boolean = false
-) {
-  return await getRandomPromptsFromLoader(
-    count,
-    excludePromptIds,
-    playerNames,
-    allowExplicitContent
-  );
-}
-
-async function getRandomSounds(
-  count: number = 10,
-  allowExplicitContent: boolean = false
-) {
-  return await getRandomSoundsFromLoader(
-    count,
-    undefined,
-    allowExplicitContent
-  );
 }
 
 // Timer utility functions
@@ -528,55 +491,44 @@ function startReconnectionTimer(
     if (!room || !room.pausedForDisconnection) return;
 
     // Grace period expired, start voting process
-    startReconnectionVote(io, roomCode, previousGameState);
+    const disconnectedPlayer = room.disconnectedPlayers?.[0];
+    if (!disconnectedPlayer) return;
+
+    const connectedPlayers = room.players.filter((p) => !p.isDisconnected);
+    if (connectedPlayers.length === 0) {
+      // No connected players left, close room
+      rooms.delete(roomCode);
+      clearTimer(roomCode);
+      clearDisconnectionTimer(roomCode);
+      broadcastRoomListUpdate(io);
+      return;
+    }
+
+    // Select a random connected player to vote
+    const randomVoter =
+      connectedPlayers[Math.floor(Math.random() * connectedPlayers.length)];
+
+    // Send vote request to the selected player
+    io.to(randomVoter.id).emit("reconnectionVoteRequest", {
+      disconnectedPlayerName: disconnectedPlayer.name,
+      timeLeft: RECONNECTION_VOTE_TIMEOUT / 1000,
+    });
+
+    // Set vote timeout - default to continuing without the player
+    const voteTimer = setTimeout(() => {
+      handleReconnectionVoteResult(
+        io,
+        roomCode,
+        true,
+        disconnectedPlayer.name,
+        previousGameState
+      );
+    }, RECONNECTION_VOTE_TIMEOUT);
+
+    reconnectionVoteTimers.set(roomCode, voteTimer);
   }, RECONNECTION_GRACE_PERIOD);
 
   disconnectionTimers.set(roomCode, timer);
-}
-
-function startReconnectionVote(
-  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>,
-  roomCode: string,
-  previousGameState: GameState
-) {
-  const room = rooms.get(roomCode);
-  if (!room || !room.disconnectedPlayers?.length) return;
-
-  const disconnectedPlayer = room.disconnectedPlayers[0]; // Handle first disconnected player
-  const connectedPlayers = room.players.filter((p) => !p.isDisconnected);
-
-  if (connectedPlayers.length === 0) {
-    // No connected players left, close room
-    rooms.delete(roomCode);
-    clearTimer(roomCode);
-    clearDisconnectionTimer(roomCode);
-    broadcastRoomListUpdate(io);
-    return;
-  }
-
-  // Select a random connected player to vote
-  const randomVoter =
-    connectedPlayers[Math.floor(Math.random() * connectedPlayers.length)];
-
-  // Send vote request to the selected player
-  io.to(randomVoter.id).emit("reconnectionVoteRequest", {
-    disconnectedPlayerName: disconnectedPlayer.name,
-    timeLeft: RECONNECTION_VOTE_TIMEOUT / 1000,
-  });
-
-  // Set vote timeout
-  const voteTimer = setTimeout(() => {
-    // No vote received, default to continuing without the player
-    handleReconnectionVoteResult(
-      io,
-      roomCode,
-      true,
-      disconnectedPlayer.name,
-      previousGameState
-    );
-  }, RECONNECTION_VOTE_TIMEOUT);
-
-  reconnectionVoteTimers.set(roomCode, voteTimer);
 }
 
 function handleReconnectionVoteResult(
@@ -673,7 +625,7 @@ function resumeGame(
           );
           console.log(
             "Generated prompts:",
-            prompts.map((p) => ({ id: p.id, text: p.text }))
+            prompts.map((p: any) => ({ id: p.id, text: p.text }))
           );
           currentRoom.availablePrompts = prompts;
 
@@ -747,7 +699,7 @@ async function generatePlayerSoundSets(room: Room): Promise<void> {
 
   for (const player of nonJudgePlayers) {
     // Generate 10 random sounds for each player, respecting explicit content setting
-    const playerSounds = await getRandomSoundsFromLoader(
+    const playerSounds = await getRandomSounds(
       10,
       undefined,
       room.allowExplicitContent
@@ -1147,7 +1099,7 @@ export default function SocketHandler(
               );
               console.log(
                 "Generated prompts:",
-                prompts.map((p) => ({ id: p.id, text: p.text }))
+                prompts.map((p: any) => ({ id: p.id, text: p.text }))
               );
               room.availablePrompts = prompts;
 
@@ -1416,7 +1368,11 @@ export default function SocketHandler(
             );
 
             // Check if there are any main screens connected
-            if (!hasMainScreens(roomCode)) {
+            const roomMainScreens = mainScreens.get(roomCode);
+            const hasMainScreensConnected = roomMainScreens
+              ? roomMainScreens.size > 0
+              : false;
+            if (!hasMainScreensConnected) {
               // No main screens - skip playback and go directly to judging
               console.log(
                 `[SUBMISSION] No main screens connected. Skipping playback, going to JUDGING`
@@ -1464,7 +1420,7 @@ export default function SocketHandler(
           return;
         }
 
-        if (!isPrimaryMainScreen(roomCode, socket.id)) {
+        if (primaryMainScreens.get(roomCode) !== socket.id) {
           console.log(
             `[SECURITY] Secondary main screen ${
               socket.id
@@ -1562,10 +1518,12 @@ export default function SocketHandler(
             winningSubmission: winningSubmission,
             submissionIndex: parseInt(submissionIndex),
           });
-          io.to(roomCode).emit("roomUpdated", room);
-
-          // Check if there are main screens to handle audio playback
-          if (!hasMainScreens(roomCode)) {
+          io.to(roomCode).emit("roomUpdated", room); // Check if there are main screens to handle audio playback
+          const roomMainScreens = mainScreens.get(roomCode);
+          const hasMainScreensConnected = roomMainScreens
+            ? roomMainScreens.size > 0
+            : false;
+          if (!hasMainScreensConnected) {
             // No main screens - skip audio playback and proceed immediately
             console.log(
               `No main screens connected. Proceeding directly to next round/game end check...`
@@ -1671,7 +1629,7 @@ export default function SocketHandler(
                   );
                   console.log(
                     "Generated prompts:",
-                    prompts.map((p) => ({ id: p.id, text: p.text }))
+                    prompts.map((p: any) => ({ id: p.id, text: p.text }))
                   );
                   room.availablePrompts = prompts;
 
@@ -1707,10 +1665,8 @@ export default function SocketHandler(
                         room.submissionSeed = undefined; // Clear the seed
                         room.soundSelectionTimerStarted = false;
 
-                        const soundOptions = await getRandomSounds(
-                          10,
-                          room.allowExplicitContent
-                        );
+                        // Generate individual random sound sets for each non-judge player
+                        await generatePlayerSoundSets(room);
 
                         io.to(roomCode).emit("roomUpdated", room);
                         io.to(roomCode).emit("promptSelected", firstPrompt);
@@ -1720,7 +1676,6 @@ export default function SocketHandler(
                           {
                             prompt: firstPrompt,
                             promptAudio: firstPrompt.audioFile, // Include audio file for main screen
-                            sounds: soundOptions,
                             timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                           }
                         );
@@ -1791,7 +1746,11 @@ export default function SocketHandler(
             );
 
             // Check if we have main screens connected
-            if (hasMainScreens(roomCode)) {
+            const roomMainScreens = mainScreens.get(roomCode);
+            const hasMainScreensConnected = roomMainScreens
+              ? roomMainScreens.size > 0
+              : false;
+            if (hasMainScreensConnected) {
               console.log(
                 `[JUDGING PLAYBACK] Main screens available, routing to main screen`
               );
@@ -1868,7 +1827,7 @@ export default function SocketHandler(
           // Only accept winner audio completion from primary main screen or if no main screens exist
           if (
             (socket as any).isViewer &&
-            !isPrimaryMainScreen(roomCode, socket.id)
+            primaryMainScreens.get(roomCode) !== socket.id
           ) {
             console.log(
               `[SECURITY] Secondary main screen ${
@@ -1985,7 +1944,7 @@ export default function SocketHandler(
                 );
                 console.log(
                   "Generated prompts:",
-                  prompts.map((p) => ({ id: p.id, text: p.text }))
+                  prompts.map((p: any) => ({ id: p.id, text: p.text }))
                 );
                 room.availablePrompts = prompts;
 
@@ -2021,10 +1980,8 @@ export default function SocketHandler(
                       room.submissionSeed = undefined; // Clear the seed
                       room.soundSelectionTimerStarted = false;
 
-                      const soundOptions = await getRandomSounds(
-                        10,
-                        room.allowExplicitContent
-                      );
+                      // Generate individual random sound sets for each non-judge player
+                      await generatePlayerSoundSets(room);
 
                       io.to(roomCode).emit("roomUpdated", room);
                       io.to(roomCode).emit("promptSelected", firstPrompt);
@@ -2034,7 +1991,6 @@ export default function SocketHandler(
                         {
                           prompt: firstPrompt,
                           promptAudio: firstPrompt.audioFile, // Include audio file for main screen
-                          sounds: soundOptions,
                           timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                         }
                       );
@@ -2105,10 +2061,8 @@ export default function SocketHandler(
             );
 
             (socket as any).isViewer = true; // Mark this socket as a viewer
-            (socket as any).isPrimaryMainScreen = isPrimaryMainScreen(
-              normalizedRoomCode,
-              socket.id
-            ); // Mark if primary
+            (socket as any).isPrimaryMainScreen =
+              primaryMainScreens.get(normalizedRoomCode) === socket.id; // Mark if primary
 
             socket.emit("roomJoined", room);
           } else {

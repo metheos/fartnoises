@@ -1,6 +1,7 @@
 // Game data: sound effects library
 import { SoundEffect, GamePrompt } from "@/types/game";
 import { loadEarwaxSounds, loadEarwaxPrompts } from "@/utils/soundLoader";
+import { processPromptText } from "@/utils/gameUtils";
 
 // Dynamic sound effects loaded from EarwaxAudio.jet
 // Use getSoundEffects() to get the actual sound effects at runtime
@@ -14,50 +15,6 @@ export async function getSoundEffects(): Promise<SoundEffect[]> {
 // Dynamic game prompts loaded from EarwaxPrompts.jet
 // Use getGamePrompts() to get the actual prompts at runtime
 // Legacy GAME_PROMPTS array removed - now using dynamic loader from soundLoader.ts
-
-// Function to get game prompts (use this instead of the static array)
-export async function getGamePrompts(
-  playerNames: string[] = []
-): Promise<GamePrompt[]> {
-  const prompts = await loadEarwaxPrompts();
-
-  // Process prompt text for each prompt if player names are provided
-  if (playerNames.length > 0) {
-    return prompts.map((prompt) => ({
-      ...prompt,
-      text: processPromptText(prompt.text, playerNames),
-    }));
-  }
-
-  return prompts;
-}
-
-// Function to process prompt text for special tags (imported from soundLoader)
-export function processPromptText(
-  text: string,
-  playerNames: string[] = []
-): string {
-  let processedText = text;
-
-  console.log("processPromptText called with:", { text, playerNames });
-
-  // Replace <ANY> tags with random player names
-  if (playerNames.length > 0) {
-    processedText = processedText.replace(/<ANY>/g, () => {
-      const randomIndex = Math.floor(Math.random() * playerNames.length);
-      const selectedName = playerNames[randomIndex];
-      console.log("Replacing <ANY> with:", selectedName);
-      return selectedName;
-    });
-  } else {
-    console.log("No player names provided, <ANY> tags will remain unchanged");
-  }
-
-  console.log("processPromptText result:", processedText);
-
-  // Keep <i></i> tags as HTML for React rendering
-  return processedText;
-}
 
 // Player colors for avatars
 export const PLAYER_COLORS = [
@@ -135,8 +92,8 @@ export const GAME_CONFIG = {
   MAX_ROUNDS_LIMIT: 20,
   MIN_SCORE: 1,
   MAX_SCORE_LIMIT: 10,
-  SOUND_SELECTION_TIME: 999, // seconds 45 default
-  PROMPT_SELECTION_TIME: 999, // seconds 30 default
+  SOUND_SELECTION_TIME: 45, // seconds 45 default
+  PROMPT_SELECTION_TIME: 30, // seconds 30 default
   ROOM_CODE_LENGTH: 4,
   // Disconnection handling
   RECONNECTION_GRACE_PERIOD: 30, // seconds to wait for reconnection
@@ -165,17 +122,19 @@ export function getRandomEmoji(excludedEmojis: string[] = []): string {
   return availableEmojis[Math.floor(Math.random() * availableEmojis.length)];
 }
 
-// Helper function to convert hex colors to Tailwind classes
-export function getPlayerColorClass(color: string): string {
-  const colorMap: { [key: string]: string } = {
-    "#FF6B6B": "bg-red-400", // Red
-    "#4ECDC4": "bg-teal-400", // Teal
-    "#45B7D1": "bg-blue-400", // Blue
-    "#96CEB4": "bg-green-400", // Green
-    "#9B59B6": "bg-purple-400", // Purple
-    "#F39C12": "bg-orange-400", // Orange
-    "#E91E63": "bg-pink-400", // Pink
-    "#34495E": "bg-gray-600", // Dark Gray
-  };
-  return colorMap[color] || "bg-gray-400";
+// Function to get game prompts (use this instead of the static array)
+export async function getGamePrompts(
+  playerNames: string[] = []
+): Promise<GamePrompt[]> {
+  const prompts = await loadEarwaxPrompts();
+
+  // Process prompt text for each prompt if player names are provided
+  if (playerNames.length > 0) {
+    return prompts.map((prompt) => ({
+      ...prompt,
+      text: processPromptText(prompt.text, playerNames),
+    }));
+  }
+
+  return prompts;
 }

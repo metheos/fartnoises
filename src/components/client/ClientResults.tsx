@@ -1,0 +1,284 @@
+'use client';
+
+import { useState } from 'react';
+import { Room, Player, SoundEffect } from '@/types/game';
+import { WaveformAnimation } from '@/components/shared/WaveformAnimation';
+import { getPlayerColorClass } from '@/utils/gameUtils';
+
+interface ClientResultsProps {
+  room: Room;
+  player: Player;
+  roundWinner: { 
+    winnerId: string; 
+    winnerName: string; 
+    winningSubmission: any; 
+    submissionIndex: number 
+  } | null;
+  soundEffects: SoundEffect[];
+}
+
+export default function ClientResults({ 
+  room, 
+  player, 
+  roundWinner, 
+  soundEffects 
+}: ClientResultsProps) {
+  const [isPlayingWinner, setIsPlayingWinner] = useState(false);
+  const [playbackProgress, setPlaybackProgress] = useState(0);
+
+  const playWinningCombination = async () => {
+    if (!roundWinner?.winningSubmission || isPlayingWinner) return;
+    
+    setIsPlayingWinner(true);
+    setPlaybackProgress(0);
+    
+    try {
+      // Create and play audio elements for the winning sounds
+      const sounds = roundWinner.winningSubmission.sounds;
+      const audioElements: HTMLAudioElement[] = [];
+      
+      // Prepare audio elements
+      sounds.forEach((soundId: string) => {
+        const sound = soundEffects.find(s => s.id === soundId);
+        if (sound) {
+          const soundUrl = `/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`;
+          const audio = new Audio(soundUrl);
+          audio.volume = 0.8;
+          audioElements.push(audio);
+        }
+      });
+
+      // Play sounds sequentially with progress updates
+      const playNextSound = async (soundIndex: number) => {
+        if (soundIndex >= audioElements.length) {
+          setIsPlayingWinner(false);
+          setPlaybackProgress(0);
+          return;
+        }
+
+        const audio = audioElements[soundIndex];
+        const progressTimer = setInterval(() => {
+          if (audio.duration) {
+            const progress = audio.currentTime / audio.duration;
+            setPlaybackProgress((soundIndex + progress) / audioElements.length);
+          }
+        }, 100);
+
+        return new Promise<void>((resolve) => {
+          audio.onended = () => {
+            clearInterval(progressTimer);
+            setTimeout(() => {
+              playNextSound(soundIndex + 1).then(resolve);
+            }, 300); // Brief pause between sounds
+          };
+          
+          audio.onerror = () => {
+            clearInterval(progressTimer);
+            console.error(`Failed to play sound ${soundIndex}`);
+            setTimeout(() => {
+              playNextSound(soundIndex + 1).then(resolve);
+            }, 300);
+          };
+          
+          audio.play().catch(console.error);
+        });
+      };
+
+      await playNextSound(0);
+    } catch (error) {
+      console.error('Error playing winning combination:', error);
+      setIsPlayingWinner(false);
+      setPlaybackProgress(0);
+    }
+  };
+
+  if (!roundWinner) {
+    return (
+      <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
+        <h2 className="text-2xl font-bold text-purple-600 mb-4">Round Results</h2>
+        <p className="text-gray-800">Waiting for results...</p>
+      </div>
+    );
+  }
+  
+  const winnerPlayerDetails = room.players.find(p => p.id === roundWinner.winnerId);
+
+  return (
+    <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
+      
+      {/* Winner Announcement */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl p-8 mb-8 shadow-2xl transform transition-all duration-500 hover:scale-105">
+        {/* Decorative elements */}
+        <div className="absolute -top-4 -left-4 w-24 h-24 bg-white opacity-10 rounded-full animate-pulse"></div>
+        <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white opacity-10 rounded-full animate-pulse delay-500"></div>
+
+        <div className="relative z-10 text-center text-white">
+          <h2 className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">Round Winner!</h2>
+          <p className="text-5xl font-black mb-3 drop-shadow-lg">
+        {roundWinner.winnerName} 🏆
+          </p>
+          <div className={`inline-block px-4 py-1 rounded-full mb-4 ${winnerPlayerDetails ? getPlayerColorClass(winnerPlayerDetails.color) : 'bg-white bg-opacity-20'}`}>
+        <p className="text-lg font-semibold text-white">
+          +1 Point!
+        </p>
+          </div>
+          <p className="text-md italic opacity-90 max-w-md mx-auto">
+        For their take on: &quot;<span dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}/>&quot;
+          </p>
+        </div>
+      </div>
+
+      {/* Winning Sound Combination Card */}
+      {roundWinner.winningSubmission && (
+        <div className="mb-6">
+          <h3 className="text-xl font-bold text-gray-800 mb-4">🎵 Winning Combination 🎵</h3>
+          
+          <div className={`relative rounded-3xl p-6 transition-all duration-500 max-w-sm mx-auto ${
+            isPlayingWinner 
+              ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
+              : 'bg-gradient-to-br from-yellow-200 to-yellow-300 hover:scale-102 cursor-pointer'
+          }`}
+          onClick={playWinningCombination}>
+            
+            {/* Progress Indicator */}
+            {isPlayingWinner && (
+              <div className="absolute -top-2 -right-2 w-12 h-12">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-white opacity-30"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="transparent"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-white"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="transparent"
+                    strokeLinecap="round"
+                    strokeDasharray={`${playbackProgress * 100}, 100`}
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-white text-xs font-bold">
+                    {Math.round(playbackProgress * 100)}%
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Pulsing Animation for Playing */}
+            {isPlayingWinner && (
+              <>
+                <div className="absolute inset-0 rounded-3xl bg-white opacity-20 animate-pulse"></div>
+                <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-purple-400 to-pink-500 opacity-75 blur animate-pulse"></div>
+              </>
+            )}
+
+            <div className="relative z-10">
+              <div className="space-y-3">
+                {roundWinner.winningSubmission.sounds.map((soundId: string, index: number) => {
+                  const sound = soundEffects.find(s => s.id === soundId);
+                  return (
+                    <div 
+                      key={index} 
+                      className={`px-4 py-3 rounded-xl transition-all duration-300 ${
+                        isPlayingWinner 
+                          ? 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
+                          : 'bg-white text-gray-800 shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <span className="text-lg">🔊</span>
+                        <span className="font-bold">{sound?.name || soundId}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Waveform Animation for Playing */}
+              <WaveformAnimation 
+                isPlaying={isPlayingWinner}
+                color="bg-white"
+                size="sm"
+              />
+
+              {/* Play Button/Status */}
+              <div className="mt-4 text-center">
+                {isPlayingWinner ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                    <span className="text-white font-bold text-sm">PLAYING</span>
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center space-x-2 text-yellow-800">
+                    <span className="text-lg">▶️</span>
+                    <span className="font-semibold">Tap to Play</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Scores List */}
+      <div className="mt-8 bg-gray-50 rounded-3xl p-6 max-w-lg mx-auto shadow-inner">
+        <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Current Standings</h3>
+        <ul className="space-y-3">
+          {room.players
+        .sort((a, b) => b.score - a.score)
+        .map((p, index) => {
+          const rank = index + 1;
+          const isRoundWinner = p.id === roundWinner.winnerId;
+          
+          let rankIcon = '🏅';
+          let rankStyles = 'bg-gray-200 text-gray-700';
+          if (rank === 1) {
+            rankIcon = '🥇';
+            rankStyles = 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900 shadow-md';
+          }
+          if (rank === 2) {
+            rankIcon = '🥈';
+            rankStyles = 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800 shadow-md';
+          }
+          if (rank === 3) {
+            rankIcon = '🥉';
+            rankStyles = 'bg-gradient-to-br from-orange-300 to-orange-500 text-orange-900 shadow-md';
+          }
+
+          return (
+            <li 
+          key={p.id} 
+          className={`flex items-center p-3 rounded-2xl shadow-sm transition-all duration-300 ${isRoundWinner ? 'bg-green-100 border-2 border-green-400 scale-105' : 'bg-white'}`}
+            >
+          <div 
+            className={`w-10 h-10 flex-shrink-0 rounded-full ${getPlayerColorClass(p.color)} flex items-center justify-center text-lg shadow-lg mr-3`}
+          >
+            {p.emoji || p.name[0].toUpperCase()}
+          </div>
+          <div className="flex-grow">
+            <p className="font-bold text-gray-900 text-lg">{p.name}</p>
+          </div>
+          {isRoundWinner && (
+            <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse z-10">
+              +1
+            </div>
+          )}
+          <div className="text-right">
+            <p className="font-black text-xl text-purple-600">{p.score}</p>
+            <p className="text-xs text-gray-500 uppercase">Points</p>
+          </div>
+            </li>
+          );
+        })}
+        </ul>
+      </div>
+      {/* Next round / game over will be handled by gameState change */}
+    </div>
+  );
+}

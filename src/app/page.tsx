@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getPlayerColorClass, getSoundEffects } from '@/data/gameData';
+import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getSoundEffects } from '@/data/gameData';
+import { getPlayerColorClass } from '@/utils/gameUtils';
 import { useAudioSystem } from '@/utils/audioSystem';
 
 export default function Home() {
@@ -408,13 +409,6 @@ export default function Home() {
             </>
           )}
         </div>
-
-        {/* Instructions */}
-        {/* <div className="text-center mt-8 text-white/80">
-          <p className="text-sm">
-            Get 3-8 friends together for the funniest sound game ever! 🎊
-          </p>
-        </div> */}
       </div>
     </div>
   );

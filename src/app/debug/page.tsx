@@ -3,33 +3,30 @@
 import { useState, useEffect } from 'react';
 import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } from '@/types/game';
 import { getSoundEffects, getGamePrompts } from '@/data/gameData';
-import { WaveformAnimation } from '@/components/WaveformAnimation';
+import { WaveformAnimation } from '@/components/shared/WaveformAnimation';
 import { audioSystem } from '@/utils/audioSystem';
 
 // Import Main Screen Components
-import {
-  LobbyDisplay,
-  JudgeSelectionDisplay,
-  PromptSelectionDisplay,
-  SoundSelectionDisplay,
-  PlaybackSubmissionsDisplay,
-  JudgingDisplay,
-  ResultsDisplay,
-  GameOverDisplay,
-  WaitingForGameScreen,
-} from '@/app/main-screen/page';
+import LobbyDisplay from '@/components/mainscreen/LobbyDisplay';
+import JudgeSelectionDisplay from '@/components/mainscreen/JudgeSelectionDisplay';
+import PromptSelectionDisplay from '@/components/mainscreen/PromptSelectionDisplay';
+import SoundSelectionDisplay from '@/components/mainscreen/SoundSelectionDisplay';
+import { PlaybackSubmissionsDisplay } from '@/components/mainscreen/PlaybackSubmissionsDisplay';
+import { JudgingDisplay } from '@/components/mainscreen/JudgingDisplay';
+import { ResultsDisplay } from '@/components/mainscreen/ResultsDisplay';
+import GameOverDisplay from '@/components/mainscreen/GameOverDisplay';
+import { WaitingForGameScreen } from '@/components/mainscreen/WaitingForGameScreen';
 
-// Import Client/Player Components
-import {
-  LobbyComponent,
-  JudgeSelectionComponent,
-  PromptSelectionComponent,
-  SoundSelectionComponent,
-  JudgingComponent,
-  ResultsComponent,
-  GameOverComponent,
-  PausedForDisconnectionComponent,
-} from '@/app/game/page';
+// Import client/player components directly from game page
+import ClientLobbyComponent from '@/components/client/ClientLobby';
+import ClientJudgeSelectionComponent from '@/components/client/ClientJudgeSelection';
+import ClientPromptSelectionComponent from '@/components/client/ClientPromptSelection';
+import ClientSoundSelectionComponent from '@/components/client/ClientSoundSelection';
+import ClientJudgingComponent from '@/components/client/ClientJudging';
+import ClientResultsComponent from '@/components/client/ClientResults';
+import ClientGameOverComponent from '@/components/client/ClientGameOver';
+import ClientPausedForDisconnectionComponent from '@/components/client/ClientPausedForDisconnection';
+
 
 // Mock Data
 const mockPlayers: Player[] = [
@@ -310,15 +307,15 @@ export default function DebugPage() {
       case GameState.JUDGE_SELECTION:
         return <JudgeSelectionDisplay room={mockRoom} />;
       case GameState.PROMPT_SELECTION:
-        return <PromptSelectionDisplay room={mockRoom} />;
+        return <PromptSelectionDisplay room={mockRoom} socket={null} />;
       case GameState.SOUND_SELECTION:
-        return <SoundSelectionDisplay room={mockRoom} />;
+        return <SoundSelectionDisplay room={mockRoom} socket={null} />;
       case GameState.PLAYBACK:
         return <PlaybackSubmissionsDisplay room={mockRoom} soundEffects={mockSoundEffects} socket={createMockSocket() as any} />;
       case GameState.JUDGING:
         return <JudgingDisplay room={mockRoom} soundEffects={mockSoundEffects} currentPlayingSubmission={null} />;
       case GameState.ROUND_RESULTS:
-        return <ResultsDisplay room={mockRoom} roundWinner={mockRoundWinner} soundEffects={mockSoundEffects} />;
+        return <ResultsDisplay room={mockRoom} roundWinner={mockRoundWinner} soundEffects={mockSoundEffects} socket={null} />;
       case GameState.GAME_OVER:
         return <GameOverDisplay room={mockRoom} />;
       case GameState.PAUSED_FOR_DISCONNECTION:
@@ -344,7 +341,7 @@ export default function DebugPage() {
         );
       case GameState.LOBBY:
         return (
-          <LobbyComponent 
+          <ClientLobbyComponent 
             room={mockRoom} 
             player={currentPlayer} 
             onStartGame={() => console.log('Start game')}
@@ -352,10 +349,10 @@ export default function DebugPage() {
           />
         );
       case GameState.JUDGE_SELECTION:
-        return <JudgeSelectionComponent room={mockRoom} player={currentPlayer} />;
+        return <ClientJudgeSelectionComponent room={mockRoom} player={currentPlayer} />;
       case GameState.PROMPT_SELECTION:
         return (
-          <PromptSelectionComponent 
+          <ClientPromptSelectionComponent 
             room={mockRoom} 
             player={currentPlayer} 
             onSelectPrompt={(id) => console.log('Select prompt:', id)} 
@@ -363,7 +360,7 @@ export default function DebugPage() {
         );
       case GameState.SOUND_SELECTION:
         return (
-          <SoundSelectionComponent 
+          <ClientSoundSelectionComponent 
             room={mockRoom} 
             player={currentPlayer} 
             selectedSounds={selectedSounds}
@@ -394,7 +391,7 @@ export default function DebugPage() {
         );
       case GameState.JUDGING:
         return (
-          <JudgingComponent 
+          <ClientJudgingComponent 
             room={mockRoom} 
             player={currentPlayer} 
             onJudgeSubmission={(index) => console.log('Judge submission:', index)}
@@ -413,12 +410,12 @@ export default function DebugPage() {
           />
         );
       case GameState.ROUND_RESULTS:
-        return <ResultsComponent room={mockRoom} player={currentPlayer} roundWinner={mockRoundWinner} soundEffects={mockSoundEffects} />;
+        return <ClientResultsComponent room={mockRoom} player={currentPlayer} roundWinner={mockRoundWinner} soundEffects={mockSoundEffects} />;
       case GameState.GAME_OVER:
-        return <GameOverComponent room={mockRoom} player={currentPlayer} />;
+        return <ClientGameOverComponent room={mockRoom} player={currentPlayer} />;
       case GameState.PAUSED_FOR_DISCONNECTION:
         return (
-          <PausedForDisconnectionComponent 
+          <ClientPausedForDisconnectionComponent 
             room={mockRoom} 
             player={currentPlayer} 
             onAttemptReconnection={() => console.log('Attempt reconnection')}

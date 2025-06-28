@@ -1,6 +1,6 @@
 // Dynamic sound loader for EarwaxAudio.jet
 import { SoundEffect, GamePrompt } from "@/types/game";
-import { processPromptText } from "@/data/gameData";
+import { processPromptText } from "@/utils/gameUtils";
 
 interface EarwaxSound {
   id?: number | string;
