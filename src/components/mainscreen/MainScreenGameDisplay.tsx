@@ -37,7 +37,7 @@ export function MainScreenGameDisplay({
   socket
 }: MainScreenGameDisplayProps) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-2">
       {/* Audio Activation Banner */}
       <AudioActivationBanner 
         isAudioReady={isAudioReady}
