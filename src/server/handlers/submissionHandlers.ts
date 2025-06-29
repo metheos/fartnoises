@@ -6,6 +6,7 @@ import {
   startDelayedSoundSelectionTimer,
   handleAllSubmissionsComplete,
 } from "../utils/gameLogic";
+import { startNextRound } from "./gameHandlers";
 
 export function setupSubmissionHandlers(
   socket: Socket,
@@ -208,8 +209,8 @@ export function setupSubmissionHandlers(
         );
 
         // Simulate winnerAudioComplete logic inline
-        setTimeout(() => {
-          handleNoMainScreenWinnerFlow(context, roomCode, room);
+        setTimeout(async () => {
+          await handleNoMainScreenWinnerFlow(context, roomCode, room);
         }, 2000); // 2 second pause to show results
       } else {
         // Main screens present - wait for winnerAudioComplete signal
@@ -337,7 +338,7 @@ export function setupSubmissionHandlers(
 }
 
 // Helper function to handle winner flow when no main screens are connected
-function handleNoMainScreenWinnerFlow(
+async function handleNoMainScreenWinnerFlow(
   context: SocketContext,
   roomCode: string,
   room: import("@/types/game").Room
@@ -391,10 +392,14 @@ function handleNoMainScreenWinnerFlow(
     // Continue to next round for tie-breaker
   }
 
-  // Start next round logic would go here - this could be extracted to gameHandlers
-  // For now, we'll leave this as a placeholder since it's complex
+  // Start next round using the logic from gameHandlers after a 10 second pause
+  // This is to allow players to see the results before moving on
+  console.log(
+    `[NO MAIN SCREEN] Starting next round in 10 seconds (no main screen)...`
+  );
+  await new Promise((resolve) => setTimeout(resolve, 10000)); // 10 second pause to show results
   console.log(
     `Starting next round ${room.currentRound + 1} (no main screen)...`
   );
-  // TODO: Move next round logic to gameHandlers module
+  await startNextRound(context, roomCode);
 }

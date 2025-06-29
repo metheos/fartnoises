@@ -33,9 +33,14 @@ export default function ClientJudging({
   console.log(`[JUDGING] Room randomizedSubmissions data:`, room.randomizedSubmissions);
   const submissionsToShow = room.randomizedSubmissions || room.submissions;
   console.log(`[JUDGING] Submissions to show: ${submissionsToShow.length}`);
-  submissionsToShow.forEach((sub, index) => {
-    console.log(`[JUDGING] Submission ${index}: ${sub.playerName} - [${sub.sounds.join(', ')}]`);
-  });
+
+  // Add this additional debugging
+  console.log(`[JUDGING] Original submissions order:`, room.submissions.map(s => s.playerName));
+  console.log(`[JUDGING] Randomized submissions order:`, room.randomizedSubmissions?.map(s => s.playerName) || 'None');
+  console.log(`[JUDGING] Are they different?`, 
+    JSON.stringify(room.submissions.map(s => s.playerName)) !== 
+    JSON.stringify(room.randomizedSubmissions?.map(s => s.playerName) || [])
+  );
   
   const playSubmissionSounds = async (sounds: string[], submissionIndex: number) => {
     const buttonId = `submission-${submissionIndex}`;

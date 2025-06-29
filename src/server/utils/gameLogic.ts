@@ -139,9 +139,9 @@ export async function generatePlayerSoundSets(room: Room): Promise<void> {
   // Generate sounds for each non-judge player
   for (const player of nonJudgePlayers) {
     try {
-      // Generate 15 random sounds for this player
+      // Generate 10 random sounds for this player
       const playerSounds = await getRandomSounds(
-        15,
+        10,
         undefined,
         room.allowExplicitContent
       );
@@ -173,9 +173,12 @@ export function handleAllSubmissionsComplete(
     `[SUBMISSION] All submissions received for room ${roomCode}. Randomizing order...`
   );
 
-  // Generate a seed for deterministic randomization
-  const seed = generateSubmissionSeed(roomCode, room.currentRound);
+  // Generate a seed for deterministic randomization using current time
+  // This ensures each round gets a different shuffle while staying consistent across clients
+  const seed = Math.floor(Date.now() / 1000); // Use seconds precision for consistency
   room.submissionSeed = seed.toString();
+
+  console.log(`[SUBMISSION] Using timestamp-based seed: ${seed}`);
 
   // Create randomized order that will be consistent for all clients
   room.randomizedSubmissions = shuffleWithSeed(room.submissions, seed);
@@ -248,17 +251,61 @@ export function shuffleWithSeed<T>(array: T[], seed: number): T[] {
   const shuffled = [...array];
   let random = seed;
 
+  console.log(
+    `[SHUFFLE] Starting shuffle with seed: ${seed}, array length: ${array.length}`
+  );
+
+  // For arrays of length 2, use a simpler approach to ensure 50/50 chance
+  if (array.length === 2) {
+    // Simple linear congruential generator for deterministic randomness
+    random = (random * 1664525 + 1013904223) % 2 ** 32;
+    const randomValue = random / 2 ** 32;
+    console.log(`[SHUFFLE] Two-item array - LCG generated: ${randomValue}`);
+
+    // If random value is >= 0.5, swap the items
+    if (randomValue >= 0.5) {
+      console.log(`[SHUFFLE] Random value >= 0.5, swapping items`);
+      [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+    } else {
+      console.log(`[SHUFFLE] Random value < 0.5, keeping original order`);
+    }
+
+    console.log(
+      `[SHUFFLE] Final shuffled array:`,
+      shuffled.map((item: any) => item.playerName || item)
+    );
+    return shuffled;
+  }
+
   // Simple linear congruential generator for deterministic randomness
   const lcg = () => {
     random = (random * 1664525 + 1013904223) % 2 ** 32;
-    return random / 2 ** 32;
+    const result = random / 2 ** 32;
+    console.log(`[SHUFFLE] LCG generated: ${result}`);
+    return result;
   };
 
   // Fisher-Yates shuffle with seeded randomness
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(lcg() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    const randomValue = lcg();
+    const j = Math.floor(randomValue * (i + 1));
+    console.log(
+      `[SHUFFLE] Step ${
+        shuffled.length - 1 - i
+      }: i=${i}, randomValue=${randomValue}, j=${j}`
+    );
+
+    if (i !== j) {
+      console.log(`[SHUFFLE] Swapping positions ${i} and ${j}`);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    } else {
+      console.log(`[SHUFFLE] No swap needed (i === j)`);
+    }
   }
 
+  console.log(
+    `[SHUFFLE] Final shuffled array:`,
+    shuffled.map((item: any) => item.playerName || item)
+  );
   return shuffled;
 }

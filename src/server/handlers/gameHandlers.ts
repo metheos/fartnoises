@@ -325,8 +325,8 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
   });
 }
 
-// Helper function to start the next round
-async function startNextRound(context: SocketContext, roomCode: string) {
+// Helper function to start the next round - exported for use in other handlers
+export async function startNextRound(context: SocketContext, roomCode: string) {
   const room = context.rooms.get(roomCode);
   if (!room) return;
 
@@ -350,11 +350,9 @@ async function startNextRound(context: SocketContext, roomCode: string) {
   room.lastWinningSubmission = null;
 
   context.io.to(roomCode).emit("judgeSelected", room.currentJudge);
-  context.io
-    .to(roomCode)
-    .emit("gameStateChanged", GameState.JUDGE_SELECTION, {
-      judgeId: room.currentJudge,
-    });
+  context.io.to(roomCode).emit("gameStateChanged", GameState.JUDGE_SELECTION, {
+    judgeId: room.currentJudge,
+  });
 
   // Auto-transition to prompt selection
   room.judgeSelectionTimerStarted = true;
