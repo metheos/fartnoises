@@ -136,21 +136,30 @@ function GamePageContent() {
 
   // Sound selection functions - keep these local as they handle local state
   const selectSounds = (sounds: string[]) => {
-    // Filter out empty strings and ensure we have 1-2 valid sounds
+    // Filter out empty strings and ensure we have valid sounds
     const validSounds = sounds.filter(sound => sound && sound.trim() !== '');
-    if (validSounds.length >= 1 && validSounds.length <= 2) {
+    const maxSounds = player?.hasActivatedTripleSound ? 3 : 2;
+    
+    if (validSounds.length >= 1 && validSounds.length <= maxSounds) {
       setSelectedSounds(validSounds);
+      addDebugLog(`🎵 selectSounds: Accepted ${validSounds.length} sounds (max: ${maxSounds}): [${validSounds.join(', ')}]`);
     } else if (validSounds.length === 0) {
       // Allow clearing the selection with an empty array
       setSelectedSounds(null);
+      addDebugLog(`🎵 selectSounds: Cleared selection`);
+    } else {
+      addDebugLog(`🎵 selectSounds: Rejected ${validSounds.length} sounds (max: ${maxSounds}): [${validSounds.join(', ')}]`);
     }
   };
 
   const submitSounds = () => {
     if (selectedSounds) {
+      addDebugLog(`🎵 submitSounds: Submitting ${selectedSounds.length} sounds: [${selectedSounds.join(', ')}]`);
       gameActions.submitSounds(selectedSounds);
       // Note: Don't call setSelectedSounds(null) here as it affects all players
       // The SoundSelectionComponent will handle its own state
+    } else {
+      addDebugLog(`🎵 submitSounds: No sounds selected to submit`);
     }
   };
 
@@ -225,6 +234,7 @@ function GamePageContent() {
           onSelectSounds={selectSounds}
           onSubmitSounds={submitSounds}
           onRefreshSounds={gameActions.refreshSounds}
+          onActivateTripleSound={gameActions.activateTripleSound}
           timeLeft={timeLeft}
           soundEffects={soundEffects}
         />

@@ -10,6 +10,8 @@ export interface Player {
   disconnectedAt?: number; // Timestamp when disconnected
   soundSet?: string[]; // Player's available sound IDs for current round
   hasUsedRefresh?: boolean; // Track if player has used their one-time refresh this game
+  hasUsedTripleSound?: boolean; // Track if player has used their one-time triple sound ability this game (submitted 3 sounds)
+  hasActivatedTripleSound?: boolean; // Track if player has activated triple sound for the current round
 }
 
 export interface DisconnectedPlayer {
@@ -23,6 +25,8 @@ export interface DisconnectedPlayer {
   socketId: string; // Original socket ID for reconnection matching
   soundSet?: string[]; // Player's available sound IDs for current round
   hasUsedRefresh?: boolean; // Track if player has used their one-time refresh this game
+  hasUsedTripleSound?: boolean; // Track if player has used their one-time triple sound ability this game (submitted 3 sounds)
+  hasActivatedTripleSound?: boolean; // Track if player has activated triple sound for the current round
 }
 
 export interface ReconnectionVote {
@@ -129,6 +133,7 @@ export interface ServerToClientEvents {
   judgeSelected: (judgeId: string) => void;
   promptSelected: (prompt: GamePrompt) => void;
   soundsRefreshed: (data: { playerId: string; newSounds: string[] }) => void; // Notify when player gets new sounds
+  tripleSoundActivated: (data: { playerId: string }) => void; // Notify when player activates triple sound ability
   roundComplete: (data: {
     winnerId: string;
     winnerName: string;
@@ -195,6 +200,7 @@ export interface ClientToServerEvents {
   selectPrompt: (promptId: string) => void;
   submitSounds: (sounds: string[]) => void;
   refreshSounds: () => void; // Request new sound set (once per game per player)
+  activateTripleSound: () => void; // Activate triple sound ability (once per game per player)
   selectWinner: (submissionId: string) => void;
   voteOnReconnection: (continueWithoutPlayer: boolean) => void;
   restartGame: () => void;

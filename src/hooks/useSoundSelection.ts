@@ -212,6 +212,7 @@ export function useSoundSelection({
   const handleSoundSelect = useCallback(
     (soundId: string) => {
       const currentIndex = selectedSoundsLocal.indexOf(soundId);
+      const maxSounds = player.hasActivatedTripleSound ? 3 : 2;
       let newSelectedSounds: string[];
 
       if (currentIndex !== -1) {
@@ -219,12 +220,12 @@ export function useSoundSelection({
         newSelectedSounds = selectedSoundsLocal.filter((id) => id !== soundId);
       } else {
         // Sound is not selected, add it
-        if (selectedSoundsLocal.length < 2) {
-          // Add to existing selection (max 2 sounds)
+        if (selectedSoundsLocal.length < maxSounds) {
+          // Add to existing selection (max 2 or 3 sounds depending on triple sound activation)
           newSelectedSounds = [...selectedSoundsLocal, soundId];
         } else {
-          // Replace the first sound if we already have 2
-          newSelectedSounds = [soundId, selectedSoundsLocal[1]];
+          // Replace the first sound if we already have max sounds
+          newSelectedSounds = [soundId, ...selectedSoundsLocal.slice(1)];
         }
       }
 
@@ -233,7 +234,7 @@ export function useSoundSelection({
           player.name
         } selecting sound: ${soundId}, new local selection: [${newSelectedSounds.join(
           ", "
-        )}]`
+        )}] (max: ${maxSounds})`
       );
       setSelectedSoundsLocal(newSelectedSounds);
       onSelectSounds(newSelectedSounds);

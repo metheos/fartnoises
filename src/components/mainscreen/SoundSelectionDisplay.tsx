@@ -76,12 +76,19 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
               </div>
               <p className="font-bold text-2xl text-gray-900">{player.name}</p>
               
-              {/* Refresh status indicator */}
-              {player.hasUsedRefresh && (
-                <p className="text-sm text-orange-600 font-medium mb-1">
-                  🔄 Used Refresh
-                </p>
-              )}
+              {/* Status indicators */}
+              <div className="space-y-1">
+                {player.hasUsedRefresh && (
+                  <p className="text-sm text-orange-600 font-medium">
+                    🔄 Used Refresh
+                  </p>
+                )}
+                {player.hasActivatedTripleSound && (
+                  <p className="text-sm text-purple-600 font-bold animate-pulse">
+                    ⚡ Triple Sound! ⚡
+                  </p>
+                )}
+              </div>
               
               <p className={`text-xl font-semibold ${
                 hasSubmitted 

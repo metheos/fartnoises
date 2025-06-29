@@ -183,11 +183,19 @@ export function useGameActions({
     }
   }, [socket, room, player, addDebugLog]);
 
+  const activateTripleSound = useCallback(() => {
+    if (socket && room && player) {
+      addDebugLog(`🎵🎵🎵 Activating triple sound ability for ${player.name}`);
+      socket.emit("activateTripleSound");
+    }
+  }, [socket, room, player, addDebugLog]);
+
   return {
     startGame,
     selectPrompt,
     submitSounds,
     refreshSounds,
+    activateTripleSound,
     judgeSubmission,
     voteOnReconnection,
     voteOnReconnectionWithCleanup,

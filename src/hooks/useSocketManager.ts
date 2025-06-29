@@ -627,6 +627,16 @@ export function useSocketManager(
         // This handler is mainly for logging and potential UI feedback
       };
 
+      const handleTripleSoundActivated = ({
+        playerId,
+      }: {
+        playerId: string;
+      }) => {
+        addDebugLog(`🎵🎵🎵 Triple sound activated for player ${playerId}`);
+        // The room will be updated via the roomUpdated event that follows this event
+        // This handler is mainly for logging and potential UI feedback
+      };
+
       return {
         handleConnect,
         handleConnectError,
@@ -640,6 +650,7 @@ export function useSocketManager(
         handleJudgeSelected,
         handleSoundSubmitted,
         handleSoundsRefreshed,
+        handleTripleSoundActivated,
         handleRoundComplete,
         handleErrorEvent,
         handleTimeUpdate,
@@ -746,6 +757,10 @@ export function useSocketManager(
     currentSocket.on("judgeSelected", handlers.handleJudgeSelected);
     currentSocket.on("soundSubmitted", handlers.handleSoundSubmitted);
     currentSocket.on("soundsRefreshed", handlers.handleSoundsRefreshed);
+    currentSocket.on(
+      "tripleSoundActivated",
+      handlers.handleTripleSoundActivated
+    );
     currentSocket.on("roundComplete", handlers.handleRoundComplete);
     currentSocket.on("error", handlers.handleErrorEvent);
     currentSocket.on("timeUpdate", handlers.handleTimeUpdate);
@@ -769,6 +784,10 @@ export function useSocketManager(
       currentSocket.off("judgeSelected", handlers.handleJudgeSelected);
       currentSocket.off("soundSubmitted", handlers.handleSoundSubmitted);
       currentSocket.off("soundsRefreshed", handlers.handleSoundsRefreshed);
+      currentSocket.off(
+        "tripleSoundActivated",
+        handlers.handleTripleSoundActivated
+      );
       currentSocket.off("roundComplete", handlers.handleRoundComplete);
       currentSocket.off("error", handlers.handleErrorEvent);
       currentSocket.off("timeUpdate", handlers.handleTimeUpdate);

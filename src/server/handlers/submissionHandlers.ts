@@ -24,10 +24,17 @@ export function setupSubmissionHandlers(
       const player = room.players.find((p) => p.id === socket.id);
       if (!player || socket.id === room.currentJudge) return;
 
-      // Validate that sounds array has 1-2 valid sound IDs
-      if (!Array.isArray(sounds) || sounds.length < 1 || sounds.length > 2) {
+      // Determine max sounds based on whether player has activated triple sound for this round
+      const maxSounds = player.hasActivatedTripleSound ? 3 : 2;
+
+      // Validate that sounds array has 1-2 valid sound IDs (or 1-3 if triple sound is active)
+      if (
+        !Array.isArray(sounds) ||
+        sounds.length < 1 ||
+        sounds.length > maxSounds
+      ) {
         console.warn(
-          `[SUBMISSION] Invalid sounds array from ${player.name}: ${sounds}`
+          `[SUBMISSION] Invalid sounds array from ${player.name}: ${sounds} (max: ${maxSounds})`
         );
         return;
       }
@@ -37,9 +44,9 @@ export function setupSubmissionHandlers(
         (soundId) =>
           soundId && typeof soundId === "string" && soundId.trim() !== ""
       );
-      if (validSounds.length < 1 || validSounds.length > 2) {
+      if (validSounds.length < 1 || validSounds.length > maxSounds) {
         console.warn(
-          `[SUBMISSION] No valid sounds from ${player.name}: ${sounds}`
+          `[SUBMISSION] No valid sounds from ${player.name}: ${sounds} (max: ${maxSounds})`
         );
         return;
       }
@@ -63,6 +70,15 @@ export function setupSubmissionHandlers(
       );
 
       room.submissions.push(submission);
+
+      // If player submitted 3 sounds, mark their triple sound ability as used
+      if (validSounds.length === 3) {
+        player.hasUsedTripleSound = true;
+        console.log(
+          `[TRIPLE_SOUND] Player ${player.name} has now used their triple sound ability for the game`
+        );
+      }
+
       context.io.to(roomCode).emit("soundSubmitted", submission);
 
       // Check if this is the first submission and start the timer
@@ -149,6 +165,56 @@ export function setupSubmissionHandlers(
       context.io.to(roomCode).emit("roomUpdated", room);
     } catch (error) {
       console.error("Error refreshing sounds:", error);
+    }
+  });
+
+  // Activate triple sound handler - allows player to submit 3 sounds once per game
+  socket.on("activateTripleSound", () => {
+    try {
+      const roomCode = context.playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const room = context.rooms.get(roomCode);
+      if (!room || room.gameState !== GameState.SOUND_SELECTION) return;
+
+      const player = room.players.find((p) => p.id === socket.id);
+      if (!player || socket.id === room.currentJudge) return;
+
+      // Check if player has already used their triple sound ability (submitted 3 sounds)
+      if (player.hasUsedTripleSound) {
+        console.log(
+          `[TRIPLE_SOUND] Player ${player.name} has already used their triple sound ability this game`
+        );
+        return;
+      }
+
+      // Check if player has already submitted sounds (can't activate after submitting)
+      const existingSubmission = room.submissions.find(
+        (s) => s.playerId === socket.id
+      );
+      if (existingSubmission) {
+        console.log(
+          `[TRIPLE_SOUND] Player ${player.name} cannot activate triple sound after submitting sounds`
+        );
+        return;
+      }
+
+      console.log(
+        `[TRIPLE_SOUND] Activating triple sound for player ${player.name}`
+      );
+
+      // Mark as activated for this round
+      player.hasActivatedTripleSound = true;
+
+      // Notify all clients about the triple sound activation
+      context.io.to(roomCode).emit("tripleSoundActivated", {
+        playerId: socket.id,
+      });
+
+      // Send updated room state
+      context.io.to(roomCode).emit("roomUpdated", room);
+    } catch (error) {
+      console.error("Error activating triple sound:", error);
     }
   });
 

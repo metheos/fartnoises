@@ -32,9 +32,10 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
       room.currentRound = 1;
       room.judgeSelectionTimerStarted = false;
 
-      // Reset hasUsedRefresh for all players at the start of a new game
+      // Reset hasUsedRefresh and hasUsedTripleSound for all players at the start of a new game
       room.players.forEach((player) => {
         player.hasUsedRefresh = false;
+        player.hasUsedTripleSound = false;
       });
 
       context.io.to(roomCode).emit("roomUpdated", room);
@@ -349,6 +350,11 @@ export async function startNextRound(context: SocketContext, roomCode: string) {
   room.submissionSeed = undefined;
   room.soundSelectionTimerStarted = false;
   room.judgeSelectionTimerStarted = false;
+
+  // Clear activated triple sound flags for the new round (but keep hasUsedTripleSound)
+  room.players.forEach((player) => {
+    player.hasActivatedTripleSound = false;
+  });
 
   // Clear previous round winner information
   room.lastWinner = null;
