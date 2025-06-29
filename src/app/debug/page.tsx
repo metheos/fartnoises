@@ -438,6 +438,7 @@ export default function DebugPage() {
   // Audio Test Component for debugging our new waveform
   function AudioTestComponent() {
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isPlayingSweep, setIsPlayingSweep] = useState(false);
     const [availableSounds, setAvailableSounds] = useState<SoundEffect[]>([]);
 
     useEffect(() => {
@@ -462,31 +463,85 @@ export default function DebugPage() {
       }
     };
 
+    const playFrequencySweep = async () => {
+      setIsPlayingSweep(true);
+      try {
+        await audioSystem.initialize();
+        
+        // Create a custom function to load and play external audio through audioSystem
+        const loadAndPlayExternalAudio = async (url: string): Promise<void> => {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Failed to load audio from ${url}`);
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await audioSystem['audioContext']!.decodeAudioData(arrayBuffer);
+          
+          // Create and connect audio source through the analysis chain
+          const source = audioSystem['audioContext']!.createBufferSource();
+          source.buffer = audioBuffer;
+          
+          // Connect through the same chain as regular sounds for analysis
+          if (audioSystem['gainNode']) {
+            source.connect(audioSystem['gainNode']);
+            audioSystem.setAnalysisActive(true);
+          } else {
+            source.connect(audioSystem['audioContext']!.destination);
+          }
+          
+          // Return a promise that resolves when the sound ends
+          return new Promise<void>((resolve) => {
+            source.onended = () => {
+              audioSystem.setAnalysisActive(false);
+              resolve();
+            };
+            source.start();
+          });
+        };
+        
+        await loadAndPlayExternalAudio('/sounds/sweep.mp3');
+      } catch (error) {
+        console.error('Error playing frequency sweep:', error);
+      } finally {
+        setIsPlayingSweep(false);
+      }
+    };
+
     return (
       <div className="bg-gray-800 p-6 rounded-lg">
         <h3 className="text-white text-xl mb-4">🎵 Audio Waveform Test</h3>
-        <button 
-          onClick={playTestSound}
-          disabled={isPlaying || availableSounds.length === 0}
-          className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white px-4 py-2 rounded mb-4"
-        >
-          {isPlaying ? 'Playing...' : 'Play Random Sound'}
-        </button>
+        <div className="flex gap-3 mb-4">
+          <button 
+            onClick={playTestSound}
+            disabled={isPlaying || availableSounds.length === 0}
+            className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white px-4 py-2 rounded"
+          >
+            {isPlaying ? 'Playing...' : 'Play Random Sound'}
+          </button>
+          <button 
+            onClick={playFrequencySweep}
+            disabled={isPlayingSweep}
+            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white px-4 py-2 rounded"
+          >
+            {isPlayingSweep ? 'Playing Sweep...' : 'Play Frequency Sweep'}
+          </button>
+        </div>
         <p className="text-gray-300 mb-4">Watch the waveform react to real audio frequency data!</p>
         
         {/* Different sizes of our new waveform */}
         <div className="space-y-4">
           <div>
             <p className="text-white text-sm mb-2">Small Waveform:</p>
-            <WaveformAnimation isPlaying={isPlaying} size="sm" color="bg-green-400" />
+            <WaveformAnimation isPlaying={isPlaying || isPlayingSweep} size="sm" color="bg-green-400" />
           </div>
           <div>
             <p className="text-white text-sm mb-2">Medium Waveform:</p>
-            <WaveformAnimation isPlaying={isPlaying} size="md" color="bg-blue-400" />
+            <WaveformAnimation isPlaying={isPlaying || isPlayingSweep} size="md" color="bg-blue-400" />
           </div>
           <div>
             <p className="text-white text-sm mb-2">Large Waveform:</p>
-            <WaveformAnimation isPlaying={isPlaying} size="lg" color="bg-purple-400" />
+            <WaveformAnimation isPlaying={isPlaying || isPlayingSweep} size="lg" color="bg-purple-400" />
           </div>
         </div>
       </div>

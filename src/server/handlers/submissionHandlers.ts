@@ -501,9 +501,13 @@ export function setupSubmissionHandlers(
       }
 
       // Check if player already liked this submission
-      const existingLike = submission.likes.find(like => like.playerId === socket.id);
+      const existingLike = submission.likes.find(
+        (like) => like.playerId === socket.id
+      );
       if (existingLike) {
-        console.warn(`[LIKE] Player ${player.name} already liked submission ${submissionIndex}`);
+        console.warn(
+          `[LIKE] Player ${player.name} already liked submission ${submissionIndex}`
+        );
         return;
       }
 
@@ -513,32 +517,35 @@ export function setupSubmissionHandlers(
         playerName: player.name,
         timestamp: Date.now(),
         roundNumber: room.currentRound,
-        prompt: room.currentPrompt?.text || '',
-        submittedSounds: submission.sounds
+        prompt: room.currentPrompt?.text || "",
+        submittedSounds: submission.sounds,
       };
 
       submission.likes.push(newLike);
       submission.likeCount = submission.likes.length;
 
       // Update the player's like score (for the submission owner)
-      const submissionOwner = room.players.find(p => p.id === submission.playerId);
+      const submissionOwner = room.players.find(
+        (p) => p.id === submission.playerId
+      );
       if (submissionOwner) {
         submissionOwner.likeScore = (submissionOwner.likeScore || 0) + 1;
       }
 
-      console.log(`[LIKE] ${player.name} liked submission ${submissionIndex} by ${submission.playerName}. Total likes: ${submission.likeCount}`);
+      console.log(
+        `[LIKE] ${player.name} liked submission ${submissionIndex} by ${submission.playerName}. Total likes: ${submission.likeCount}`
+      );
 
       // Broadcast the like update to all players in the room
       context.io.to(roomCode).emit("submissionLiked", {
         submissionIndex: submissionIndex,
         likedBy: socket.id,
         likedByName: player.name,
-        totalLikes: submission.likeCount
+        totalLikes: submission.likeCount,
       });
 
       // Update room state
       context.io.to(roomCode).emit("roomUpdated", room);
-
     } catch (error) {
       console.error("[LIKE] Error handling like submission:", error);
     }

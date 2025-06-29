@@ -77,18 +77,66 @@ export function WaveformAnimation({
     const nyquistFreq = sampleRate / 2; // 22.05kHz
     const freqPerBin = nyquistFreq / totalBins; // ~172.3 Hz per bin
     
-    // Cover full spectrum with better bass representation
-    const minFreq = 80; // Start at more realistic bass frequencies that actually appear in music
-    const maxFreq = 16000; // Cover most useful spectrum
+    // Cover musical spectrum with better distribution
+    const minFreq = 150; // Start lower since we're cramming all bass into bar 1
+    const maxFreq = 15000; // Extend highs a bit for sweep testing
     
-    // Use a simpler logarithmic distribution across the full range
+    // Use logarithmic distribution optimized for musical content
     for (let i = 0; i < barCount; i++) {
-      const logMin = Math.log(minFreq);
-      const logMax = Math.log(maxFreq);
-      const logStep = (logMax - logMin) / barCount;
+      // Use a more aggressive curve that compresses lows and highs
+      const normalizedPosition = i / (barCount - 1); // 0 to 1
       
-      const startFreq = Math.exp(logMin + i * logStep);
-      const endFreq = Math.exp(logMin + (i + 1) * logStep);
+      // Create a custom curve that:
+      // - First bar gets ALL the bass (150Hz-500Hz)
+      // - Bars 2-21 get massively expanded mid-range (500Hz-8kHz) 
+      // - Last 3 bars get super-compressed highs (8kHz-15kHz)
+      let curvedPosition;
+      if (i === 0) {
+        // First bar: all bass frequencies
+        curvedPosition = 0; // Start at minFreq
+      } else if (i === 1) {
+        // Second bar starts at ~500Hz (beginning of mids)
+        curvedPosition = Math.log(500 / minFreq) / Math.log(maxFreq / minFreq);
+      } else if (i <= 21) {
+        // Bars 2-21: Massively expanded mid-range (500Hz to 8kHz)
+        const midStart = Math.log(500 / minFreq) / Math.log(maxFreq / minFreq);
+        const midEnd = Math.log(8000 / minFreq) / Math.log(maxFreq / minFreq);
+        const midProgress = (i - 1) / 20; // Progress through 20 bars (bars 2-21)
+        curvedPosition = midStart + midProgress * (midEnd - midStart);
+      } else {
+        // Last 3 bars: Super-compressed highs (8kHz to 15kHz)
+        const highStart = Math.log(8000 / minFreq) / Math.log(maxFreq / minFreq);
+        const highProgress = (i - 22) / 2; // Progress through last 3 bars (22, 23, 24)
+        curvedPosition = highStart + Math.pow(highProgress, 0.5) * (1 - highStart);
+      }
+      
+      const startFreq = minFreq * Math.pow(maxFreq / minFreq, curvedPosition);
+      
+      // Calculate end frequency for this bar
+      let endFreq;
+      if (i === 0) {
+        // First bar covers all bass up to 500Hz
+        endFreq = 500;
+      } else if (i === barCount - 1) {
+        // Last bar goes to maxFreq
+        endFreq = maxFreq;
+      } else {
+        // Calculate next bar's start frequency
+        let nextCurvedPosition;
+        if (i + 1 === 1) {
+          nextCurvedPosition = Math.log(500 / minFreq) / Math.log(maxFreq / minFreq);
+        } else if (i + 1 <= 21) {
+          const midStart = Math.log(500 / minFreq) / Math.log(maxFreq / minFreq);
+          const midEnd = Math.log(8000 / minFreq) / Math.log(maxFreq / minFreq);
+          const midProgress = ((i + 1) - 1) / 20; // Progress through 20 bars
+          nextCurvedPosition = midStart + midProgress * (midEnd - midStart);
+        } else {
+          const highStart = Math.log(8000 / minFreq) / Math.log(maxFreq / minFreq);
+          const highProgress = ((i + 1) - 22) / 2; // Progress through last 3 bars
+          nextCurvedPosition = highStart + Math.pow(highProgress, 0.5) * (1 - highStart);
+        }
+        endFreq = minFreq * Math.pow(maxFreq / minFreq, nextCurvedPosition);
+      }
       
       const startBin = Math.max(0, Math.floor(startFreq / freqPerBin));
       const endBin = Math.min(totalBins, Math.floor(endFreq / freqPerBin));
