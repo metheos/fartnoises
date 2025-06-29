@@ -234,22 +234,6 @@ export function handleAllSubmissionsComplete(
   }
 }
 
-// Utility functions for submission randomization
-export function generateSubmissionSeed(
-  roomCode: string,
-  round: number
-): number {
-  // Create a deterministic seed based on room code and round
-  let hash = 0;
-  const str = `${roomCode}-${round}`;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash);
-}
-
 // Generate a well-mixed seed that breaks linear patterns of consecutive timestamps
 export function generateWellMixedSeed(
   roomCode: string,
