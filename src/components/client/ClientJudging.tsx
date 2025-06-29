@@ -249,7 +249,7 @@ export default function ClientJudging({
                   variant={isButtonPlaying(index) ? 'secondary' : 'primary'}
                   className={isJudge ? 'w-12 h-12 p-0 flex items-center justify-center' : 'flex-1 text-xs py-1 px-2'}
                 >
-                  {isButtonPlaying(index) ? (isJudge ? '🔇' : '🔇') : (isJudge ? '🔊' : '🔊')}
+                  {isButtonPlaying(index) ? (isJudge ? '🔇' : '🔇') : (isJudge ? '🔊' : '🔊 Play')}
                 </Button>
                 
                 {/* Like button for non-judges */}

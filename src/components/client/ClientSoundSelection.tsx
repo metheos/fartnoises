@@ -114,8 +114,8 @@ export default function ClientSoundSelection({
               <h4 className="text-xl font-bold text-gray-800">Your Sounds</h4>
             </div>
             
-            <div className="flex flex-row items-center justify-center gap-4">
-              {submission.sounds.map((soundId, index) => (
+            <div className="flex flex-row items-center justify-center gap-4 relative">
+              {submission.sounds.slice(0, 2).map((soundId, index) => (
                 <div key={soundId} className="relative">
                   <div className={`w-40 h-20 rounded-xl flex items-center justify-center shadow-lg transform scale-105 transition-all duration-300 bg-gradient-to-br from-purple-500 to-purple-600 border-2 border-purple-300`}>
                     <div className="text-center text-white">
@@ -127,7 +127,7 @@ export default function ClientSoundSelection({
                   
                   {/* Number marker */}
                   <div className="absolute -top-2 -left-2 w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold text-purple-600 shadow-md border border-purple-300">
-                    {index === 0 ? '1st' : '2nd'}
+                    {index + 1}
                   </div>
                   
                   {/* Preview button */}
@@ -141,6 +141,38 @@ export default function ClientSoundSelection({
                   />
                 </div>
               ))}
+
+              {/* Third sound slot - positioned chaotically like in the selection view */}
+              {submission.sounds.length > 2 && (
+                <div className={`absolute top-2 left-1/2 transform -translate-x-1/2 rotate-12 w-40 z-10 ${
+                  showThirdSoundSlap ? 'animate-bounce' : ''
+                }`} style={{
+                  animation: showThirdSoundSlap ? 'slap 1s ease-out' : undefined
+                }}>
+                  <div className="w-40 h-20 rounded-xl flex items-center justify-center shadow-2xl transform scale-110 transition-all duration-300 bg-gradient-to-br from-pink-500 to-red-500 border-2 border-pink-300 shadow-pink-500/50">
+                    <div className="text-center text-white">
+                      <div className="text-sm font-bold">
+                        {soundEffects.find(s => s.id === submission.sounds[2])?.name || 'Sound 3'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Special number marker for third sound */}
+                  <div className="absolute -top-2 -left-2 w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg border-2 border-white animate-pulse">
+                    ⚡3
+                  </div>
+                  
+                  {/* Preview button */}
+                  <CircularButton
+                    icon={isPlaying(submission.sounds[2], `submission-preview-2`) ? '🔇' : '🔊'}
+                    onClick={() => playSoundWithFeedback(submission.sounds[2], `submission-preview-2`)}
+                    disabled={isPlaying(submission.sounds[2], `submission-preview-2`)}
+                    variant="red"
+                    className="absolute -top-2 -right-2 border-2 border-pink-200 shadow-md bg-gradient-to-r from-pink-500 to-red-500"
+                    title={isPlaying(submission.sounds[2], `submission-preview-2`) ? 'Playing...' : 'Preview sound'}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Preview combo button */}
