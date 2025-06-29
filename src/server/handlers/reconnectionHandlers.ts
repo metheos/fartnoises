@@ -275,6 +275,12 @@ function handleReconnectionVoteResult(
   });
 
   if (continueWithoutPlayer) {
+    // Check if the disconnected player was the judge before removing them
+    const disconnectedPlayer = room.disconnectedPlayers?.find(
+      (p) => p.name === disconnectedPlayerName
+    );
+    const wasJudge = disconnectedPlayer && room.currentJudge === disconnectedPlayer.socketId;
+
     // Remove disconnected player permanently and resume game
     if (room.disconnectedPlayers) {
       room.disconnectedPlayers = room.disconnectedPlayers.filter(
@@ -282,9 +288,10 @@ function handleReconnectionVoteResult(
       );
     }
 
-    resumeGame(context, roomCode, previousGameState);
+    resumeGame(context, roomCode, previousGameState, wasJudge);
   } else {
     // Wait longer - restart the reconnection timer
+    // Don't reassign judge role yet, preserve it for potential reconnection
     startReconnectionTimer(context, roomCode, previousGameState);
   }
 }
@@ -292,7 +299,8 @@ function handleReconnectionVoteResult(
 function resumeGame(
   context: SocketContext,
   roomCode: string,
-  previousGameState: GameState
+  previousGameState: GameState,
+  shouldReassignJudge: boolean = false
 ) {
   const room = context.rooms.get(roomCode);
   if (!room) return;
@@ -304,13 +312,14 @@ function resumeGame(
   room.previousGameState = undefined;
   room.reconnectionVote = null;
 
-  // Handle judge reassignment if needed
-  if (
-    room.currentJudge &&
-    !room.players.find((p) => p.id === room.currentJudge)
-  ) {
+  // Handle judge reassignment only if explicitly requested (when voting to continue without judge)
+  if (shouldReassignJudge && room.currentJudge && !room.players.find((p) => p.id === room.currentJudge)) {
+    console.log(`Reassigning judge role because players voted to continue without the disconnected judge`);
     room.currentJudge = selectNextJudge(room);
     context.io.to(roomCode).emit("judgeSelected", room.currentJudge);
+  } else if (room.currentJudge && !room.players.find((p) => p.id === room.currentJudge)) {
+    // Judge is disconnected but we're waiting for them - preserve their role
+    console.log(`Preserving judge role for disconnected judge: ${room.currentJudge}`);
   }
 
   // Notify players that game is resuming
@@ -367,6 +376,14 @@ function handlePlayerReconnection(
   // Add back to active players
   room.players.push(reconnectedPlayer);
 
+  // Update judge role if this player was the judge
+  if (room.currentJudge === disconnectedPlayer.socketId) {
+    console.log(`Updating judge role from old socket ID ${disconnectedPlayer.socketId} to new socket ID ${socket.id}`);
+    room.currentJudge = socket.id;
+    // Notify all players that the judge has been updated (but it's the same person)
+    context.io.to(roomCode).emit("judgeSelected", socket.id);
+  }
+
   // Update mappings
   context.playerRooms.set(socket.id, roomCode);
   socket.join(roomCode);
@@ -383,7 +400,8 @@ function handlePlayerReconnection(
     console.log(
       `Restoring game state to: ${gameStateToRestore} (was paused at: ${room.previousGameState})`
     );
-    resumeGame(context, roomCode, gameStateToRestore);
+    // Don't reassign judge when all players reconnect successfully
+    resumeGame(context, roomCode, gameStateToRestore, false);
   }
 
   // Notify everyone about the reconnection

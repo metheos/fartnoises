@@ -169,9 +169,15 @@ class ReconnectionTester {
         reject(new Error("Room creation timeout"));
       }, 5000);
 
+      const playerData = {
+        name: hostPlayer.name,
+        color: "#FF6B6B",
+        emoji: "🎮"
+      };
+
       hostPlayer.socket.emit(
         "createRoom",
-        hostPlayer.name,
+        playerData,
         (roomCode: string) => {
           clearTimeout(timeout);
           this.roomCode = roomCode;
@@ -196,10 +202,16 @@ class ReconnectionTester {
         reject(new Error("Room join timeout"));
       }, 5000);
 
+      const playerData = {
+        name: player.name,
+        color: "#4ECDC4",
+        emoji: "🎯"
+      };
+
       player.socket.emit(
         "joinRoom",
         roomCode,
-        player.name,
+        playerData,
         (success: boolean) => {
           clearTimeout(timeout);
           if (success) {
