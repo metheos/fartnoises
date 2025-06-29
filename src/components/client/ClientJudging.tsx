@@ -93,7 +93,7 @@ export default function ClientJudging({
       {isJudge ? (
         <>
           {/* Judge Display for the judge themselves */}
-          <div className="mb-6">
+          <div className="mb-0">
             <JudgePromptDisplay 
               judge={judge || undefined} 
               prompt={room.currentPrompt || undefined} 
@@ -102,10 +102,10 @@ export default function ClientJudging({
             />
           </div>
           
-          <p className="text-gray-800 mb-4">Choose the winner!</p>
+          {/* <p className="text-gray-800 mb-4">Choose the winner!</p> */}
         </>
       ) : (
-        <div className="mb-4">
+        <div className="mb-0">
           <div className="flex items-center justify-center gap-2 mb-2">
             <JudgePromptDisplay 
               judge={judge || undefined} 
@@ -114,9 +114,9 @@ export default function ClientJudging({
               size="small"
             />
           </div>
-          <p className="text-sm text-gray-600 text-center">
+          {/* <p className="text-sm text-gray-600 text-center">
             💡 While you wait, you can like submissions you enjoyed! (except your own)
-          </p>
+          </p> */}
         </div>
       )}
       
@@ -133,21 +133,21 @@ export default function ClientJudging({
           </div>
         </div>
       ) : (
-        <div className={`grid gap-4 mt-6 ${isJudge ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
+        <div className={`grid gap-4 mt-0 ${isJudge ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
           {submissionsToShow.map((submission, index) => (
           <div 
             key={index} 
             className={`relative transition-all duration-500 bg-gray-100 hover:bg-gray-50 border-2 border-gray-200 ${
               isJudge 
-                ? 'rounded-3xl p-6' 
+                ? 'rounded-3xl p-3' 
                 : 'rounded-2xl p-3'
             }`}
           >
             <div className="relative z-10">
               {/* Header - different layouts for judge vs non-judge */}
               {isJudge ? (
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-xl font-bold text-gray-800">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-md font-bold text-gray-800 px-2">
                     Submission {index + 1}
                   </h4>
                   
@@ -169,7 +169,7 @@ export default function ClientJudging({
               ) : (
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-bold text-gray-800">
-                    #{index + 1}
+                    {/* #{index + 1} */}
                   </h4>
                   
                   <div className="flex items-center space-x-1">
@@ -191,18 +191,17 @@ export default function ClientJudging({
 
               {/* Sound list - different layouts for judge vs non-judge */}
               {isJudge ? (
-                <div className="space-y-3 mb-4">
+                <div className="space-y-1 mb-2">
                   {submission.sounds.map((soundId, soundIndex) => {
                     const sound = soundEffects.find(s => s.id === soundId);
                     
                     return (
                       <div 
                         key={soundIndex} 
-                        className="px-4 py-3 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
+                        className="px-2 py-2 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
                       >
                         <div className="flex items-center space-x-2">
-                          <span className="text-lg">🎵</span>
-                          <span className="font-semibold">{sound?.name || soundId}</span>
+                          <span className="font-semibold text-sm">{sound?.name || soundId}</span>
                         </div>
                       </div>
                     );
@@ -229,7 +228,7 @@ export default function ClientJudging({
               )}
 
               {/* Action Buttons */}
-              <div className={isJudge ? "space-y-2" : "space-y-1"}>
+              <div className="flex gap-2">
                 <Button
                   onClick={() => {
                     const buttonId = `submission-${index}`;
@@ -248,9 +247,9 @@ export default function ClientJudging({
                   }}
                   disabled={isButtonPlaying(index)}
                   variant={isButtonPlaying(index) ? 'secondary' : 'primary'}
-                  className={`w-full ${isJudge ? '' : 'text-xs py-1.5'}`}
+                  className={isJudge ? 'w-12 h-12 p-0 flex items-center justify-center' : 'flex-1 text-xs py-1 px-2'}
                 >
-                  {isButtonPlaying(index) ? '🔇 Playing...' : '🔊 Play'}
+                  {isButtonPlaying(index) ? (isJudge ? '🔇' : '🔇') : (isJudge ? '🔊' : '🔊')}
                 </Button>
                 
                 {/* Like button for non-judges */}
@@ -259,7 +258,7 @@ export default function ClientJudging({
                     onClick={() => handleLikeSubmission(index)}
                     disabled={likedSubmissions.has(index)}
                     variant={likedSubmissions.has(index) ? 'secondary' : 'primary'}
-                    className={`w-full text-xs py-1.5 ${
+                    className={`flex-1 text-xs py-1 px-2 ${
                       likedSubmissions.has(index) 
                         ? 'bg-pink-200 text-pink-600 cursor-not-allowed' 
                         : 'bg-pink-500 hover:bg-pink-600 text-white'
@@ -273,7 +272,7 @@ export default function ClientJudging({
                   <Button 
                     onClick={() => onJudgeSubmission(index)}
                     variant="success"
-                    className="w-full"
+                    className="flex-1"
                   >
                     🏆 Pick as Winner
                   </Button>
@@ -281,7 +280,7 @@ export default function ClientJudging({
               </div>
 
               {/* Judge consideration indicator for non-judges - compact version */}
-              {!isJudge && (
+              {/* {!isJudge && (
                 <div className="mt-2 text-center">
                   <div className="flex items-center justify-center space-x-1">
                     <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"></div>
@@ -289,7 +288,7 @@ export default function ClientJudging({
                     <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"></div>
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
           </div>
         ))}

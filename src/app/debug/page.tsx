@@ -747,7 +747,7 @@ export default function DebugPage() {
       </div>
 
       {/* Render the appropriate view */}
-      <div className="bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-8 rounded-lg">
+      <div className="bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-4 rounded-lg">
         <div className="max-w-7xl mx-auto">
           {viewType === 'main-screen' ? renderMainScreenView() : renderClientView()}
         </div>
