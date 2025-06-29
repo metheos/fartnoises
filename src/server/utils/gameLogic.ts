@@ -173,12 +173,15 @@ export function handleAllSubmissionsComplete(
     `[SUBMISSION] All submissions received for room ${roomCode}. Randomizing order...`
   );
 
-  // Generate a seed for deterministic randomization using current time
-  // This ensures each round gets a different shuffle while staying consistent across clients
-  const seed = Math.floor(Date.now() / 1000); // Use seconds precision for consistency
+  // Generate a well-mixed seed for deterministic randomization
+  // This breaks the linear pattern of consecutive timestamps while staying deterministic
+  const timestamp = Math.floor(Date.now() / 1000);
+  const seed = generateWellMixedSeed(roomCode, room.currentRound, timestamp);
   room.submissionSeed = seed.toString();
 
-  console.log(`[SUBMISSION] Using timestamp-based seed: ${seed}`);
+  console.log(
+    `[SUBMISSION] Using well-mixed seed: ${seed} (from timestamp: ${timestamp})`
+  );
 
   // Create randomized order that will be consistent for all clients
   room.randomizedSubmissions = shuffleWithSeed(room.submissions, seed);
@@ -245,6 +248,44 @@ export function generateSubmissionSeed(
     hash = hash & hash; // Convert to 32-bit integer
   }
   return Math.abs(hash);
+}
+
+// Generate a well-mixed seed that breaks linear patterns of consecutive timestamps
+export function generateWellMixedSeed(
+  roomCode: string,
+  round: number,
+  timestamp: number
+): number {
+  // Combine multiple sources to create a well-distributed seed
+  let hash = 0;
+
+  // Mix in room code
+  for (let i = 0; i < roomCode.length; i++) {
+    hash = ((hash << 5) - hash + roomCode.charCodeAt(i)) & 0xffffffff;
+  }
+
+  // Mix in round number with large prime multiplier
+  hash = (hash * 1009 + round * 2017) & 0xffffffff;
+
+  // Mix in timestamp with bit manipulation to break linear patterns
+  const mixedTimestamp = timestamp ^ (timestamp >>> 16) ^ (timestamp << 11);
+  hash = (hash * 3001 + mixedTimestamp * 5003) & 0xffffffff;
+
+  // Additional mixing pass using xorshift-like operations
+  hash ^= hash >>> 13;
+  hash = (hash * 0x85ebca6b) & 0xffffffff;
+  hash ^= hash >>> 16;
+  hash = (hash * 0xc2b2ae35) & 0xffffffff;
+  hash ^= hash >>> 13;
+
+  // Ensure positive result
+  const result = Math.abs(hash);
+
+  console.log(
+    `[SEED] Mixed seed generation: room=${roomCode}, round=${round}, timestamp=${timestamp} → ${result}`
+  );
+
+  return result;
 }
 
 export function shuffleWithSeed<T>(array: T[], seed: number): T[] {
