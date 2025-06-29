@@ -22,6 +22,7 @@ export interface SocketContext {
   rooms: Map<string, import("@/types/game").Room>;
   playerRooms: Map<string, string>; // socketId -> roomCode
   roomTimers: Map<string, NodeJS.Timeout>; // roomCode -> timer
+  gracePeriodTimers: Map<string, NodeJS.Timeout>; // roomCode -> initial grace period timer
   disconnectionTimers: Map<string, NodeJS.Timeout>; // roomCode -> disconnection timer
   reconnectionVoteTimers: Map<string, NodeJS.Timeout>; // roomCode -> vote timer
   mainScreens: Map<string, Set<string>>; // roomCode -> Set of main screen socket IDs
@@ -29,5 +30,6 @@ export interface SocketContext {
 }
 
 // Constants for disconnection handling
+export const INITIAL_GRACE_PERIOD = 10000; // 10 seconds before pausing game
 export const RECONNECTION_GRACE_PERIOD = 30000; // 30 seconds
 export const RECONNECTION_VOTE_TIMEOUT = 20000; // 20 seconds to vote

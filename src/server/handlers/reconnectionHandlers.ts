@@ -3,6 +3,7 @@ import { Socket } from "socket.io";
 import { GameState } from "@/types/game";
 import {
   SocketContext,
+  INITIAL_GRACE_PERIOD,
   RECONNECTION_GRACE_PERIOD,
   RECONNECTION_VOTE_TIMEOUT,
 } from "../types/socketTypes";
@@ -154,7 +155,7 @@ function handlePlayerDisconnection(
     room.disconnectedPlayers = [];
   }
 
-  // Move player to disconnected list
+  // Move player to disconnected list but don't pause game yet
   const disconnectedPlayer = {
     ...player,
     disconnectedAt: Date.now(),
@@ -164,7 +165,52 @@ function handlePlayerDisconnection(
   room.disconnectedPlayers.push(disconnectedPlayer);
   room.players = room.players.filter((p) => p.id !== socketId);
 
-  // Pause the game and notify players
+  // Notify other players about the disconnection (but game continues)
+  context.io.to(roomCode).emit("playerDisconnected", {
+    playerId: socketId,
+    playerName: player.name,
+    canReconnect: true,
+  });
+
+  console.log(
+    `Starting ${INITIAL_GRACE_PERIOD / 1000}s grace period for ${
+      player.name
+    } to reconnect without disrupting the game`
+  );
+
+  // Start grace period timer - only pause game if they don't reconnect in time
+  const gracePeriodTimer = setTimeout(() => {
+    console.log(
+      `Grace period expired for ${player.name}. Pausing game for everyone.`
+    );
+    pauseGameForDisconnection(context, roomCode, player.name);
+  }, INITIAL_GRACE_PERIOD);
+
+  context.gracePeriodTimers.set(roomCode, gracePeriodTimer);
+}
+
+// New function to pause the game after grace period expires
+function pauseGameForDisconnection(
+  context: SocketContext,
+  roomCode: string,
+  disconnectedPlayerName: string
+) {
+  const room = context.rooms.get(roomCode);
+  if (!room) return;
+
+  // Check if player already reconnected during grace period
+  if (
+    !room.disconnectedPlayers?.some((p) => p.name === disconnectedPlayerName)
+  ) {
+    console.log(
+      `Player ${disconnectedPlayerName} already reconnected during grace period. No need to pause game.`
+    );
+    return;
+  }
+
+  console.log(`Pausing game for disconnection of ${disconnectedPlayerName}`);
+
+  // Now actually pause the game
   const previousGameState = room.gameState;
   room.gameState = GameState.PAUSED_FOR_DISCONNECTION;
   room.pausedForDisconnection = true;
@@ -174,15 +220,9 @@ function handlePlayerDisconnection(
   // Clear any existing game timers
   clearTimer(context, roomCode);
 
-  // Notify all players about the disconnection
-  context.io.to(roomCode).emit("playerDisconnected", {
-    playerId: socketId,
-    playerName: player.name,
-    canReconnect: true,
-  });
-
+  // Notify all players that the game is now paused
   context.io.to(roomCode).emit("gamePausedForDisconnection", {
-    disconnectedPlayerName: player.name,
+    disconnectedPlayerName: disconnectedPlayerName,
     timeLeft: RECONNECTION_GRACE_PERIOD / 1000,
   });
 
@@ -190,10 +230,10 @@ function handlePlayerDisconnection(
     .to(roomCode)
     .emit("gameStateChanged", GameState.PAUSED_FOR_DISCONNECTION, {
       previousState: previousGameState,
-      disconnectedPlayer: player.name,
+      disconnectedPlayer: disconnectedPlayerName,
     });
 
-  // Start reconnection grace period timer
+  // Start the main reconnection timer (30 seconds)
   startReconnectionTimer(context, roomCode, previousGameState);
 }
 
@@ -279,7 +319,8 @@ function handleReconnectionVoteResult(
     const disconnectedPlayer = room.disconnectedPlayers?.find(
       (p) => p.name === disconnectedPlayerName
     );
-    const wasJudge = disconnectedPlayer && room.currentJudge === disconnectedPlayer.socketId;
+    const wasJudge =
+      disconnectedPlayer && room.currentJudge === disconnectedPlayer.socketId;
 
     // Remove disconnected player permanently and resume game
     if (room.disconnectedPlayers) {
@@ -313,13 +354,24 @@ function resumeGame(
   room.reconnectionVote = null;
 
   // Handle judge reassignment only if explicitly requested (when voting to continue without judge)
-  if (shouldReassignJudge && room.currentJudge && !room.players.find((p) => p.id === room.currentJudge)) {
-    console.log(`Reassigning judge role because players voted to continue without the disconnected judge`);
+  if (
+    shouldReassignJudge &&
+    room.currentJudge &&
+    !room.players.find((p) => p.id === room.currentJudge)
+  ) {
+    console.log(
+      `Reassigning judge role because players voted to continue without the disconnected judge`
+    );
     room.currentJudge = selectNextJudge(room);
     context.io.to(roomCode).emit("judgeSelected", room.currentJudge);
-  } else if (room.currentJudge && !room.players.find((p) => p.id === room.currentJudge)) {
+  } else if (
+    room.currentJudge &&
+    !room.players.find((p) => p.id === room.currentJudge)
+  ) {
     // Judge is disconnected but we're waiting for them - preserve their role
-    console.log(`Preserving judge role for disconnected judge: ${room.currentJudge}`);
+    console.log(
+      `Preserving judge role for disconnected judge: ${room.currentJudge}`
+    );
   }
 
   // Notify players that game is resuming
@@ -360,6 +412,19 @@ function handlePlayerReconnection(
 
   const disconnectedPlayer = room.disconnectedPlayers[disconnectedPlayerIndex];
 
+  // Check if we're still in grace period (game not paused yet)
+  const isInGracePeriod =
+    !room.pausedForDisconnection && context.gracePeriodTimers.has(roomCode);
+
+  if (isInGracePeriod) {
+    console.log(
+      `${playerName} reconnected during grace period. Canceling grace period timer and restoring seamlessly.`
+    );
+    // Cancel the grace period timer
+    clearTimeout(context.gracePeriodTimers.get(roomCode)!);
+    context.gracePeriodTimers.delete(roomCode);
+  }
+
   // Remove from disconnected list
   room.disconnectedPlayers.splice(disconnectedPlayerIndex, 1);
 
@@ -378,7 +443,9 @@ function handlePlayerReconnection(
 
   // Update judge role if this player was the judge
   if (room.currentJudge === disconnectedPlayer.socketId) {
-    console.log(`Updating judge role from old socket ID ${disconnectedPlayer.socketId} to new socket ID ${socket.id}`);
+    console.log(
+      `Updating judge role from old socket ID ${disconnectedPlayer.socketId} to new socket ID ${socket.id}`
+    );
     room.currentJudge = socket.id;
     // Notify all players that the judge has been updated (but it's the same person)
     context.io.to(roomCode).emit("judgeSelected", socket.id);
@@ -392,25 +459,40 @@ function handlePlayerReconnection(
     `Player ${playerName} successfully reconnected to room ${roomCode}`
   );
 
-  // If this was the last disconnected player, resume the game
-  if (room.disconnectedPlayers.length === 0 && room.pausedForDisconnection) {
-    clearDisconnectionTimer(context, roomCode);
-    const gameStateToRestore =
-      room.previousGameState || GameState.SOUND_SELECTION;
-    console.log(
-      `Restoring game state to: ${gameStateToRestore} (was paused at: ${room.previousGameState})`
-    );
-    // Don't reassign judge when all players reconnect successfully
-    resumeGame(context, roomCode, gameStateToRestore, false);
+  if (isInGracePeriod) {
+    // Grace period reconnection - seamless restore
+    console.log(`Seamless reconnection during grace period for ${playerName}`);
+
+    // Notify everyone about the reconnection
+    context.io.to(roomCode).emit("playerReconnected", {
+      playerId: socket.id,
+      playerName: playerName,
+    });
+
+    context.io.to(roomCode).emit("roomUpdated", room);
+  } else {
+    // Game was already paused - handle normal reconnection flow
+
+    // If this was the last disconnected player, resume the game
+    if (room.disconnectedPlayers.length === 0 && room.pausedForDisconnection) {
+      clearDisconnectionTimer(context, roomCode);
+      const gameStateToRestore =
+        room.previousGameState || GameState.SOUND_SELECTION;
+      console.log(
+        `Restoring game state to: ${gameStateToRestore} (was paused at: ${room.previousGameState})`
+      );
+      // Don't reassign judge when all players reconnect successfully
+      resumeGame(context, roomCode, gameStateToRestore, false);
+    }
+
+    // Notify everyone about the reconnection
+    context.io.to(roomCode).emit("playerReconnected", {
+      playerId: socket.id,
+      playerName: playerName,
+    });
+
+    context.io.to(roomCode).emit("roomUpdated", room);
   }
-
-  // Notify everyone about the reconnection
-  context.io.to(roomCode).emit("playerReconnected", {
-    playerId: socket.id,
-    playerName: playerName,
-  });
-
-  context.io.to(roomCode).emit("roomUpdated", room);
 
   return true;
 }
@@ -476,6 +558,10 @@ function removePlayerFromRoom(
 }
 
 function clearDisconnectionTimer(context: SocketContext, roomCode: string) {
+  if (context.gracePeriodTimers.has(roomCode)) {
+    clearTimeout(context.gracePeriodTimers.get(roomCode)!);
+    context.gracePeriodTimers.delete(roomCode);
+  }
   if (context.disconnectionTimers.has(roomCode)) {
     clearTimeout(context.disconnectionTimers.get(roomCode)!);
     context.disconnectionTimers.delete(roomCode);

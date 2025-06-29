@@ -172,20 +172,16 @@ class ReconnectionTester {
       const playerData = {
         name: hostPlayer.name,
         color: "#FF6B6B",
-        emoji: "🎮"
+        emoji: "🎮",
       };
 
-      hostPlayer.socket.emit(
-        "createRoom",
-        playerData,
-        (roomCode: string) => {
-          clearTimeout(timeout);
-          this.roomCode = roomCode;
-          hostPlayer.roomCode = roomCode;
-          this.log(`Room created: ${roomCode}`);
-          resolve(roomCode);
-        }
-      );
+      hostPlayer.socket.emit("createRoom", playerData, (roomCode: string) => {
+        clearTimeout(timeout);
+        this.roomCode = roomCode;
+        hostPlayer.roomCode = roomCode;
+        this.log(`Room created: ${roomCode}`);
+        resolve(roomCode);
+      });
 
       hostPlayer.socket.on("roomCreated", ({ room, player }) => {
         this.log(`Host received roomCreated event for room: ${room.code}`);
@@ -205,7 +201,7 @@ class ReconnectionTester {
       const playerData = {
         name: player.name,
         color: "#4ECDC4",
-        emoji: "🎯"
+        emoji: "🎯",
       };
 
       player.socket.emit(
@@ -318,7 +314,7 @@ class ReconnectionTester {
   }
 
   private async testPlayerDisconnection(): Promise<void> {
-    this.startTest("Player Disconnection Test");
+    this.startTest("Player Disconnection Test (with 10-second grace period)");
 
     try {
       const player1 = this.players.find((p) => p.name === "TestPlayer1");
@@ -336,28 +332,31 @@ class ReconnectionTester {
       if (host) {
         host.socket.once("gamePausedForDisconnection", () => {
           gamePaused = true;
-          this.log("Game paused due to disconnection");
+          this.log("Game paused due to disconnection (after grace period)");
         });
       }
 
       // Disconnect the player
       player1.socket.disconnect();
       this.log(`Disconnected player: ${player1.name}`);
+      this.log("Grace period should start now (10 seconds)...");
 
-      // Wait for disconnection to be processed
-      await this.sleep(3000);
+      // Wait for grace period (10 seconds) plus a bit more for processing
+      await this.sleep(12000);
 
       if (gamePaused) {
-        this.passTest("Player Disconnection Test");
+        this.passTest(
+          "Player Disconnection Test (with 10-second grace period)"
+        );
       } else {
         this.failTest(
-          "Player Disconnection Test",
-          "Game was not paused after disconnection"
+          "Player Disconnection Test (with 10-second grace period)",
+          "Game was not paused after grace period expired"
         );
       }
     } catch (error) {
       this.failTest(
-        "Player Disconnection Test",
+        "Player Disconnection Test (with 10-second grace period)",
         error instanceof Error ? error.message : "Unknown error"
       );
     }
