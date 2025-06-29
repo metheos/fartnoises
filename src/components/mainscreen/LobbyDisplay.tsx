@@ -40,7 +40,11 @@ export default function LobbyDisplay({ room }: LobbyDisplayProps) {
       />
       <div className="mt-4 flex justify-center space-x-2 animate-pulse text-gray-600">
       <span className="text-2xl">📱</span>
-      <span className="text-2xl">Get your devices out and join the fun!</span>
+      <span className="text-xl font-semibold bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent">
+        {room.players.length < 3 
+          ? "Grab your devices and join the fun!" 
+          : "Ready to make some noise? Let's go!"}
+      </span>
       <span className="text-2xl">📱</span>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { Socket } from 'socket.io-client';
 import { Room } from '@/types/game';
 import { GAME_CONFIG } from '@/data/gameData';
 import { getPlayerColorClass } from '@/utils/gameUtils';
-import { JudgePromptDisplay } from './JudgePromptDisplay';
+import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 import GameTimer from './GameTimer';
 
 interface SoundSelectionDisplayProps {

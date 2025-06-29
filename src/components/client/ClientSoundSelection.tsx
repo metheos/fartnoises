@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Room, Player, SoundEffect, GameState } from '@/types/game';
 import { audioSystem } from '@/utils/audioSystem';
-import { Card, Button, SoundCard, JudgeDisplay, CircularButton } from '@/components/ui';
+import { Card, Button, SoundCard, CircularButton } from '@/components/ui';
+import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 import { useSoundSelection, useAudioPlaybackEnhanced } from '@/hooks';
 
 interface ClientSoundSelectionProps {

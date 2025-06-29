@@ -18,7 +18,7 @@ export function useAudio(): UseAudioReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load sound effects on component mount
+  // Load sound effects and check audio readiness on component mount
   useEffect(() => {
     const loadSounds = async () => {
       try {
@@ -27,6 +27,16 @@ export function useAudio(): UseAudioReturn {
         const sounds = await getSoundEffects();
         setSoundEffects(sounds);
         console.log(`useAudio: Loaded ${sounds.length} sound effects`);
+
+        // Check if audio can already be initialized (due to previous user interaction)
+        if (audioSystem.canInitialize()) {
+          console.log(
+            "🔊 useAudio: Audio can be initialized, setting ready state"
+          );
+          setIsAudioReady(true);
+        } else {
+          console.log("🔊 useAudio: Audio requires user activation");
+        }
       } catch (loadError) {
         console.error("useAudio: Failed to load sound effects:", loadError);
         setError("Failed to load sound effects");

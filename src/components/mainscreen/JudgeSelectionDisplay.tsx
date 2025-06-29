@@ -1,6 +1,6 @@
 import React from 'react';
 import { Room } from '@/types/game';
-import { JudgePromptDisplay } from './JudgePromptDisplay';
+import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 
 interface JudgeSelectionDisplayProps {
   room: Room;

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Room, Player, SoundEffect } from '@/types/game';
 import { Socket } from 'socket.io-client';
-import { Card, Button, JudgeDisplay } from '@/components/ui';
+import { Card, Button } from '@/components/ui';
+import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 import { useSubmissionPlayback, useJudgeCheck, useGameStateLogging } from '@/hooks';
 
 interface ClientJudgingProps {
@@ -28,10 +29,7 @@ export default function ClientJudging({
   const [likedSubmissions, setLikedSubmissions] = useState<Set<number>>(new Set());
 
   // Use custom hooks for common patterns
-  const { isJudge, judgeDisplayProps } = useJudgeCheck(room, player, {
-    displaySize: 'sm',
-    isCompact: true
-  });
+  const { isJudge, judge } = useJudgeCheck(room, player);
 
   const { playSubmissionSounds, isButtonPlaying } = useSubmissionPlayback({
     socket,
@@ -92,21 +90,29 @@ export default function ClientJudging({
   return (
     <Card className="text-center">
       
-      {/* Styled Prompt Display */}
-      <div className="bg-purple-100 rounded-2xl p-6 mb-6">
-        <p className="text-lg text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></p>
-      </div>
-      
       {isJudge ? (
-        <p className="text-gray-800 mb-4">Choose the winner!</p>
+        <>
+          {/* Judge Display for the judge themselves */}
+          <div className="mb-6">
+            <JudgePromptDisplay 
+              judge={judge || undefined} 
+              prompt={room.currentPrompt || undefined} 
+              showPrompt={true} 
+              size="small"
+            />
+          </div>
+          
+          <p className="text-gray-800 mb-4">Choose the winner!</p>
+        </>
       ) : (
         <div className="mb-4">
           <div className="flex items-center justify-center gap-2 mb-2">
-            {judgeDisplayProps ? (
-              <JudgeDisplay {...judgeDisplayProps} />
-            ) : (
-              <p className="text-gray-800">The judge is choosing the winner...</p>
-            )}
+            <JudgePromptDisplay 
+              judge={judge || undefined} 
+              prompt={room.currentPrompt || undefined} 
+              showPrompt={true} 
+              size="small"
+            />
           </div>
           <p className="text-sm text-gray-600 text-center">
             💡 While you wait, you can like submissions you enjoyed! (except your own)

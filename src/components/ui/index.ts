@@ -6,5 +6,4 @@ export { default as LoadingSpinner } from "./LoadingSpinner";
 export { default as PlayerAvatar } from "./PlayerAvatar";
 export { default as GameSettingsPanel } from "./GameSettingsPanel";
 export { default as Modal } from "./Modal";
-export { default as JudgeDisplay } from "./JudgeDisplay";
 export { default as SoundCard } from "./SoundCard";

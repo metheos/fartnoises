@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Room, SoundEffect, SoundSubmission } from '@/types/game';
 import { Socket } from 'socket.io-client';
 import { audioSystem } from '@/utils/audioSystem';
-import { JudgePromptDisplay } from './JudgePromptDisplay';
+import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 import { SubmissionCard } from './SubmissionCard';
 
 interface PlaybackSubmissionsDisplayProps {

@@ -348,6 +348,37 @@ export class AudioSystem {
   getAnalysisActive(): boolean {
     return this.isAnalysisActive;
   }
+
+  // Check if audio can be initialized (usually true after user interaction)
+  canInitialize(): boolean {
+    try {
+      // If we already have an AudioContext, check its state
+      if (this.audioContext) {
+        return this.audioContext.state !== "suspended";
+      }
+
+      // Check if we're in a browser environment and user has interacted
+      if (typeof window === "undefined") return false;
+
+      // Modern browsers: check if audio can be played without user gesture
+      // AudioContext state starts as 'suspended' until user interaction
+      // We can detect this by seeing if we can create one in a 'running' state
+      const tempContext = new (window.AudioContext ||
+        (window as any).webkitAudioContext ||
+        AudioContext)();
+
+      const canInit = tempContext.state === "running";
+
+      // Clean up the temporary context
+      tempContext.close();
+
+      return canInit;
+    } catch (error) {
+      // If we can't even create an AudioContext, audio is not ready
+      console.log("🔊 AudioContext creation failed, audio not ready:", error);
+      return false;
+    }
+  }
 }
 
 // Hook for React components

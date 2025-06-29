@@ -251,6 +251,7 @@ export default function ClientResults({
             player={p}
             size="md"
             className="mr-3"
+            showName={false}
           />
           <div className="flex-grow">
             <p className="font-bold text-gray-900 text-lg">{p.name}</p>

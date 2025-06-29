@@ -1,7 +1,8 @@
 'use client';
 
 import { Room, Player, GamePrompt } from '@/types/game';
-import { Card, Button, JudgeDisplay } from '@/components/ui';
+import { Card, Button } from '@/components/ui';
+import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 import { useJudgeCheck } from '@/hooks';
 
 interface ClientPromptSelectionProps {
@@ -15,10 +16,7 @@ export default function ClientPromptSelection({
   player, 
   onSelectPrompt 
 }: ClientPromptSelectionProps) {
-  const { isJudge, judgeDisplayProps } = useJudgeCheck(room, player, {
-    displaySize: 'lg',
-    customMessage: 'Selecting a prompt...'
-  });
+  const { isJudge, judge } = useJudgeCheck(room, player);
   
   // Debug logging to see what prompts we're receiving
   console.log('PromptSelectionComponent - Available prompts:', room.availablePrompts);
@@ -27,6 +25,16 @@ export default function ClientPromptSelection({
     <Card className="text-center">
       {isJudge ? (
         <>
+          {/* Judge Display for the judge themselves */}
+          <div className="mb-6">
+            <JudgePromptDisplay 
+              judge={judge || undefined} 
+              prompt={undefined} 
+              showPrompt={false} 
+              size="small"
+            />
+          </div>
+          
           <p className="text-gray-800 mb-4">Choose a prompt for this round:</p>
           <div className="space-y-3">
             {room.availablePrompts?.map((prompt: GamePrompt) => (
@@ -44,9 +52,12 @@ export default function ClientPromptSelection({
         </>
       ) : (
         <div className="text-gray-800">
-          {judgeDisplayProps && (
-            <JudgeDisplay {...judgeDisplayProps} />
-          )}
+          <JudgePromptDisplay 
+            judge={judge || undefined} 
+            prompt={undefined} 
+            showPrompt={false} 
+            size="small"
+          />
           <p className="mt-4">Waiting for the Judge to select a prompt...</p>
         </div>
       )}

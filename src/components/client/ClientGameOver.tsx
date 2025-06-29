@@ -33,6 +33,7 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
             player={overallWinner}
             size="xl"
             className="mx-auto mb-3 ring-4 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300"
+            showName={false}
           />
           
           <p className="text-2xl font-black text-yellow-900 mb-2 drop-shadow-lg text-center">
@@ -98,6 +99,7 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
               player={likeWinner}
               size="lg"
               className="mx-auto mb-3 ring-4 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300"
+              showName={false}
             />
             
             <p className="text-xl font-black text-rose-900 mb-2 drop-shadow-lg text-center">
@@ -152,6 +154,7 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
                   <PlayerAvatar 
                     player={p}
                     size="sm"
+                    showName={false}
                   />
                   <span className={`font-bold ${rank === 1 ? 'text-yellow-900 text-lg' : 'text-gray-900'}`}>
                     {p.name}

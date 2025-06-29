@@ -77,11 +77,11 @@ export function PlayerScoreList({
               {isRoundWinner ? (
                 <>
                   {/* +1PT Animation */}
-                  <div className={`absolute right-15 top-1/2 -translate-y-1/2 bg-green-500 text-white text-md font-bold px-2 py-1 rounded-full transition-all duration-700 ${
+                    <div className={`absolute right-20 top-1/2 -translate-y-1/2 bg-green-500 text-white text-md font-bold px-2 py-1 rounded-full transition-all duration-700 ${
                     showPointAnimation ? 'animate-bounce scale-110' : 'scale-0 opacity-0'
-                  }`}>
+                    }`} style={{ right: '5rem' }}>
                     +1 PT
-                  </div>
+                    </div>
                   <div className="text-right">
                     <div className="flex items-center space-x-3">
                       <div className="text-center">
