@@ -32,6 +32,11 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
       room.currentRound = 1;
       room.judgeSelectionTimerStarted = false;
 
+      // Reset hasUsedRefresh for all players at the start of a new game
+      room.players.forEach((player) => {
+        player.hasUsedRefresh = false;
+      });
+
       context.io.to(roomCode).emit("roomUpdated", room);
       context.io.to(roomCode).emit("judgeSelected", room.currentJudge);
       context.io

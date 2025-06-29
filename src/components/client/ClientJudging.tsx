@@ -1,11 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { flushSync } from 'react-dom';
-import { Socket } from 'socket.io-client';
 import { Room, Player, SoundEffect } from '@/types/game';
-import { audioSystem } from '@/utils/audioSystem';
-import { getPlayerColorClass } from '@/utils/gameUtils';
+import { Socket } from 'socket.io-client';
+import { Card, Button, JudgeDisplay } from '@/components/ui';
+import { useSubmissionPlayback, useJudgeCheck, useGameStateLogging } from '@/hooks';
 
 interface ClientJudgingProps {
   room: Room;
@@ -13,7 +11,7 @@ interface ClientJudgingProps {
   onJudgeSubmission: (submissionIndex: number) => void;
   soundEffects: SoundEffect[];
   socket: Socket | null;
-  playSoundCombinationWithFeedback: (sounds: string[], buttonId: string) => Promise<void>;
+  playSoundCombinationWithFeedback?: (sounds: string[], buttonId: string) => Promise<void>;
 }
 
 export default function ClientJudging({ 
@@ -23,157 +21,30 @@ export default function ClientJudging({
   soundEffects, 
   socket
 }: ClientJudgingProps) {
-  const isJudge = player.id === room.currentJudge;
-  const [playingButtons, setPlayingButtons] = useState<Set<string>>(new Set());
-  
+  // Use custom hooks for common patterns
+  const { isJudge, judgeDisplayProps } = useJudgeCheck(room, player, {
+    displaySize: 'sm',
+    isCompact: true
+  });
+
+  const { playSubmissionSounds, isButtonPlaying } = useSubmissionPlayback({
+    socket,
+    soundEffects
+  });
+
+  const { logSubmissions } = useGameStateLogging(room, player, {
+    addDebugLog: console.log,
+    componentName: 'JUDGING',
+    logRoomChanges: false,
+    logPlayerChanges: false
+  });
+
   // Debug logging for submissions
-  console.log(`[JUDGING] Component render - Player: ${player.name}, isJudge: ${isJudge}`);
-  console.log(`[JUDGING] Room submissions: ${room.submissions.length}`);
-  console.log(`[JUDGING] Room randomizedSubmissions: ${room.randomizedSubmissions?.length || 0}`);
-  console.log(`[JUDGING] Room randomizedSubmissions data:`, room.randomizedSubmissions);
+  logSubmissions('Component render');
   const submissionsToShow = room.randomizedSubmissions || room.submissions;
-  console.log(`[JUDGING] Submissions to show: ${submissionsToShow.length}`);
-
-  // Add this additional debugging
-  console.log(`[JUDGING] Original submissions order:`, room.submissions.map(s => s.playerName));
-  console.log(`[JUDGING] Randomized submissions order:`, room.randomizedSubmissions?.map(s => s.playerName) || 'None');
-  console.log(`[JUDGING] Are they different?`, 
-    JSON.stringify(room.submissions.map(s => s.playerName)) !== 
-    JSON.stringify(room.randomizedSubmissions?.map(s => s.playerName) || [])
-  );
-  
-  const playSubmissionSounds = async (sounds: string[], submissionIndex: number) => {
-    const buttonId = `submission-${submissionIndex}`;
-    
-    console.log(`[PLAYBACK] Starting playSubmissionSounds for ${buttonId}`);
-    console.log(`[PLAYBACK] Current playingButtons before check:`, Array.from(playingButtons));
-    
-    // If this button is already playing, ignore the click
-    if (playingButtons.has(buttonId)) {
-      console.log(`[PLAYBACK] ${buttonId} is already playing, ignoring`);
-      return;
-    }
-
-    if (sounds.length === 0) {
-      console.log(`[PLAYBACK] No sounds provided for ${buttonId}`);
-      return;
-    }
-    
-    console.log(`[PLAYBACK] Setting ${buttonId} to playing state`);
-    // Mark button as playing IMMEDIATELY and force synchronous render
-    flushSync(() => {
-      setPlayingButtons(prev => {
-        const newSet = new Set(prev).add(buttonId);
-        console.log(`[PLAYBACK] Updated playingButtons:`, Array.from(newSet));
-        return newSet;
-      });
-    });
-    
-    console.log(`[PLAYBACK] After flushSync, should be playing now`);
-    
-    try {
-      // Check if we have a socket connection and should try main screen playback
-      if (socket && socket.connected) {
-        console.log(`[JUDGING] Attempting to play submission ${submissionIndex} on main screen via socket`);
-        
-        // Create a promise that resolves when playback is complete
-        await new Promise<void>((resolve) => {
-          // Emit event to server to request main screen playback
-          socket.emit('requestJudgingPlayback', {
-            submissionIndex,
-            sounds
-          });
-          
-          // Set up fallback timeout for local playback
-          const fallbackTimeout = setTimeout(async () => {
-            console.log(`[JUDGING] No main screen response for submission ${submissionIndex}, falling back to local playback`);
-            await performLocalPlayback();
-            resolve(); // Resolve the promise when local playback is done
-          }, 1000); // 1 second timeout
-          
-          // Listen for server response
-          const handleMainScreenResponse = (response: { success: boolean; submissionIndex: number }) => {
-            if (response.submissionIndex === submissionIndex) {
-              clearTimeout(fallbackTimeout);
-              socket.off('judgingPlaybackResponse', handleMainScreenResponse);
-              if (!response.success) {
-                console.log(`[JUDGING] Main screen playback failed for submission ${submissionIndex}, falling back to local`);
-                performLocalPlayback().then(() => resolve()); // Resolve when local playback is done
-              } else {
-                console.log(`[JUDGING] Main screen playback successful for submission ${submissionIndex}, waiting for audio duration...`);
-                // For main screen playback, we need to wait for the estimated audio duration
-                // Calculate approximate duration and wait for it
-                waitForMainScreenPlayback().then(() => resolve());
-              }
-            }
-          };
-          
-          socket.on('judgingPlaybackResponse', handleMainScreenResponse);
-          
-          // Clean up the listener after a timeout regardless
-          setTimeout(() => {
-            socket.off('judgingPlaybackResponse', handleMainScreenResponse);
-          }, 5000);
-        });
-        
-      } else {
-        // No socket connection, play locally
-        console.log(`[JUDGING] No socket connection, playing submission ${submissionIndex} locally`);
-        await performLocalPlayback();
-      }
-      
-      // Local playback function
-      async function performLocalPlayback() {
-        console.log(`[PLAYBACK] Starting local playback for ${buttonId}`);
-        // Filter out any invalid sounds and get filenames
-        const validSounds = sounds
-          .map(soundId => soundEffects.find(s => s.id === soundId))
-          .filter(sound => sound !== undefined);
-        
-        if (validSounds.length > 0) {
-          console.log(`Playing ${validSounds.length} sound(s) locally: [${sounds.join(', ')}]`);
-          // Use the proper sequence method that waits for each sound to finish
-          await audioSystem.playSoundSequence(sounds, 200); // 200ms delay between sounds
-        }
-        console.log(`[PLAYBACK] Finished local playback for ${buttonId}`);
-      }
-      
-      // Main screen playback duration wait function
-      async function waitForMainScreenPlayback() {
-        console.log(`[PLAYBACK] Waiting for main screen playback duration for ${buttonId}`);
-        
-        // Calculate estimated playback duration
-        // Each sound is roughly 1-3 seconds, plus 200ms delays between sounds
-        const estimatedDurationPerSound = 2000; // 2 seconds average per sound
-        const delayBetweenSounds = 200; // 200ms delay as used in local playback
-        const totalEstimatedDuration = (sounds.length * estimatedDurationPerSound) + ((sounds.length - 1) * delayBetweenSounds);
-        
-        console.log(`[PLAYBACK] Estimated duration for ${sounds.length} sounds: ${totalEstimatedDuration}ms`);
-        
-        // Wait for the estimated duration
-        await new Promise(resolve => setTimeout(resolve, totalEstimatedDuration));
-        
-        console.log(`[PLAYBACK] Finished waiting for main screen playback duration for ${buttonId}`);
-      }
-      
-    } catch (error) {
-      console.error(`Error playing submission sounds:`, error);
-    } finally {
-      console.log(`[PLAYBACK] Cleaning up ${buttonId} from playing state`);
-      // Clean up - remove from playing set with immediate render
-      flushSync(() => {
-        setPlayingButtons(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(buttonId);
-          console.log(`[PLAYBACK] Final playingButtons:`, Array.from(newSet));
-          return newSet;
-        });
-      });
-    }
-  };
 
   return (
-    <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
+    <Card className="text-center">
       
       {/* Styled Prompt Display */}
       <div className="bg-purple-100 rounded-2xl p-6 mb-6">
@@ -184,43 +55,11 @@ export default function ClientJudging({
         <p className="text-gray-800 mb-4">Choose the winner!</p>
       ) : (
         <div className="flex items-center justify-center gap-2 mb-4">
-          {(() => {
-            const judge = room.players.find(p => p.id === room.currentJudge);
-            {/* Main judge content */}
-            return judge ? (
-                <div className="inline-block">
-                <div className="relative bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 rounded-2xl p-2 shadow-xl border-1 border-yellow-400 overflow-hidden">
-                
-                  <div className="relative z-10 flex flex-col items-center">
-                  <div className="bg-white bg-opacity-90 rounded-xl p-2 shadow-md border-1 border-yellow-300 min-w-32 text-center">
-                    
-                    
-                    {/* Judge Title */}
-                    <div className="mb-2">
-                    <span className="text-sm font-black text-amber-900 drop-shadow-sm underline">The Judge</span>
-                    </div>
-                    
-                    {/* Judge avatar - smaller */}
-                    <div className="relative mb-2">
-                    <div 
-                      className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-xl ring-3 ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge.color)}`}
-                    >
-                      {judge.emoji || judge.name[0].toUpperCase()}
-                    </div>
-                    </div>
-                    
-                    {/* Judge name with emphasis */}
-                    <div className="">
-                    <span className="text-sm font-black text-amber-900 drop-shadow-sm">{judge.name}</span>
-                    </div>
-                  </div>
-                  </div>
-                </div>
-                </div>
-            ) : (
-              <p className="text-gray-800">The judge is choosing the winner...</p>
-            );
-          })()}
+          {judgeDisplayProps ? (
+            <JudgeDisplay {...judgeDisplayProps} />
+          ) : (
+            <p className="text-gray-800">The judge is choosing the winner...</p>
+          )}
         </div>
       )}
       
@@ -277,15 +116,14 @@ export default function ClientJudging({
 
               {/* Action Buttons */}
               <div className="space-y-2">
-                <button 
+                <Button
                   onClick={() => {
                     const buttonId = `submission-${index}`;
                     
                     console.log(`[BUTTON] Button clicked for ${buttonId}`);
-                    console.log(`[BUTTON] Current playingButtons state:`, Array.from(playingButtons));
                     
                     // Immediate state check and early return to prevent race conditions
-                    if (playingButtons.has(buttonId)) {
+                    if (isButtonPlaying(index)) {
                       console.log(`[BUTTON] ${buttonId} is already playing, ignoring click`);
                       return;
                     }
@@ -294,22 +132,20 @@ export default function ClientJudging({
                     // Call the function that handles main screen logic
                     playSubmissionSounds(submission.sounds, index);
                   }}
-                  disabled={playingButtons.has(`submission-${index}`)}
-                  className={`w-full px-4 py-3 rounded-xl font-semibold transition-colors ${
-                    playingButtons.has(`submission-${index}`)
-                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                      : 'bg-blue-500 text-white hover:bg-blue-600'
-                  }`}
+                  disabled={isButtonPlaying(index)}
+                  variant={isButtonPlaying(index) ? 'secondary' : 'primary'}
+                  className="w-full"
                 >
-                  {playingButtons.has(`submission-${index}`) ? '🔇 Playing...' : '🔊 Play Sounds'}
-                </button>
+                  {isButtonPlaying(index) ? '🔇 Playing...' : '🔊 Play Sounds'}
+                </Button>
                 {isJudge && (
-                  <button 
+                  <Button 
                     onClick={() => onJudgeSubmission(index)}
-                    className="w-full bg-green-500 text-white px-4 py-3 rounded-xl hover:bg-green-600 transition-colors font-semibold"
+                    variant="success"
+                    className="w-full"
                   >
                     🏆 Pick as Winner
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -328,6 +164,6 @@ export default function ClientJudging({
         ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

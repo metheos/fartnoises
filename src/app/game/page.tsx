@@ -9,6 +9,7 @@ import { useAudioPlayback } from '@/hooks/useAudioPlayback';
 import { useDebugLog } from '@/hooks/useDebugLog';
 import { useGameActions } from '@/hooks/useGameActions';
 import { useSocketManager } from '@/hooks/useSocketManager';
+import { useGameStateLogging, useAsyncOperation } from '@/hooks';
 import {
   ClientGameLayout,
   ClientLobby,
@@ -57,6 +58,17 @@ function GamePageContent() {
     playSoundCombinationWithFeedback 
   } = useAudioPlayback();
 
+  // Game state logging hook
+  const { logGameEvent } = useGameStateLogging(room, player, {
+    addDebugLog,
+    componentName: 'GamePage'
+  });
+
+  // Sound effects loading with async operation hook
+  const soundEffectsLoader = useAsyncOperation<SoundEffect[]>({
+    initialData: []
+  });
+
   // Socket management using the custom hook
   const { isConnected, socket } = useSocketManager(
     {
@@ -92,21 +104,20 @@ function GamePageContent() {
     addDebugLog
   });
 
-  // Load sound effects on component mount
+  // Load sound effects on component mount using async operation hook
   useEffect(() => {
-    const loadSounds = async () => {
-      try {
-        const sounds = await getSoundEffects();
+    soundEffectsLoader.execute(
+      () => getSoundEffects(),
+      (sounds) => {
         setSoundEffects(sounds);
-        console.log(`Loaded ${sounds.length} sound effects`);
-        addDebugLog(`Loaded ${sounds.length} sound effects`);
-      } catch (error) {
+        logGameEvent(`Loaded ${sounds.length} sound effects`);
+      },
+      (error) => {
         console.error('Failed to load sound effects:', error);
-        addDebugLog(`Failed to load sound effects: ${error}`);
+        logGameEvent(`Failed to load sound effects: ${error.message}`);
       }
-    };
-    loadSounds();
-  }, [addDebugLog]);
+    );
+  }, [soundEffectsLoader.execute, logGameEvent]);
 
   // Handle redirection in a separate effect to avoid dependency issues
   useEffect(() => {
@@ -116,19 +127,12 @@ function GamePageContent() {
     }
   }, [playerName, router, addDebugLog]);
 
-  // Monitor room state changes
+  // Store original player ID for reconnection purposes
   useEffect(() => {
-    addDebugLog(`Room state changed: ${room ? `${room.code} with ${room.players?.length} players, state: ${room.gameState}` : 'null'}`);
-  }, [room, addDebugLog]);
-
-  // Monitor player state changes
-  useEffect(() => {
-    addDebugLog(`Player state changed: ${player ? player.name : 'null'}`);
-    // Store original player ID for reconnection purposes
     if (player && socket?.id) {
       localStorage.setItem('originalPlayerId', socket.id);
     }
-  }, [player, socket, addDebugLog]);
+  }, [player, socket]);
 
   // Sound selection functions - keep these local as they handle local state
   const selectSounds = (sounds: string[]) => {
@@ -220,6 +224,7 @@ function GamePageContent() {
           selectedSounds={selectedSounds}
           onSelectSounds={selectSounds}
           onSubmitSounds={submitSounds}
+          onRefreshSounds={gameActions.refreshSounds}
           timeLeft={timeLeft}
           soundEffects={soundEffects}
         />

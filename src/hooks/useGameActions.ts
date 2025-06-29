@@ -176,10 +176,18 @@ export function useGameActions({
     [socket, room, player, addDebugLog]
   );
 
+  const refreshSounds = useCallback(() => {
+    if (socket && room && player) {
+      addDebugLog(`🔄 Requesting new sound set for ${player.name}`);
+      socket.emit("refreshSounds");
+    }
+  }, [socket, room, player, addDebugLog]);
+
   return {
     startGame,
     selectPrompt,
     submitSounds,
+    refreshSounds,
     judgeSubmission,
     voteOnReconnection,
     voteOnReconnectionWithCleanup,

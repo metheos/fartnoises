@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getSoundEffects } from '@/data/gameData';
 import { getPlayerColorClass } from '@/utils/gameUtils';
 import { useAudioSystem } from '@/utils/audioSystem';
+import { Button, Card } from '@/components/ui';
 
 export default function Home() {
   const [playerName, setPlayerName] = useState('');
@@ -310,13 +311,15 @@ export default function Home() {
 
                   {/* Action Buttons */}
                   <div className="space-y-4">
-                    <button
+                    <Button
                       onClick={() => handleSubmit('join')}
                       disabled={!playerName.trim() || roomCode.trim().length !== 4}
-                      className="w-full bg-gradient-to-r from-blue-400 to-blue-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-blue-500 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+                      variant="primary"
+                      size="lg"
+                      className="w-full"
                     >
                       🚀 Join Game
-                    </button>
+                    </Button>
                     
                     <div className="relative flex py-2 items-center">
                       <div className="flex-grow border-t border-gray-300"></div>
@@ -324,13 +327,15 @@ export default function Home() {
                       <div className="flex-grow border-t border-gray-300"></div>
                     </div>
 
-                    <button
+                    <Button
                       onClick={() => handleSubmit('create')}
                       disabled={!playerName.trim()}
-                      className="w-full bg-gradient-to-r from-green-400 to-green-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-green-500 hover:to-green-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+                      variant="success"
+                      size="lg"
+                      className="w-full"
                     >
                       🎮 Create New Room
-                    </button>
+                    </Button>
                   </div>
 
                 </>
@@ -338,12 +343,13 @@ export default function Home() {
 
               {/* Main Screen Button - Always available */}
               <div className="mt-8 pt-6 border-t border-gray-200">
-                <button
+                <Button
                   onClick={goToMainScreen}
-                  className="w-full bg-gradient-to-r from-purple-400 to-purple-600 text-white py-3 px-6 rounded-xl font-bold hover:from-purple-500 hover:to-purple-700 transition-all duration-200"
+                  variant="purple"
+                  className="w-full"
                 >
                   📺 Main Screen Mode
-                </button>
+                </Button>
                 <p className="text-sm text-gray-700 text-center mt-2">
                   For TV/shared display
                 </p>

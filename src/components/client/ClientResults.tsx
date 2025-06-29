@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Room, Player, SoundEffect } from '@/types/game';
 import { WaveformAnimation } from '@/components/shared/WaveformAnimation';
 import { getPlayerColorClass } from '@/utils/gameUtils';
+import { Card, Button, PlayerAvatar, SoundCard } from '@/components/ui';
 
 interface ClientResultsProps {
   room: Room;
@@ -93,17 +94,17 @@ export default function ClientResults({
 
   if (!roundWinner) {
     return (
-      <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
+      <Card className="text-center">
         <h2 className="text-2xl font-bold text-purple-600 mb-4">Round Results</h2>
         <p className="text-gray-800">Waiting for results...</p>
-      </div>
+      </Card>
     );
   }
   
   const winnerPlayerDetails = room.players.find(p => p.id === roundWinner.winnerId);
 
   return (
-    <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
+    <Card className="text-center">
       
       {/* Winner Announcement */}
       <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl p-8 mb-8 shadow-2xl transform transition-all duration-500 hover:scale-105">
@@ -135,9 +136,8 @@ export default function ClientResults({
           <div className={`relative rounded-3xl p-6 transition-all duration-500 max-w-sm mx-auto ${
             isPlayingWinner 
               ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
-              : 'bg-gradient-to-br from-yellow-200 to-yellow-300 hover:scale-102 cursor-pointer'
-          }`}
-          onClick={playWinningCombination}>
+              : 'bg-gradient-to-br from-yellow-200 to-yellow-300 hover:scale-102'
+          }`}>
             
             {/* Progress Indicator */}
             {isPlayingWinner && (
@@ -205,20 +205,28 @@ export default function ClientResults({
                 size="sm"
               />
 
-              {/* Play Button/Status */}
+              {/* Play Button */}
               <div className="mt-4 text-center">
-                {isPlayingWinner ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
-                    <span className="text-white font-bold text-sm">PLAYING</span>
-                    <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center space-x-2 text-yellow-800">
-                    <span className="text-lg">▶️</span>
-                    <span className="font-semibold">Tap to Play</span>
-                  </div>
-                )}
+                <Button
+                  onClick={playWinningCombination}
+                  disabled={isPlayingWinner}
+                  variant={isPlayingWinner ? "secondary" : "gradient"}
+                  size="md"
+                  className="shadow-lg"
+                >
+                  {isPlayingWinner ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+                      <span>PLAYING</span>
+                      <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span>▶️</span>
+                      <span>Play Winning Sounds</span>
+                    </div>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
@@ -239,11 +247,11 @@ export default function ClientResults({
           key={p.id} 
           className={`flex items-center p-3 rounded-2xl shadow-sm transition-all duration-300 ${isRoundWinner ? 'bg-green-100 border-2 border-green-400 scale-105' : 'bg-white'}`}
             >
-          <div 
-            className={`w-10 h-10 flex-shrink-0 rounded-full ${getPlayerColorClass(p.color)} flex items-center justify-center text-lg shadow-lg mr-3`}
-          >
-            {p.emoji || p.name[0].toUpperCase()}
-          </div>
+          <PlayerAvatar 
+            player={p}
+            size="md"
+            className="mr-3"
+          />
           <div className="flex-grow">
             <p className="font-bold text-gray-900 text-lg">{p.name}</p>
           </div>
@@ -262,6 +270,6 @@ export default function ClientResults({
         </ul>
       </div>
       {/* Next round / game over will be handled by gameState change */}
-    </div>
+    </Card>
   );
 }

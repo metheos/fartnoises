@@ -75,6 +75,14 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
                 {player.emoji || '🍑'}
               </div>
               <p className="font-bold text-2xl text-gray-900">{player.name}</p>
+              
+              {/* Refresh status indicator */}
+              {player.hasUsedRefresh && (
+                <p className="text-sm text-orange-600 font-medium mb-1">
+                  🔄 Used Refresh
+                </p>
+              )}
+              
               <p className={`text-xl font-semibold ${
                 hasSubmitted 
                   ? isFirstSubmitter 

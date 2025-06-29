@@ -88,6 +88,70 @@ export function setupSubmissionHandlers(
     }
   });
 
+  // Refresh sounds handler - allows player to get new sound set once per game
+  socket.on("refreshSounds", async () => {
+    try {
+      const roomCode = context.playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const room = context.rooms.get(roomCode);
+      if (!room || room.gameState !== GameState.SOUND_SELECTION) return;
+
+      const player = room.players.find((p) => p.id === socket.id);
+      if (!player || socket.id === room.currentJudge) return;
+
+      // Check if player has already used their refresh
+      if (player.hasUsedRefresh) {
+        console.log(
+          `[REFRESH] Player ${player.name} has already used their refresh this game`
+        );
+        return;
+      }
+
+      // Check if player has already submitted sounds (can't refresh after submitting)
+      const existingSubmission = room.submissions.find(
+        (s) => s.playerId === socket.id
+      );
+      if (existingSubmission) {
+        console.log(
+          `[REFRESH] Player ${player.name} cannot refresh after submitting sounds`
+        );
+        return;
+      }
+
+      console.log(
+        `[REFRESH] Generating new sound set for player ${player.name}`
+      );
+
+      // Import getRandomSounds function
+      const { getRandomSounds } = await import("@/utils/soundLoader");
+
+      // Generate new sounds for this player
+      const newSounds = await getRandomSounds(
+        10,
+        undefined,
+        room.allowExplicitContent
+      );
+      player.soundSet = newSounds.map((sound) => sound.id);
+      player.hasUsedRefresh = true; // Mark as used
+
+      console.log(
+        `[REFRESH] Generated ${newSounds.length} new sounds for player ${player.name}`
+      );
+
+      // Notify all clients about the refresh
+      context.io.to(roomCode).emit("soundsRefreshed", {
+        playerId: socket.id,
+        newSounds: player.soundSet,
+      });
+
+      // Send updated room state
+      context.io.to(roomCode).emit("roomUpdated", room);
+    } catch (error) {
+      console.error("Error refreshing sounds:", error);
+    }
+  });
+
   // Request next submission handler (for main screen playback control)
   socket.on("requestNextSubmission", () => {
     const roomCode = context.playerRooms.get(socket.id);

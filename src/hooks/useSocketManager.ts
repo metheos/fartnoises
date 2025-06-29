@@ -612,6 +612,21 @@ export function useSocketManager(
         });
       };
 
+      const handleSoundsRefreshed = ({
+        playerId,
+        newSounds,
+      }: {
+        playerId: string;
+        newSounds: string[];
+      }) => {
+        addDebugLog(
+          `🔄 Sounds refreshed for player ${playerId}: ${newSounds.length} new sounds`
+        );
+        console.log(`🔄 Sound IDs: [${newSounds.join(", ")}]`);
+        // The room will be updated via the roomUpdated event that follows this event
+        // This handler is mainly for logging and potential UI feedback
+      };
+
       return {
         handleConnect,
         handleConnectError,
@@ -624,6 +639,7 @@ export function useSocketManager(
         handlePromptSelected,
         handleJudgeSelected,
         handleSoundSubmitted,
+        handleSoundsRefreshed,
         handleRoundComplete,
         handleErrorEvent,
         handleTimeUpdate,
@@ -729,6 +745,7 @@ export function useSocketManager(
     currentSocket.on("promptSelected", handlers.handlePromptSelected);
     currentSocket.on("judgeSelected", handlers.handleJudgeSelected);
     currentSocket.on("soundSubmitted", handlers.handleSoundSubmitted);
+    currentSocket.on("soundsRefreshed", handlers.handleSoundsRefreshed);
     currentSocket.on("roundComplete", handlers.handleRoundComplete);
     currentSocket.on("error", handlers.handleErrorEvent);
     currentSocket.on("timeUpdate", handlers.handleTimeUpdate);
@@ -751,6 +768,7 @@ export function useSocketManager(
       currentSocket.off("promptSelected", handlers.handlePromptSelected);
       currentSocket.off("judgeSelected", handlers.handleJudgeSelected);
       currentSocket.off("soundSubmitted", handlers.handleSoundSubmitted);
+      currentSocket.off("soundsRefreshed", handlers.handleSoundsRefreshed);
       currentSocket.off("roundComplete", handlers.handleRoundComplete);
       currentSocket.off("error", handlers.handleErrorEvent);
       currentSocket.off("timeUpdate", handlers.handleTimeUpdate);

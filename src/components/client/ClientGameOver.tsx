@@ -2,6 +2,7 @@
 
 import { Room, Player } from '@/types/game';
 import { getPlayerColorClass } from '@/utils/gameUtils';
+import { Card, Button, PlayerAvatar } from '@/components/ui';
 
 interface ClientGameOverProps {
   room: Room;
@@ -13,7 +14,7 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
   const overallWinner = sortedPlayers[0];
   
   return (
-    <div className="bg-white rounded-3xl p-6 shadow-lg text-center">
+    <Card className="text-center">
       {/* Winner Spotlight */}
       <div className="mb-8">
         <div className="relative bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl p-6 mx-auto shadow-2xl transform hover:scale-105 transition-all duration-500">
@@ -26,11 +27,11 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
           </h4>
           
           {/* Winner Avatar - Large */}
-          <div 
-            className={`w-20 h-20 rounded-full mx-auto mb-3 ${getPlayerColorClass(overallWinner.color)} flex items-center justify-center text-3xl shadow-2xl ring-4 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300`}
-          >
-            {overallWinner.emoji || overallWinner.name[0].toUpperCase()}
-          </div>
+          <PlayerAvatar 
+            player={overallWinner}
+            size="xl"
+            className="mx-auto mb-3 ring-4 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300"
+          />
           
           <p className="text-2xl font-black text-yellow-900 mb-2 drop-shadow-lg text-center">
             {overallWinner.name}
@@ -109,11 +110,10 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm shadow-md ${rankBg}`}>
                     {rankIcon}
                   </div>
-                  <div 
-                    className={`w-8 h-8 rounded-full ${getPlayerColorClass(p.color)} flex items-center justify-center text-sm shadow-lg`}
-                  >
-                    {p.emoji || p.name[0].toUpperCase()}
-                  </div>
+                  <PlayerAvatar 
+                    player={p}
+                    size="sm"
+                  />
                   <span className={`font-bold ${rank === 1 ? 'text-yellow-900 text-lg' : 'text-gray-900'}`}>
                     {p.name}
                   </span>
@@ -143,17 +143,19 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
           <span>🎺</span>
         </div>
       </div>
-      <button 
+      <Button
         onClick={() => {
           // Clear reconnection data when starting a new game
           localStorage.removeItem('originalPlayerId');
           localStorage.removeItem('lastKnownRoomCode');
           window.location.href = '/';
         }}
-        className="bg-blue-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-600 transition-colors text-lg"
+        variant="primary"
+        size="lg"
+        className="shadow-lg"
       >
         Play Again?
-      </button>
-    </div>
+      </Button>
+    </Card>
   );
 }
