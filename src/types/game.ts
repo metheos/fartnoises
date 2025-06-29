@@ -126,11 +126,20 @@ export interface ServerToClientEvents {
   soundSubmitted: (submission: SoundSubmission) => void;
   judgeSelected: (judgeId: string) => void;
   promptSelected: (prompt: GamePrompt) => void;
-  roundComplete: (winnerId: string, winnerName: string) => void;
+  roundComplete: (data: {
+    winnerId: string;
+    winnerName: string;
+    winningSubmission: SoundSubmission;
+    submissionIndex: number;
+  }) => void;
   gameComplete: (winnerId: string, winnerName: string) => void;
+  tieBreakerRound: (data: {
+    tiedPlayers: { id: string; name: string }[];
+  }) => void;
   gameSettingsUpdated: (settings: {
     maxRounds: number;
     maxScore: number;
+    allowExplicitContent: boolean;
   }) => void; // Added for game settings updates
   timeUpdate: (data: { timeLeft: number }) => void;
   submissionPlayback: (data: {
@@ -146,6 +155,8 @@ export interface ServerToClientEvents {
     success: boolean;
     submissionIndex: number;
   }) => void;
+  playSubmission: (submission: SoundSubmission, index: number) => void;
+  playJudgingSubmission: (submission: SoundSubmission, index: number) => void;
 }
 
 // Player data for socket events
