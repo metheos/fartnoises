@@ -1,7 +1,6 @@
 'use client';
 
 import { Room, Player } from '@/types/game';
-import { getPlayerColorClass } from '@/utils/gameUtils';
 import { Card, Button, PlayerAvatar } from '@/components/ui';
 
 interface ClientGameOverProps {
@@ -11,7 +10,10 @@ interface ClientGameOverProps {
 
 export default function ClientGameOver({ room }: ClientGameOverProps) {
   const sortedPlayers = [...room.players].sort((a, b) => b.score - a.score);
+  const sortedByLikes = [...room.players].sort((a, b) => (b.likeScore || 0) - (a.likeScore || 0));
   const overallWinner = sortedPlayers[0];
+  const likeWinner = sortedByLikes[0];
+  const hasLikes = sortedByLikes.some(player => (player.likeScore || 0) > 0);
   
   return (
     <Card className="text-center">
@@ -47,7 +49,7 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
           {/* <p className="text-sm font-bold text-yellow-800 italic text-center">
             "Master of the Fartnoises!"
           </p> */}
-                      <p className="text-lg font-bold text-yellow-800 italic text-center">
+            <p className="text-lg font-bold text-yellow-800 italic text-center">
               {(() => {
               const funnyTitles = [
                 "Master of the Fartnoises!",
@@ -78,6 +80,43 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
             </p>
         </div>
       </div>
+
+      {/* Like Winner Section - Only show if there are likes */}
+      {hasLikes && (
+        <div className="mb-8">
+          <div className="relative bg-gradient-to-br from-pink-300 via-pink-400 to-rose-500 rounded-3xl p-6 mx-auto shadow-2xl transform hover:scale-105 transition-all duration-500">
+            
+            {/* Heart above like winner */}
+            <div className="text-4xl mb-3 animate-bounce text-center">❤️</div>
+            
+            <h4 className="text-xl font-black text-rose-900 mb-3 drop-shadow-lg text-center">
+              CROWD FAVORITE!
+            </h4>
+            
+            {/* Like Winner Avatar */}
+            <PlayerAvatar 
+              player={likeWinner}
+              size="lg"
+              className="mx-auto mb-3 ring-4 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300"
+            />
+            
+            <p className="text-xl font-black text-rose-900 mb-2 drop-shadow-lg text-center">
+              {likeWinner.name}
+            </p>
+            
+            <div className="flex items-center justify-center space-x-2 mb-3">
+              <span className="text-2xl font-black text-rose-900 drop-shadow-lg">
+                {likeWinner.likeScore || 0}
+              </span>
+              <span className="text-sm font-bold text-rose-800">Likes</span>
+            </div>
+            
+            <p className="text-sm font-bold text-rose-800 italic text-center">
+              "Most Loved by the Audience!"
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Final Scores - Compact Mobile Layout */}
       <div className="bg-gray-50 rounded-2xl p-4 mb-6">
@@ -119,10 +158,22 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className={`font-black ${rank === 1 ? 'text-yellow-900 text-xl' : 'text-purple-600 text-lg'}`}>
-                    {p.score}
-                  </span>
-                  <p className="text-xs text-gray-500 uppercase">Points</p>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-center">
+                      <span className={`font-black ${rank === 1 ? 'text-yellow-900 text-xl' : 'text-purple-600 text-lg'}`}>
+                        {p.score}
+                      </span>
+                      <p className="text-xs text-gray-500 uppercase">Points</p>
+                    </div>
+                    {hasLikes && (
+                      <div className="text-center">
+                        <span className="font-bold text-pink-600 text-sm">
+                          {p.likeScore || 0}
+                        </span>
+                        <p className="text-xs text-gray-500 uppercase">❤️</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );

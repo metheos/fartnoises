@@ -190,6 +190,18 @@ export function useGameActions({
     }
   }, [socket, room, player, addDebugLog]);
 
+  const likeSubmission = useCallback(
+    (submissionIndex: number) => {
+      if (socket && room && player) {
+        addDebugLog(
+          `❤️ Emitting likeSubmission: index ${submissionIndex} on socket ${socket.id}`
+        );
+        socket.emit("likeSubmission", submissionIndex);
+      }
+    },
+    [socket, room, player, addDebugLog]
+  );
+
   return {
     startGame,
     selectPrompt,
@@ -197,6 +209,7 @@ export function useGameActions({
     refreshSounds,
     activateTripleSound,
     judgeSubmission,
+    likeSubmission,
     voteOnReconnection,
     voteOnReconnectionWithCleanup,
     attemptReconnection,

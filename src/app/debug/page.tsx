@@ -35,10 +35,10 @@ import ClientPausedForDisconnectionComponent from '@/components/client/ClientPau
 
 // Mock Data
 const mockPlayers: Player[] = [
-  { id: 'player1', name: 'Alice', color: '#FF6B6B', emoji: '😂', score: 1, isVIP: true, isDisconnected: false },
-  { id: 'player2', name: 'Bob', color: '#4ECDC4', emoji: '🎵', score: 2, isVIP: false, isDisconnected: false },
-  { id: 'player3', name: 'Charlie', color: '#45B7D1', emoji: '🤪', score: 0, isVIP: false, isDisconnected: false },
-  { id: 'player4', name: 'Diana', color: '#96CEB4', emoji: '🎸', score: 3, isVIP: false, isDisconnected: false },
+  { id: 'player1', name: 'Alice', color: '#FF6B6B', emoji: '😂', score: 1, likeScore: 2, isVIP: true, isDisconnected: false },
+  { id: 'player2', name: 'Bob', color: '#4ECDC4', emoji: '🎵', score: 2, likeScore: 1, isVIP: false, isDisconnected: false },
+  { id: 'player3', name: 'Charlie', color: '#45B7D1', emoji: '🤪', score: 0, likeScore: 0, isVIP: false, isDisconnected: false },
+  { id: 'player4', name: 'Diana', color: '#96CEB4', emoji: '🎸', score: 3, likeScore: 3, isVIP: false, isDisconnected: false },
 ];
 
 const mockPlayerView = mockPlayers[1]; // Bob's view (non-VIP, non-judge)
@@ -195,6 +195,7 @@ export default function DebugPage() {
             name: 'Charlie', 
             color: '#45B7D1', 
             score: 0, 
+            likeScore: 0,
             isVIP: false, 
             disconnectedAt: Date.now(),
             socketId: 'old-socket-id'
@@ -371,6 +372,8 @@ export default function DebugPage() {
             selectedSounds={selectedSounds}
             onSelectSounds={setSelectedSounds}
             onSubmitSounds={() => console.log('Submit sounds:', selectedSounds)}
+            onRefreshSounds={() => console.log('Refresh sounds')}
+            onActivateTripleSound={() => console.log('Activate triple sound')}
             timeLeft={timeLeft}
             soundEffects={mockSoundEffects}
           />
@@ -400,6 +403,7 @@ export default function DebugPage() {
             room={mockRoom} 
             player={currentPlayer} 
             onJudgeSubmission={(index) => console.log('Judge submission:', index)}
+            onLikeSubmission={(index) => console.log('Like submission:', index)}
             soundEffects={mockSoundEffects}
             socket={createMockSocket() as any}
             playSoundCombinationWithFeedback={async (sounds: string[], buttonId: string) => {

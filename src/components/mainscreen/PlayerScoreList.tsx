@@ -17,6 +17,7 @@ export function PlayerScoreList({
   isGameOver = false
 }: PlayerScoreListProps) {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  const hasLikes = players.some(player => (player.likeScore || 0) > 0);
   
   return (
     <div className="bg-gray-50 rounded-3xl p-6 shadow-inner">
@@ -82,22 +83,48 @@ export function PlayerScoreList({
                     +1 PT
                   </div>
                   <div className="text-right">
-                    <p className={`font-black text-2xl text-purple-600 transition-all duration-500 ${
-                      showPointAnimation ? 'scale-110 text-green-600' : ''
-                    }`}>
-                      {animatedScores[player.id] !== undefined ? animatedScores[player.id] : player.score}
-                    </p>
-                    <p className="text-xs text-gray-500 uppercase">Points</p>
+                    <div className="flex items-center space-x-3">
+                      <div className="text-center">
+                        <p className={`font-black text-2xl text-purple-600 transition-all duration-500 ${
+                          showPointAnimation ? 'scale-110 text-green-600' : ''
+                        }`}>
+                          {animatedScores[player.id] !== undefined ? animatedScores[player.id] : player.score}
+                        </p>
+                        <p className="text-xs text-gray-500 uppercase">Points</p>
+                      </div>
+                      {hasLikes && (
+                        <div className="text-center">
+                          <p className="font-bold text-pink-600 text-lg">
+                            {player.likeScore || 0}
+                          </p>
+                          <p className="text-xs text-gray-500 uppercase">❤️</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </>
               ) : (
                 <div className="text-right">
-                  <p className={`font-black text-purple-600 ${
-                    rank === 1 && isGameOver ? 'text-2xl' : 'text-xl'
-                  }`}>
-                    {animatedScores[player.id] !== undefined ? animatedScores[player.id] : player.score}
-                  </p>
-                  <p className="text-xs text-gray-500 uppercase">Points</p>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-center">
+                      <p className={`font-black text-purple-600 ${
+                        rank === 1 && isGameOver ? 'text-2xl' : 'text-xl'
+                      }`}>
+                        {animatedScores[player.id] !== undefined ? animatedScores[player.id] : player.score}
+                      </p>
+                      <p className="text-xs text-gray-500 uppercase">Points</p>
+                    </div>
+                    {hasLikes && (
+                      <div className="text-center">
+                        <p className={`font-bold text-pink-600 ${
+                          rank === 1 && isGameOver ? 'text-lg' : 'text-md'
+                        }`}>
+                          {player.likeScore || 0}
+                        </p>
+                        <p className="text-xs text-gray-500 uppercase">❤️</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </li>

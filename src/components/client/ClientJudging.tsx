@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Room, Player, SoundEffect } from '@/types/game';
 import { Socket } from 'socket.io-client';
 import { Card, Button, JudgeDisplay } from '@/components/ui';
@@ -9,6 +10,7 @@ interface ClientJudgingProps {
   room: Room;
   player: Player;
   onJudgeSubmission: (submissionIndex: number) => void;
+  onLikeSubmission: (submissionIndex: number) => void;
   soundEffects: SoundEffect[];
   socket: Socket | null;
   playSoundCombinationWithFeedback?: (sounds: string[], buttonId: string) => Promise<void>;
@@ -17,10 +19,14 @@ interface ClientJudgingProps {
 export default function ClientJudging({ 
   room, 
   player, 
-  onJudgeSubmission, 
+  onJudgeSubmission,
+  onLikeSubmission, 
   soundEffects, 
   socket
 }: ClientJudgingProps) {
+  // State for tracking likes
+  const [likedSubmissions, setLikedSubmissions] = useState<Set<number>>(new Set());
+
   // Use custom hooks for common patterns
   const { isJudge, judgeDisplayProps } = useJudgeCheck(room, player, {
     displaySize: 'sm',
@@ -39,6 +45,46 @@ export default function ClientJudging({
     logPlayerChanges: false
   });
 
+  // Listen for submission like updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleSubmissionLiked = (data: {
+      submissionIndex: number;
+      likedBy: string;
+      likedByName: string;
+      totalLikes: number;
+    }) => {
+      // Update the liked submissions if this player liked it
+      if (data.likedBy === player.id) {
+        setLikedSubmissions(prev => new Set([...prev, data.submissionIndex]));
+      }
+    };
+
+    socket.on('submissionLiked', handleSubmissionLiked);
+
+    return () => {
+      socket.off('submissionLiked', handleSubmissionLiked);
+    };
+  }, [socket, player.id]);
+
+  // Function to handle liking a submission
+  const handleLikeSubmission = (submissionIndex: number) => {
+    if (isJudge) return;
+    
+    const submission = submissionsToShow[submissionIndex];
+    if (!submission) return;
+    
+    // Don't allow liking own submission
+    if (submission.playerId === player.id) return;
+    
+    // Don't allow liking already liked submissions
+    if (likedSubmissions.has(submissionIndex)) return;
+    
+    onLikeSubmission(submissionIndex);
+    setLikedSubmissions(prev => new Set([...prev, submissionIndex]));
+  };
+
   // Debug logging for submissions
   logSubmissions('Component render');
   const submissionsToShow = room.randomizedSubmissions || room.submissions;
@@ -54,12 +100,17 @@ export default function ClientJudging({
       {isJudge ? (
         <p className="text-gray-800 mb-4">Choose the winner!</p>
       ) : (
-        <div className="flex items-center justify-center gap-2 mb-4">
-          {judgeDisplayProps ? (
-            <JudgeDisplay {...judgeDisplayProps} />
-          ) : (
-            <p className="text-gray-800">The judge is choosing the winner...</p>
-          )}
+        <div className="mb-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {judgeDisplayProps ? (
+              <JudgeDisplay {...judgeDisplayProps} />
+            ) : (
+              <p className="text-gray-800">The judge is choosing the winner...</p>
+            )}
+          </div>
+          <p className="text-sm text-gray-600 text-center">
+            💡 While you wait, you can like submissions you enjoyed! (except your own)
+          </p>
         </div>
       )}
       
@@ -88,12 +139,24 @@ export default function ClientJudging({
                   Submission {index + 1}
                 </h4>
                 
-                {/* Status Indicator */}
-                {isJudge ? (
-                  <div className="w-4 h-4 rounded-full bg-green-400 animate-pulse"></div>
-                ) : (
-                  <div className="w-4 h-4 rounded-full bg-purple-400 animate-pulse"></div>
-                )}
+                <div className="flex items-center space-x-2">
+                  {/* Like count indicator */}
+                  {(submission.likeCount || 0) > 0 && (
+                    <div className="flex items-center space-x-1 bg-pink-100 rounded-full px-2 py-1">
+                      <span className="text-sm">❤️</span>
+                      <span className="text-sm font-bold text-pink-600">
+                        {submission.likeCount}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Status Indicator */}
+                  {isJudge ? (
+                    <div className="w-4 h-4 rounded-full bg-green-400 animate-pulse"></div>
+                  ) : (
+                    <div className="w-4 h-4 rounded-full bg-purple-400 animate-pulse"></div>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3 mb-4">
@@ -138,6 +201,23 @@ export default function ClientJudging({
                 >
                   {isButtonPlaying(index) ? '🔇 Playing...' : '🔊 Play Sounds'}
                 </Button>
+                
+                {/* Like button for non-judges */}
+                {!isJudge && submission.playerId !== player.id && (
+                  <Button
+                    onClick={() => handleLikeSubmission(index)}
+                    disabled={likedSubmissions.has(index)}
+                    variant={likedSubmissions.has(index) ? 'secondary' : 'primary'}
+                    className={`w-full ${
+                      likedSubmissions.has(index) 
+                        ? 'bg-pink-200 text-pink-600 cursor-not-allowed' 
+                        : 'bg-pink-500 hover:bg-pink-600 text-white'
+                    }`}
+                  >
+                    {likedSubmissions.has(index) ? '❤️ Liked!' : '🤍 Like'}
+                  </Button>
+                )}
+                
                 {isJudge && (
                   <Button 
                     onClick={() => onJudgeSubmission(index)}

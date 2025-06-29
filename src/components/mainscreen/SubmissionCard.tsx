@@ -130,23 +130,41 @@ export function SubmissionCard({
       )}
 
       <div className="relative z-10 flex flex-col h-full">
-        <div className="flex items-center justify-center mb-6">
-          <h5 className={`text-2xl font-bold ${
-            isCurrentlyPlaying 
-              ? 'text-white' 
-              : isWinner 
-                ? 'text-yellow-800'
-                : 'text-gray-800'
-          }`}>
-            {isWinner 
-              ? '🏆 Winner 🏆' 
-              : isTripleSound
-                ? `⚡ Triple Sound ${index + 1} ⚡`
-                : `🎵 Submission ${index + 1} 🎵`
-            }
-          </h5>
-          {isTripleSound && (
-            <span className="ml-2 text-lg animate-bounce">💎</span>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-center">
+            <h5 className={`text-2xl font-bold ${
+              isCurrentlyPlaying 
+                ? 'text-white' 
+                : isWinner 
+                  ? 'text-yellow-800'
+                  : 'text-gray-800'
+            }`}>
+              {isWinner 
+                ? '🏆 Winner 🏆' 
+                : isTripleSound
+                  ? `⚡ Triple Sound ${index + 1} ⚡`
+                  : `🎵 Submission ${index + 1} 🎵`
+              }
+            </h5>
+            {isTripleSound && (
+              <span className="ml-2 text-lg animate-bounce">💎</span>
+            )}
+          </div>
+          
+          {/* Like Count Display */}
+          {(submission.likeCount || 0) > 0 && (
+            <div className={`flex items-center space-x-1 rounded-full px-3 py-1 ${
+              isCurrentlyPlaying 
+                ? 'bg-white bg-opacity-20 text-white' 
+                : isWinner 
+                  ? 'bg-pink-200 text-pink-700'
+                  : 'bg-pink-100 text-pink-600'
+            }`}>
+              <span className="text-lg">❤️</span>
+              <span className="font-bold text-lg">
+                {submission.likeCount}
+              </span>
+            </div>
           )}
         </div>
 

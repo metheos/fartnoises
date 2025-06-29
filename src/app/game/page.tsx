@@ -245,6 +245,7 @@ function GamePageContent() {
           room={room} 
           player={player!} 
           onJudgeSubmission={gameActions.judgeSubmission}
+          onLikeSubmission={gameActions.likeSubmission}
           soundEffects={soundEffects}
           socket={socket}
           playSoundCombinationWithFeedback={playSoundCombinationWithFeedback}

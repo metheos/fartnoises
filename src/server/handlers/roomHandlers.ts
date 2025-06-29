@@ -30,6 +30,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
         color: playerData.color || getRandomColor([]),
         emoji: playerData.emoji || getRandomEmoji([]),
         score: 0,
+        likeScore: 0,
         isVIP: true,
       };
       const room: Room = {
@@ -96,6 +97,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
         color: playerData.color || getRandomColor(usedColors),
         emoji: playerData.emoji || getRandomEmoji(usedEmojis),
         score: 0,
+        likeScore: 0,
         isVIP: false,
       };
       room.players.push(player);

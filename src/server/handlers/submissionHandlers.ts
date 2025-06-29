@@ -465,6 +465,84 @@ export function setupSubmissionHandlers(
       }
     }
   );
+
+  // Like submission handler
+  socket.on("likeSubmission", (submissionIndex) => {
+    try {
+      const roomCode = context.playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const room = context.rooms.get(roomCode);
+      if (!room || room.gameState !== GameState.JUDGING) return;
+
+      const player = room.players.find((p) => p.id === socket.id);
+      if (!player) return;
+
+      // Don't allow judge to like submissions
+      if (socket.id === room.currentJudge) return;
+
+      // Validate submission index
+      const submissionsToCheck = room.randomizedSubmissions || room.submissions;
+      if (submissionIndex < 0 || submissionIndex >= submissionsToCheck.length) {
+        console.warn(`[LIKE] Invalid submission index: ${submissionIndex}`);
+        return;
+      }
+
+      const submission = submissionsToCheck[submissionIndex];
+      if (!submission) return;
+
+      // Don't allow liking own submission
+      if (submission.playerId === socket.id) return;
+
+      // Initialize likes array if it doesn't exist
+      if (!submission.likes) {
+        submission.likes = [];
+        submission.likeCount = 0;
+      }
+
+      // Check if player already liked this submission
+      const existingLike = submission.likes.find(like => like.playerId === socket.id);
+      if (existingLike) {
+        console.warn(`[LIKE] Player ${player.name} already liked submission ${submissionIndex}`);
+        return;
+      }
+
+      // Add the like
+      const newLike = {
+        playerId: socket.id,
+        playerName: player.name,
+        timestamp: Date.now(),
+        roundNumber: room.currentRound,
+        prompt: room.currentPrompt?.text || '',
+        submittedSounds: submission.sounds
+      };
+
+      submission.likes.push(newLike);
+      submission.likeCount = submission.likes.length;
+
+      // Update the player's like score (for the submission owner)
+      const submissionOwner = room.players.find(p => p.id === submission.playerId);
+      if (submissionOwner) {
+        submissionOwner.likeScore = (submissionOwner.likeScore || 0) + 1;
+      }
+
+      console.log(`[LIKE] ${player.name} liked submission ${submissionIndex} by ${submission.playerName}. Total likes: ${submission.likeCount}`);
+
+      // Broadcast the like update to all players in the room
+      context.io.to(roomCode).emit("submissionLiked", {
+        submissionIndex: submissionIndex,
+        likedBy: socket.id,
+        likedByName: player.name,
+        totalLikes: submission.likeCount
+      });
+
+      // Update room state
+      context.io.to(roomCode).emit("roomUpdated", room);
+
+    } catch (error) {
+      console.error("[LIKE] Error handling like submission:", error);
+    }
+  });
 }
 
 // Helper function to handle winner flow when no main screens are connected

@@ -5,6 +5,7 @@ export interface Player {
   color: string;
   emoji?: string; // Player's selected emoji
   score: number;
+  likeScore: number; // Track total likes received across all rounds
   isVIP: boolean;
   isDisconnected?: boolean; // Track disconnection status
   disconnectedAt?: number; // Timestamp when disconnected
@@ -20,6 +21,7 @@ export interface DisconnectedPlayer {
   color: string;
   emoji?: string; // Player's selected emoji
   score: number;
+  likeScore: number; // Track total likes received across all rounds
   isVIP: boolean;
   disconnectedAt: number;
   socketId: string; // Original socket ID for reconnection matching
@@ -70,6 +72,17 @@ export interface SoundSubmission {
   playerId: string;
   playerName: string;
   sounds: string[]; // One or two sound effect IDs (1-2 sounds allowed)
+  likes?: SubmissionLike[]; // Track likes for this submission
+  likeCount?: number; // Cached count for easy access
+}
+
+export interface SubmissionLike {
+  playerId: string;
+  playerName: string;
+  timestamp: number;
+  roundNumber: number;
+  prompt: string;
+  submittedSounds: string[];
 }
 
 export interface SoundEffect {
@@ -165,6 +178,12 @@ export interface ServerToClientEvents {
   }) => void;
   playSubmission: (submission: SoundSubmission, index: number) => void;
   playJudgingSubmission: (submission: SoundSubmission, index: number) => void;
+  submissionLiked: (data: {
+    submissionIndex: number;
+    likedBy: string;
+    likedByName: string;
+    totalLikes: number;
+  }) => void;
 }
 
 // Player data for socket events
@@ -210,4 +229,5 @@ export interface ClientToServerEvents {
     submissionIndex: number;
     sounds: string[];
   }) => void;
+  likeSubmission: (submissionIndex: number) => void;
 }
