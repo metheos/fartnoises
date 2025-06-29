@@ -29,12 +29,13 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
           </h4>
           
           {/* Winner Avatar - Large */}
-          <PlayerAvatar 
-            player={overallWinner}
-            size="xl"
-            className="mx-auto mb-3 ring-4 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300"
-            showName={false}
-          />
+          <div className="ring-4 ring-white ring-opacity-50 rounded-full inline-block transform hover:rotate-12 transition-transform duration-300 mx-auto mb-3">
+            <PlayerAvatar 
+              player={overallWinner}
+              size="xl"
+              showName={false}
+            />
+          </div>
           
           <p className="text-2xl font-black text-yellow-900 mb-2 drop-shadow-lg text-center">
             {overallWinner.name}
@@ -95,12 +96,13 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
             </h4>
             
             {/* Like Winner Avatar */}
-            <PlayerAvatar 
-              player={likeWinner}
-              size="lg"
-              className="mx-auto mb-3 ring-4 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300"
-              showName={false}
-            />
+            <div className="ring-4 ring-white ring-opacity-50 rounded-full inline-block transform hover:rotate-12 transition-transform duration-300 mx-auto mb-3">
+              <PlayerAvatar 
+                player={likeWinner}
+                size="lg"
+                showName={false}
+              />
+            </div>
             
             <p className="text-xl font-black text-rose-900 mb-2 drop-shadow-lg text-center">
               {likeWinner.name}
@@ -120,10 +122,10 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
         </div>
       )}
 
-      {/* Final Scores - Compact Mobile Layout */}
-      <div className="bg-gray-50 rounded-2xl p-4 mb-6">
-        <h3 className="text-lg font-bold text-gray-800 mb-3 text-center">Final Standings</h3>
-        <div className="space-y-2">
+      {/* Final Scores - Extra Compact Mobile Layout */}
+      <div className="bg-gray-50 rounded-2xl p-3 mb-6">
+        <h3 className="text-base font-bold text-gray-800 mb-2 text-center">Final Standings</h3>
+        <div className="space-y-1">
           {sortedPlayers.map((p, index) => {
             const rank = index + 1;
             let rankIcon = '🏅';
@@ -143,40 +145,38 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
             return (
               <div 
                 key={p.id} 
-                className={`flex items-center justify-between p-3 rounded-xl shadow-sm transition-all duration-300 ${
-                  rank === 1 ? 'bg-yellow-50 border-2 border-yellow-400 scale-105' : 'bg-white'
+                className={`flex items-center justify-between p-2 rounded-lg shadow-sm transition-all duration-300 ${
+                  rank === 1 ? 'bg-yellow-50 border border-yellow-400 scale-102' : 'bg-white'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm shadow-md ${rankBg}`}>
+                <div className="flex items-center space-x-2 flex-1 min-w-0">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-xs shadow-sm ${rankBg}`}>
                     {rankIcon}
                   </div>
                   <PlayerAvatar 
                     player={p}
-                    size="sm"
+                    size="xs"
                     showName={false}
                   />
-                  <span className={`font-bold ${rank === 1 ? 'text-yellow-900 text-lg' : 'text-gray-900'}`}>
+                  <span className={`font-bold truncate ${rank === 1 ? 'text-yellow-900 text-sm' : 'text-gray-900 text-sm'}`}>
                     {p.name}
                   </span>
                 </div>
-                <div className="text-right">
-                  <div className="flex items-center space-x-3">
-                    <div className="text-center">
-                      <span className={`font-black ${rank === 1 ? 'text-yellow-900 text-xl' : 'text-purple-600 text-lg'}`}>
-                        {p.score}
-                      </span>
-                      <p className="text-xs text-gray-500 uppercase">Points</p>
-                    </div>
-                    {hasLikes && (
-                      <div className="text-center">
-                        <span className="font-bold text-pink-600 text-sm">
-                          {p.likeScore || 0}
-                        </span>
-                        <p className="text-xs text-gray-500 uppercase">❤️</p>
-                      </div>
-                    )}
+                <div className="flex items-center space-x-2 flex-shrink-0">
+                  <div className="text-center">
+                    <span className={`font-black ${rank === 1 ? 'text-yellow-900 text-lg' : 'text-purple-600 text-base'}`}>
+                      {p.score}
+                    </span>
+                    <p className="text-xs text-gray-500 leading-none">pts</p>
                   </div>
+                  {hasLikes && (
+                    <div className="text-center">
+                      <span className="font-bold text-pink-600 text-sm">
+                        {p.likeScore || 0}
+                      </span>
+                      <p className="text-xs text-gray-500 leading-none">❤️</p>
+                    </div>
+                  )}
                 </div>
               </div>
             );

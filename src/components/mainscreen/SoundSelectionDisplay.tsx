@@ -77,7 +77,7 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
               <p className="font-bold text-2xl text-gray-900">{player.name}</p>
               
               {/* Status indicators */}
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 {player.hasUsedRefresh && (
                   <p className="text-sm text-orange-600 font-medium">
                     🔄 Used Refresh
@@ -88,7 +88,7 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
                     ⚡ Triple Sound! ⚡
                   </p>
                 )}
-              </div>
+              </div> */}
               
               <p className={`text-xl font-semibold ${
                 hasSubmitted 

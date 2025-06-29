@@ -44,7 +44,7 @@ const mockPlayers: Player[] = [
 const mockPlayerView = mockPlayers[1]; // Bob's view (non-VIP, non-judge)
 const mockJudgeView = mockPlayers[0]; // Alice's view (VIP, judge)
 
-// Fallback mock data in case real data fails to load
+// Fallback mock data in case real data fails to load - expanded for better debug testing
 const fallbackSoundEffects: SoundEffect[] = [
   { id: 'sound1', name: 'Fart', fileName: 'fart.ogg', category: 'Gross' },
   { id: 'sound2', name: 'Burp', fileName: 'burp.ogg', category: 'Gross' },
@@ -56,6 +56,16 @@ const fallbackSoundEffects: SoundEffect[] = [
   { id: 'sound8', name: 'Boing', fileName: 'boing.ogg', category: 'Cartoon' },
   { id: 'sound9', name: 'Crash', fileName: 'crash.ogg', category: 'Action' },
   { id: 'sound10', name: 'Meow', fileName: 'meow.ogg', category: 'Animals' },
+  { id: 'sound11', name: 'Honk', fileName: 'honk.ogg', category: 'Transportation' },
+  { id: 'sound12', name: 'Whoosh', fileName: 'whoosh.ogg', category: 'Wind' },
+  { id: 'sound13', name: 'Pop', fileName: 'pop.ogg', category: 'Cartoon' },
+  { id: 'sound14', name: 'Squeak', fileName: 'squeak.ogg', category: 'Animals' },
+  { id: 'sound15', name: 'Thunder', fileName: 'thunder.ogg', category: 'Nature' },
+  { id: 'sound16', name: 'Bell', fileName: 'bell.ogg', category: 'Musical' },
+  { id: 'sound17', name: 'Splash', fileName: 'splash.ogg', category: 'Water' },
+  { id: 'sound18', name: 'Siren', fileName: 'siren.ogg', category: 'Emergency' },
+  { id: 'sound19', name: 'Snore', fileName: 'snore.ogg', category: 'Human' },
+  { id: 'sound20', name: 'Applause', fileName: 'applause.ogg', category: 'Crowd' },
 ];
 
 const fallbackPrompts: GamePrompt[] = [
@@ -87,7 +97,7 @@ export default function DebugPage() {
   const [view, setView] = useState<GameState | 'WAITING'>('WAITING');
   const [viewType, setViewType] = useState<'main-screen' | 'client'>('main-screen');
   const [clientPlayerType, setClientPlayerType] = useState<'regular' | 'judge' | 'vip'>('regular');
-  const [selectedSounds, setSelectedSounds] = useState<string[]>(['sound1', 'sound3']);
+  const [selectedSounds, setSelectedSounds] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState<number>(45);
   
   // State for real game data
@@ -96,8 +106,8 @@ export default function DebugPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [useRealData, setUseRealData] = useState(true);
 
-  // Get currently used data (real or fallback)
-  const mockSoundEffects = useRealData && realSoundEffects.length > 0 ? realSoundEffects.slice(0, 10) : fallbackSoundEffects;
+  // Get currently used data (real or fallback) - provide more sounds for better debug testing
+  const mockSoundEffects = useRealData && realSoundEffects.length > 0 ? realSoundEffects.slice(0, 20) : fallbackSoundEffects;
   const mockAvailablePrompts = useRealData && realPrompts.length > 0 ? realPrompts.slice(0, 6) : fallbackPrompts;
 
   // Load real game data on component mount
@@ -118,10 +128,7 @@ export default function DebugPage() {
         setRealSoundEffects(sounds);
         setRealPrompts(prompts);
         
-        // Update selected sounds to use real sound IDs if available
-        if (sounds.length >= 2) {
-          setSelectedSounds([sounds[0].id, sounds[1].id]);
-        }
+        // Keep selectedSounds empty for proper debug testing of sound selection
       } catch (error) {
         console.error('🎮 Debug Page: Failed to load real game data:', error);
         // Will fall back to mock data
@@ -176,7 +183,7 @@ export default function DebugPage() {
       case GameState.PROMPT_SELECTION:
         return { ...baseMockRoom, gameState: GameState.PROMPT_SELECTION, currentPrompt: null, submissions: [] };
       case GameState.SOUND_SELECTION:
-        return { ...baseMockRoom, gameState: GameState.SOUND_SELECTION, submissions: mockSubmissionsWithRealSounds.slice(0, 1) };
+        return { ...baseMockRoom, gameState: GameState.SOUND_SELECTION, submissions: [] };
       case GameState.PLAYBACK:
         return { ...baseMockRoom, gameState: GameState.PLAYBACK, submissions: mockSubmissionsWithRealSounds, currentSubmissionIndex: 1 };
       case GameState.JUDGING:
@@ -649,7 +656,7 @@ export default function DebugPage() {
       {viewType === 'client' && view === GameState.SOUND_SELECTION && (
         <div className="bg-gray-800 p-4 rounded-lg mb-4">
           <h2 className="text-xl mb-2">Debug Controls</h2>
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-4 items-center flex-wrap">
             <div>
               <label className="text-sm text-gray-300">Timer: </label>
               <input 
@@ -667,7 +674,19 @@ export default function DebugPage() {
             <div>
               <label className="text-sm text-gray-300">Selected Sounds: </label>
               <span className="ml-2 text-sm text-green-400">{selectedSounds.length}/2</span>
+              {selectedSounds.length > 0 && (
+                <span className="ml-2 text-xs text-gray-400">
+                  [{selectedSounds.map(id => mockSoundEffects.find(s => s.id === id)?.name || id).join(', ')}]
+                </span>
+              )}
             </div>
+            <button
+              onClick={() => setSelectedSounds([])}
+              className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm text-white transition-colors"
+              title="Clear selected sounds to test selection interface"
+            >
+              Reset Selection
+            </button>
           </div>
         </div>
       )}

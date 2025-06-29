@@ -133,58 +133,103 @@ export default function ClientJudging({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+        <div className={`grid gap-4 mt-6 ${isJudge ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
           {submissionsToShow.map((submission, index) => (
           <div 
             key={index} 
-            className="relative rounded-3xl p-6 transition-all duration-500 bg-gray-100 hover:bg-gray-50 border-2 border-gray-200"
+            className={`relative transition-all duration-500 bg-gray-100 hover:bg-gray-50 border-2 border-gray-200 ${
+              isJudge 
+                ? 'rounded-3xl p-6' 
+                : 'rounded-2xl p-3'
+            }`}
           >
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-xl font-bold text-gray-800">
-                  Submission {index + 1}
-                </h4>
-                
-                <div className="flex items-center space-x-2">
-                  {/* Like count indicator */}
-                  {(submission.likeCount || 0) > 0 && (
-                    <div className="flex items-center space-x-1 bg-pink-100 rounded-full px-2 py-1">
-                      <span className="text-sm">❤️</span>
-                      <span className="text-sm font-bold text-pink-600">
-                        {submission.likeCount}
-                      </span>
-                    </div>
-                  )}
+              {/* Header - different layouts for judge vs non-judge */}
+              {isJudge ? (
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-xl font-bold text-gray-800">
+                    Submission {index + 1}
+                  </h4>
                   
-                  {/* Status Indicator */}
-                  {isJudge ? (
-                    <div className="w-4 h-4 rounded-full bg-green-400 animate-pulse"></div>
-                  ) : (
-                    <div className="w-4 h-4 rounded-full bg-purple-400 animate-pulse"></div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3 mb-4">
-                {submission.sounds.map((soundId, soundIndex) => {
-                  const sound = soundEffects.find(s => s.id === soundId);
-                  
-                  return (
-                    <div 
-                      key={soundIndex} 
-                      className="px-4 py-3 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg">🎵</span>
-                        <span className="font-semibold">{sound?.name || soundId}</span>
+                  <div className="flex items-center space-x-2">
+                    {/* Like count indicator */}
+                    {(submission.likeCount || 0) > 0 && (
+                      <div className="flex items-center space-x-1 bg-pink-100 rounded-full px-2 py-1">
+                        <span className="text-sm">❤️</span>
+                        <span className="text-sm font-bold text-pink-600">
+                          {submission.likeCount}
+                        </span>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    )}
+                    
+                    {/* Status Indicator */}
+                    <div className="w-4 h-4 rounded-full bg-green-400 animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-bold text-gray-800">
+                    #{index + 1}
+                  </h4>
+                  
+                  <div className="flex items-center space-x-1">
+                    {/* Like count indicator */}
+                    {(submission.likeCount || 0) > 0 && (
+                      <div className="flex items-center space-x-1 bg-pink-100 rounded-full px-1.5 py-0.5">
+                        <span className="text-xs">❤️</span>
+                        <span className="text-xs font-bold text-pink-600">
+                          {submission.likeCount}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Compact Status Indicator */}
+                    <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sound list - different layouts for judge vs non-judge */}
+              {isJudge ? (
+                <div className="space-y-3 mb-4">
+                  {submission.sounds.map((soundId, soundIndex) => {
+                    const sound = soundEffects.find(s => s.id === soundId);
+                    
+                    return (
+                      <div 
+                        key={soundIndex} 
+                        className="px-4 py-3 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="text-lg">🎵</span>
+                          <span className="font-semibold">{sound?.name || soundId}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-1 mb-3">
+                  {submission.sounds.map((soundId, soundIndex) => {
+                    const sound = soundEffects.find(s => s.id === soundId);
+                    
+                    return (
+                      <div 
+                        key={soundIndex} 
+                        className="px-2 py-1.5 rounded-lg bg-white text-gray-800 shadow-sm"
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm">🎵</span>
+                          <span className="font-medium text-xs truncate">{sound?.name || soundId}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Action Buttons */}
-              <div className="space-y-2">
+              <div className={isJudge ? "space-y-2" : "space-y-1"}>
                 <Button
                   onClick={() => {
                     const buttonId = `submission-${index}`;
@@ -203,9 +248,9 @@ export default function ClientJudging({
                   }}
                   disabled={isButtonPlaying(index)}
                   variant={isButtonPlaying(index) ? 'secondary' : 'primary'}
-                  className="w-full"
+                  className={`w-full ${isJudge ? '' : 'text-xs py-1.5'}`}
                 >
-                  {isButtonPlaying(index) ? '🔇 Playing...' : '🔊 Play Sounds'}
+                  {isButtonPlaying(index) ? '🔇 Playing...' : '🔊 Play'}
                 </Button>
                 
                 {/* Like button for non-judges */}
@@ -214,7 +259,7 @@ export default function ClientJudging({
                     onClick={() => handleLikeSubmission(index)}
                     disabled={likedSubmissions.has(index)}
                     variant={likedSubmissions.has(index) ? 'secondary' : 'primary'}
-                    className={`w-full ${
+                    className={`w-full text-xs py-1.5 ${
                       likedSubmissions.has(index) 
                         ? 'bg-pink-200 text-pink-600 cursor-not-allowed' 
                         : 'bg-pink-500 hover:bg-pink-600 text-white'
@@ -235,13 +280,13 @@ export default function ClientJudging({
                 )}
               </div>
 
-              {/* Judge consideration indicator for non-judges */}
+              {/* Judge consideration indicator for non-judges - compact version */}
               {!isJudge && (
-                <div className="mt-4 text-center">
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
-                    <span className="text-purple-600 font-medium text-sm">UNDER REVIEW</span>
-                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                <div className="mt-2 text-center">
+                  <div className="flex items-center justify-center space-x-1">
+                    <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"></div>
+                    <span className="text-purple-600 font-medium text-xs">UNDER REVIEW</span>
+                    <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"></div>
                   </div>
                 </div>
               )}

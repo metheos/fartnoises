@@ -5,6 +5,7 @@ import { Room, Player, SoundEffect } from '@/types/game';
 import { WaveformAnimation } from '@/components/shared/WaveformAnimation';
 import { getPlayerColorClass } from '@/utils/gameUtils';
 import { Card, Button, PlayerAvatar, SoundCard } from '@/components/ui';
+import { audioSystem } from '@/utils/audioSystem';
 
 interface ClientResultsProps {
   room: Room;
@@ -33,58 +34,40 @@ export default function ClientResults({
     setPlaybackProgress(0);
     
     try {
-      // Create and play audio elements for the winning sounds
-      const sounds = roundWinner.winningSubmission.sounds;
-      const audioElements: HTMLAudioElement[] = [];
+      // Initialize audio system if needed
+      await audioSystem.initialize();
       
-      // Prepare audio elements
-      sounds.forEach((soundId: string) => {
-        const sound = soundEffects.find(s => s.id === soundId);
-        if (sound) {
-          const soundUrl = `/sounds/Earwax/EarwaxAudio/Audio/${sound.fileName}`;
-          const audio = new Audio(soundUrl);
-          audio.volume = 0.8;
-          audioElements.push(audio);
-        }
-      });
-
+      // Get the sound IDs for the winning combination
+      const sounds = roundWinner.winningSubmission.sounds;
+      
+      // Preload all sounds first to ensure they're available
+      await audioSystem.preloadSounds(sounds);
+      
       // Play sounds sequentially with progress updates
-      const playNextSound = async (soundIndex: number) => {
-        if (soundIndex >= audioElements.length) {
-          setIsPlayingWinner(false);
-          setPlaybackProgress(0);
-          return;
+      const totalSounds = sounds.length;
+      
+      for (let i = 0; i < sounds.length; i++) {
+        const soundId = sounds[i];
+        
+        // Update progress at the start of each sound
+        setPlaybackProgress(i / totalSounds);
+        
+        // Play the sound using the audio system (this connects to the analyser)
+        await audioSystem.playSound(soundId);
+        
+        // Brief pause between sounds
+        if (i < sounds.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
-
-        const audio = audioElements[soundIndex];
-        const progressTimer = setInterval(() => {
-          if (audio.duration) {
-            const progress = audio.currentTime / audio.duration;
-            setPlaybackProgress((soundIndex + progress) / audioElements.length);
-          }
-        }, 100);
-
-        return new Promise<void>((resolve) => {
-          audio.onended = () => {
-            clearInterval(progressTimer);
-            setTimeout(() => {
-              playNextSound(soundIndex + 1).then(resolve);
-            }, 300); // Brief pause between sounds
-          };
-          
-          audio.onerror = () => {
-            clearInterval(progressTimer);
-            console.error(`Failed to play sound ${soundIndex}`);
-            setTimeout(() => {
-              playNextSound(soundIndex + 1).then(resolve);
-            }, 300);
-          };
-          
-          audio.play().catch(console.error);
-        });
-      };
-
-      await playNextSound(0);
+        
+        // Update progress after the sound completes
+        setPlaybackProgress((i + 1) / totalSounds);
+      }
+      
+      // Finished playing all sounds
+      setIsPlayingWinner(false);
+      setPlaybackProgress(0);
+      
     } catch (error) {
       console.error('Error playing winning combination:', error);
       setIsPlayingWinner(false);
@@ -131,7 +114,7 @@ export default function ClientResults({
       {/* Winning Sound Combination Card */}
       {roundWinner.winningSubmission && (
         <div className="mb-6">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">🎵 Winning Combination 🎵</h3>
+          {/* <h3 className="text-xl font-bold text-gray-800 mb-4">🎵 Winning Combination 🎵</h3> */}
           
           <div className={`relative rounded-3xl p-6 transition-all duration-500 max-w-sm mx-auto ${
             isPlayingWinner 
@@ -206,7 +189,7 @@ export default function ClientResults({
               />
 
               {/* Play Button */}
-              <div className="mt-4 text-center">
+              <div className="mt-0 text-center">
                 <Button
                   onClick={playWinningCombination}
                   disabled={isPlayingWinner}

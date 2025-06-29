@@ -50,7 +50,7 @@ export default function SoundCard({
   };
 
   const getCardClasses = () => {
-    const baseClasses = 'relative border-2 rounded-xl p-4 transition-all duration-300 cursor-pointer';
+    const baseClasses = 'relative border-2 rounded-xl pt-6 transition-all duration-300 cursor-pointer';
     
     if (isSelected) {
       return `${baseClasses} bg-gradient-to-br from-purple-500 to-purple-600 text-white border-purple-700 shadow-lg transform scale-105`;
@@ -60,7 +60,7 @@ export default function SoundCard({
   };
 
   const getPreviewButtonClasses = () => {
-    const baseClasses = 'absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all duration-200';
+    const baseClasses = 'absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all duration-200';
     
     if (previewDisabled || isPlaying) {
       return `${baseClasses} bg-gray-300 text-gray-500 cursor-not-allowed`;
@@ -95,13 +95,13 @@ export default function SoundCard({
 
       {/* Sound Name */}
       <div className="text-center">
-        <h4 className="font-bold text-lg mb-2">
+        <h4 className="font-bold text-xs">
           {sound.name}
         </h4>
         
         {/* Playing indicator */}
         {isPlaying && (
-          <div className="flex items-center justify-center space-x-1 text-sm">
+          <div className="flex items-center justify-center space-x-1 text-xs">
             <div className="w-1 h-1 bg-current rounded-full animate-bounce"></div>
             <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
             <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
@@ -111,7 +111,7 @@ export default function SoundCard({
         
         {/* Selection status */}
         {isSelected && !isPlaying && (
-          <div className="text-sm font-medium opacity-90">
+          <div className="text-xs font-medium opacity-90">
             Selected
           </div>
         )}

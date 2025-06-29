@@ -6,6 +6,7 @@ import { Socket } from 'socket.io-client';
 import { audioSystem } from '@/utils/audioSystem';
 import { SubmissionCard } from './SubmissionCard';
 import { PlayerScoreList } from './PlayerScoreList';
+import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 
 interface ResultsDisplayProps {
   room: Room;
@@ -277,13 +278,23 @@ export function ResultsDisplay({
           </div>
         </div>
       ) : (
+        <>
+        {/* Display the Prompt above the round winner and score list */}
+        <div className="mb-8">
+          <JudgePromptDisplay 
+            judge={undefined} // No judge in results display
+            showJudge={false}
+            prompt={room.currentPrompt || undefined}
+            showPrompt={true}
+            size="large"
+          />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-8">
           {/* Left Column - Winning Sound Combination Card */}
           <div className="text-center">
             {roundWinner.winningSubmission && (
               <div>
-                <p className="text-xl font-extrabold text-purple-700 mb-6 drop-shadow-lg" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}>
-                </p>
+
                 <SubmissionCard
                   submission={roundWinner.winningSubmission}
                   index={0}
@@ -309,6 +320,7 @@ export function ResultsDisplay({
           />
           </div>
         </div>
+        </>
       )}
     </div>
   );

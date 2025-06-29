@@ -5,6 +5,7 @@ interface JudgePromptDisplayProps {
   judge: Player | undefined;
   prompt: GamePrompt | undefined;
   showPrompt?: boolean;
+  showJudge?: boolean;
   size?: 'small' | 'large';
 }
 
@@ -12,45 +13,48 @@ export function JudgePromptDisplay({
   judge, 
   prompt, 
   showPrompt = true,
+  showJudge = true,
   size = 'large'
 }: JudgePromptDisplayProps) {
   const isSmall = size === 'small';
   
   return (
-    <div className={`flex ${showPrompt ? (isSmall ? 'items-center' : 'items-center lg:items-center') : 'items-start'} justify-center gap-3 md:gap-6 ${isSmall ? 'mb-4' : 'mb-8'} ${showPrompt ? (isSmall ? 'flex-col' : 'flex-col lg:flex-row') : 'flex-row'}`}>
+    <div className={`flex ${showPrompt ? (isSmall ? 'items-center' : 'items-center lg:items-center') : 'items-start'} justify-center gap-3 md:gap-6 ${isSmall ? 'mb-4' : 'mb-8'} ${showPrompt && showJudge ? (isSmall ? 'flex-col' : 'flex-col lg:flex-row') : 'flex-row'}`}>
       {/* Judge Display - Left Side */}
-      <div className={`flex-shrink-0 ${showPrompt ? 'w-auto' : 'w-auto'}`}>
-        <div className={`relative bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 rounded-3xl ${isSmall ? 'p-2' : 'p-3'} shadow-2xl border-1 border-yellow-400 overflow-hidden ${showPrompt && !isSmall ? 'lg:mx-0' : ''}`}>
-          
-          {/* Main judge content */}
-          <div className={`relative z-10 flex flex-col items-center`}>
-            <div className={`bg-white bg-opacity-90 rounded-2xl ${isSmall ? 'p-2' : 'p-4'} shadow-lg border-1 border-yellow-300 text-center`}>
-              
-              {/* Judge Title */}
-              <div className={`${isSmall ? 'mb-1' : 'mb-3'}`}>
-                <span className={`${isSmall ? 'text-sm' : 'text-xl'} font-black text-amber-900 drop-shadow-sm underline`}>The Judge</span>
-              </div>
-              
-              {/* Judge avatar - larger and more prominent */}
-              <div className={`relative ${isSmall ? 'mb-1' : 'mb-3'}`}>
-                <div 
-                  className={`${isSmall ? 'w-16 h-16 text-2xl ring-2' : 'w-28 h-28 text-5xl ring-6'} rounded-full flex items-center justify-center font-bold text-white shadow-2xl ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge?.color || '#gray')}`}
-                >
-                  {judge?.emoji || judge?.name?.[0]?.toUpperCase() || '?'}
+      {showJudge && (
+        <div className={`flex-shrink-0 ${showPrompt ? 'w-auto' : 'w-auto'}`}>
+          <div className={`relative bg-gradient-to-br from-yellow-200 via-amber-100 to-orange-200 rounded-3xl ${isSmall ? 'p-2' : 'p-3'} shadow-2xl border-1 border-yellow-400 overflow-hidden ${showPrompt && !isSmall ? 'lg:mx-0' : ''}`}>
+            
+            {/* Main judge content */}
+            <div className={`relative z-10 flex flex-col items-center`}>
+              <div className={`bg-white bg-opacity-90 rounded-2xl ${isSmall ? 'p-2' : 'p-4'} shadow-lg border-1 border-yellow-300 text-center`}>
+                
+                {/* Judge Title */}
+                <div className={`${isSmall ? 'mb-1' : 'mb-3'}`}>
+                  <span className={`${isSmall ? 'text-sm' : 'text-xl'} font-black text-amber-900 drop-shadow-sm underline`}>The Judge</span>
+                </div>
+                
+                {/* Judge avatar - larger and more prominent */}
+                <div className={`relative ${isSmall ? 'mb-1' : 'mb-3'}`}>
+                  <div 
+                    className={`${isSmall ? 'w-16 h-16 text-2xl ring-2' : 'w-28 h-28 text-5xl ring-6'} rounded-full flex items-center justify-center font-bold text-white shadow-2xl ring-yellow-300 ring-opacity-75 mx-auto ${getPlayerColorClass(judge?.color || '#gray')}`}
+                  >
+                    {judge?.emoji || judge?.name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                </div>
+                
+                {/* Judge name with emphasis */}
+                <div className="">
+                  <span className={`${isSmall ? 'text-sm' : 'text-xl'} font-black text-amber-900 drop-shadow-sm`}>{judge?.name || 'Unknown'}</span>
                 </div>
               </div>
-              
-              {/* Judge name with emphasis */}
-              <div className="">
-                <span className={`${isSmall ? 'text-sm' : 'text-xl'} font-black text-amber-900 drop-shadow-sm`}>{judge?.name || 'Unknown'}</span>
-              </div>
             </div>
+            
+            {/* Animated border glow effect */}
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 opacity-25 animate-pulse"></div>
           </div>
-          
-          {/* Animated border glow effect */}
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 opacity-25 animate-pulse"></div>
         </div>
-      </div>
+      )}
       
       {/* Prompt Display - Right Side */}
       {showPrompt && prompt && (

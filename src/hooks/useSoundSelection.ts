@@ -180,13 +180,25 @@ export function useSoundSelection({
         )}]`
       );
       setSelectedSoundsLocal([...selectedSounds]);
+    } else if (
+      selectedSounds &&
+      selectedSounds.length === 0 &&
+      selectedSoundsLocal.length > 0
+    ) {
+      // Handle when parent selectedSounds becomes empty (e.g., debug reset)
+      console.log(
+        `🎵 Parent selectedSounds was cleared, clearing local selections: [${selectedSoundsLocal.join(
+          ", "
+        )}] -> []`
+      );
+      setSelectedSoundsLocal([]);
     } else if (selectedSounds && justClearedThisRound) {
       console.log(
         `🎵 Ignoring parent selectedSounds - we just cleared this round: [${selectedSounds.join(
           ", "
         )}]`
       );
-    } else if (selectedSounds) {
+    } else if (selectedSounds && selectedSounds.length > 0) {
       console.log(
         `🎵 Parent selectedSounds changed but keeping local selections: [${selectedSoundsLocal.join(
           ", "

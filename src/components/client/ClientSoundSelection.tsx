@@ -92,9 +92,13 @@ export default function ClientSoundSelection({
         }
       `}</style>
       <Card className="text-center">
-            <div className="bg-purple-100 rounded-2xl p-6 mb-6">
-        <p className="text-lg text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></p>
-            </div>
+        <JudgePromptDisplay 
+          judge={undefined}
+          showJudge={false}
+          prompt={room.currentPrompt || undefined}
+          showPrompt={true}
+          size="small"
+        />
             
       {/* Only show timer after first submission */}
       {hasFirstSubmission ? (
@@ -155,53 +159,40 @@ export default function ClientSoundSelection({
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Refresh sounds section - only show if player hasn't used refresh and hasn't submitted */}
-          {!player.hasUsedRefresh && (
-            <div className="text-center">
-              <Button
-                onClick={onRefreshSounds}
-                variant="secondary"
-                size="md"
-                className="mb-4 shadow-lg border-2 border-yellow-300 bg-yellow-100 hover:bg-yellow-200 text-yellow-800"
-              >
-                🔄 Get New Sounds (1x per game)
-              </Button>
-              <p className="text-sm text-gray-600 mb-2">
-                Don't like these sounds? Use your one-time refresh to get a new set!
-              </p>
-            </div>
-          )}
-
-          {player.hasUsedRefresh && (
-            <div className="text-center mb-4">
-              <p className="text-sm text-gray-500 italic">
-                ✅ You've used your sound refresh for this game
-              </p>
-            </div>
-          )}
-
-          {/* Triple sound section - only show if player hasn't used triple sound and hasn't submitted */}
-          {!player.hasUsedTripleSound && !player.hasActivatedTripleSound && (
-            <div className="text-center">
-              <Button
-                onClick={onActivateTripleSound}
-                variant="secondary"
-                size="md"
-                className="mb-4 shadow-lg border-2 border-purple-300 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-800 font-bold"
-              >
-                🎵🎵🎵 Triple Sound Power! (1x per game)
-              </Button>
-              <p className="text-sm text-gray-600 mb-2">
-                Go big or go home! Activate your triple sound power to submit 3 sounds instead of 2!
-              </p>
-            </div>
-          )}
+          {/* Power-up buttons - shiny and attractive */}
+          <div className="flex gap-3 justify-center mb-4">
+            {!player.hasUsedRefresh && (
+              <div className="flex-1 max-w-[120px]">
+                <Button
+                  onClick={onRefreshSounds}
+                  variant="secondary"
+                  size="sm"
+                  className="w-full bg-gradient-to-r from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 text-white text-xs px-1 py-2 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 border-2 border-purple-500/30"
+                >
+                  🔄 New Sounds
+                </Button>
+              </div>
+            )}
+            
+            {!player.hasUsedTripleSound && !player.hasActivatedTripleSound && (
+              <div className="flex-1 max-w-[120px]">
+                <Button
+                  onClick={onActivateTripleSound}
+                  variant="secondary"
+                  size="sm"
+                  className="w-full bg-gradient-to-r from-purple-400 to-pink-500 hover:from-purple-500 hover:to-pink-600 text-white text-xs px-1 py-2 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 border-2 border-purple-500/30"
+                >
+                  🎵×3 Triple
+                </Button>
+              </div>
+            )}
+          </div>
 
           {player.hasActivatedTripleSound && (
-            <div className="text-center mb-4">
-              <p className="text-sm text-purple-600 italic font-semibold">
-                ⚡ Triple Sound Mode Active! You can select up to 3 sounds!
-              </p>
+            <div className="text-center mb-3">
+              <span className="text-xs text-white bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1 rounded-full font-bold shadow-md animate-pulse">
+                ⚡ Triple Mode Active
+              </span>
             </div>
           )}
 
@@ -238,7 +229,7 @@ export default function ClientSoundSelection({
                 }`}>
                   {selectedSoundsLocal.length > 0 ? (
                     <div className="text-center text-white">
-                      <div className="text-sm font-bold">
+                      <div className="text-xs font-bold">
                         {playerSoundSet.find(s => s.id === selectedSoundsLocal[0])?.name || 'Unknown'}
                       </div>
                     </div>
@@ -250,7 +241,7 @@ export default function ClientSoundSelection({
                 {/* Number marker for selected sound */}
                 {selectedSoundsLocal.length > 0 && (
                   <div className="absolute -top-2 -left-2 w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold text-purple-600 shadow-md border border-purple-300">
-                    1st
+                    1
                   </div>
                 )}
                 {selectedSoundsLocal.length > 0 && (
@@ -274,7 +265,7 @@ export default function ClientSoundSelection({
                 }`}>
                   {selectedSoundsLocal.length > 1 ? (
                     <div className="text-center text-white">
-                      <div className="text-sm font-bold">
+                      <div className="text-xs font-bold">
                         {playerSoundSet.find(s => s.id === selectedSoundsLocal[1])?.name || 'Unknown'}
                       </div>
                     </div>
@@ -287,7 +278,7 @@ export default function ClientSoundSelection({
                 {/* Number marker for selected sound */}
                 {selectedSoundsLocal.length > 1 && (
                   <div className="absolute -top-2 -left-2 w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold text-purple-600 shadow-md border border-purple-300">
-                    2nd
+                    2
                   </div>
                 )}
                 {selectedSoundsLocal.length > 1 && (
@@ -316,7 +307,7 @@ export default function ClientSoundSelection({
                   }`}>
                     {selectedSoundsLocal.length > 2 ? (
                       <div className="text-center text-white">
-                        <div className="text-sm font-bold">
+                        <div className="text-xs font-bold">
                           {playerSoundSet.find(s => s.id === selectedSoundsLocal[2])?.name || 'Unknown'}
                         </div>
                       </div>
@@ -329,7 +320,7 @@ export default function ClientSoundSelection({
                   {/* Number marker for selected sound */}
                   {selectedSoundsLocal.length > 2 && (
                     <div className="absolute -top-2 -left-2 w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg border-2 border-white animate-pulse">
-                      ⚡3rd
+                      ⚡3
                     </div>
                   )}
                   {selectedSoundsLocal.length > 2 && (
@@ -360,7 +351,7 @@ export default function ClientSoundSelection({
           >
             {selectedSoundsLocal.length === 0 ? 
               (player.hasActivatedTripleSound ? 'Select 1-3 Sounds' : 'Select 1-2 Sounds') : 
-              `Submit ${selectedSoundsLocal.length} Sound${selectedSoundsLocal.length > 1 ? 's' : ''}! 🎵`
+              `Submit ${selectedSoundsLocal.length} Sound${selectedSoundsLocal.length > 1 ? 's' : ''}!`
             }
           </Button>
         </div>
