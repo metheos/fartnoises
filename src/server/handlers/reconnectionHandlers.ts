@@ -12,7 +12,7 @@ import {
   broadcastRoomListUpdate,
   removeMainScreen,
 } from "../utils/roomManager";
-import { clearTimer } from "../utils/timerManager";
+import { clearTimer, startTimer } from "../utils/timerManager";
 import { startDelayedSoundSelectionTimer } from "../utils/gameLogic";
 
 export function setupReconnectionHandlers(
@@ -233,6 +233,14 @@ function pauseGameForDisconnection(
       disconnectedPlayer: disconnectedPlayerName,
     });
 
+  // Send updated room data to main screens
+  const roomMainScreens = context.mainScreens.get(roomCode);
+  if (roomMainScreens) {
+    roomMainScreens.forEach((mainScreenId) => {
+      context.io.to(mainScreenId).emit("roomUpdated", room);
+    });
+  }
+
   // Start the main reconnection timer (30 seconds)
   startReconnectionTimer(context, roomCode, previousGameState);
 }
@@ -242,54 +250,131 @@ function startReconnectionTimer(
   roomCode: string,
   previousGameState: GameState
 ) {
-  // Clear any existing disconnection timer
-  if (context.disconnectionTimers.has(roomCode)) {
-    clearTimeout(context.disconnectionTimers.get(roomCode)!);
-  }
+  const room = context.rooms.get(roomCode);
+  if (!room) return;
 
-  const timer = setTimeout(() => {
-    const room = context.rooms.get(roomCode);
-    if (!room || !room.pausedForDisconnection) return;
+  console.log(
+    `[RECONNECTION] Starting ${
+      RECONNECTION_GRACE_PERIOD / 1000
+    }s reconnection timer for room ${roomCode}`
+  );
 
-    // Grace period expired, start voting process
-    const disconnectedPlayer = room.disconnectedPlayers?.[0];
-    if (!disconnectedPlayer) return;
+  // Use the proper timer system that sends updates to clients
+  startTimer(
+    context,
+    roomCode,
+    RECONNECTION_GRACE_PERIOD / 1000,
+    () => {
+      // Timer completed - start voting process
+      const room = context.rooms.get(roomCode);
+      if (!room || !room.pausedForDisconnection) return;
 
-    const connectedPlayers = room.players.filter((p) => !p.isDisconnected);
-    if (connectedPlayers.length === 0) {
-      // No connected players left, close room
-      context.rooms.delete(roomCode);
-      clearTimer(context, roomCode);
-      clearDisconnectionTimer(context, roomCode);
-      broadcastRoomListUpdate(context);
-      return;
-    }
+      const disconnectedPlayer = room.disconnectedPlayers?.[0];
+      if (!disconnectedPlayer) {
+        console.log(
+          `[RECONNECTION] No disconnected players found in room ${roomCode}`
+        );
+        return;
+      }
 
-    // Select a random connected player to vote
-    const randomVoter =
-      connectedPlayers[Math.floor(Math.random() * connectedPlayers.length)];
-
-    // Send vote request to the selected player
-    context.io.to(randomVoter.id).emit("reconnectionVoteRequest", {
-      disconnectedPlayerName: disconnectedPlayer.name,
-      timeLeft: RECONNECTION_VOTE_TIMEOUT / 1000,
-    });
-
-    // Set vote timeout - default to continuing without the player
-    const voteTimer = setTimeout(() => {
-      handleReconnectionVoteResult(
-        context,
-        roomCode,
-        true,
-        disconnectedPlayer.name,
-        previousGameState
+      // room.players should only contain connected players since disconnected ones are moved to disconnectedPlayers
+      const connectedPlayers = room.players;
+      console.log(
+        `[RECONNECTION] Total players in room: ${
+          room.players.length
+        }, Disconnected players: ${room.disconnectedPlayers?.length || 0}`
       );
-    }, RECONNECTION_VOTE_TIMEOUT);
 
-    context.reconnectionVoteTimers.set(roomCode, voteTimer);
-  }, RECONNECTION_GRACE_PERIOD);
+      if (connectedPlayers.length === 0) {
+        console.log(
+          `[RECONNECTION] No connected players left in room ${roomCode}, closing room`
+        );
+        // No connected players left, close room
+        context.rooms.delete(roomCode);
+        clearTimer(context, roomCode);
+        clearDisconnectionTimer(context, roomCode);
+        broadcastRoomListUpdate(context);
+        return;
+      }
 
-  context.disconnectionTimers.set(roomCode, timer);
+      console.log(
+        `[RECONNECTION] Reconnection timer expired for ${disconnectedPlayer.name}. Starting voting process.`
+      );
+
+      console.log(
+        `[RECONNECTION] Connected players available for voting:`,
+        connectedPlayers.map((p) => `${p.name} (${p.id})`)
+      );
+
+      // Select a random connected player to vote
+      const randomVoter =
+        connectedPlayers[Math.floor(Math.random() * connectedPlayers.length)];
+
+      console.log(
+        `[RECONNECTION] Selected voter: ${randomVoter.name} (${randomVoter.id})`
+      );
+
+      // Send vote request to the selected player
+      context.io.to(randomVoter.id).emit("reconnectionVoteRequest", {
+        disconnectedPlayerName: disconnectedPlayer.name,
+        timeLeft: RECONNECTION_VOTE_TIMEOUT / 1000,
+      });
+
+      console.log(
+        `[RECONNECTION] Sent reconnectionVoteRequest to ${
+          randomVoter.name
+        } for ${disconnectedPlayer.name}, timeout: ${
+          RECONNECTION_VOTE_TIMEOUT / 1000
+        }s`
+      );
+
+      // Set vote timeout - default to continuing without the player
+      const voteTimer = setTimeout(() => {
+        console.log(
+          `[RECONNECTION] Vote timeout expired, continuing without ${disconnectedPlayer.name}`
+        );
+        handleReconnectionVoteResult(
+          context,
+          roomCode,
+          true,
+          disconnectedPlayer.name,
+          previousGameState
+        );
+      }, RECONNECTION_VOTE_TIMEOUT);
+
+      context.reconnectionVoteTimers.set(roomCode, voteTimer);
+    },
+    (timeLeft) => {
+      // Send timer updates to all clients including main screens
+      console.log(
+        `[RECONNECTION] Timer update: ${timeLeft}s remaining for room ${roomCode}`
+      );
+
+      const room = context.rooms.get(roomCode);
+      const disconnectedPlayer = room?.disconnectedPlayers?.[0];
+      const disconnectedPlayerName =
+        disconnectedPlayer?.name || "Unknown Player";
+
+      // Send to all players in the room
+      context.io.to(roomCode).emit("reconnectionTimeUpdate", {
+        timeLeft,
+        phase: "waiting_for_reconnection",
+        disconnectedPlayerName,
+      });
+
+      // Also send to main screens
+      const roomMainScreens = context.mainScreens.get(roomCode);
+      if (roomMainScreens) {
+        roomMainScreens.forEach((mainScreenId) => {
+          context.io.to(mainScreenId).emit("reconnectionTimeUpdate", {
+            timeLeft,
+            phase: "waiting_for_reconnection",
+            disconnectedPlayerName,
+          });
+        });
+      }
+    }
+  );
 }
 
 function handleReconnectionVoteResult(
@@ -329,9 +414,17 @@ function handleReconnectionVoteResult(
       );
     }
 
+    console.log(
+      `Players voted to continue without ${disconnectedPlayerName}. Stopping reconnection timer.`
+    );
+    clearTimer(context, roomCode); // Stop the reconnection timer
     resumeGame(context, roomCode, previousGameState, wasJudge);
   } else {
     // Wait longer - restart the reconnection timer
+    console.log(
+      `Players voted to wait longer for ${disconnectedPlayerName}. Restarting reconnection timer.`
+    );
+    clearTimer(context, roomCode); // Clear the old timer first
     // Don't reassign judge role yet, preserve it for potential reconnection
     startReconnectionTimer(context, roomCode, previousGameState);
   }
@@ -475,7 +568,11 @@ function handlePlayerReconnection(
 
     // If this was the last disconnected player, resume the game
     if (room.disconnectedPlayers.length === 0 && room.pausedForDisconnection) {
+      console.log(
+        `All players reconnected. Stopping reconnection timer and resuming game.`
+      );
       clearDisconnectionTimer(context, roomCode);
+      clearTimer(context, roomCode); // Stop the reconnection timer
       const gameStateToRestore =
         room.previousGameState || GameState.SOUND_SELECTION;
       console.log(

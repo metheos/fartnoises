@@ -528,8 +528,19 @@ export function useSocketManager(
         timeLeft: number;
       }) => {
         addDebugLog(
-          `Reconnection vote requested for ${disconnectedPlayerName}`
+          `🗳️ Reconnection vote requested for ${disconnectedPlayerName}, timeLeft: ${timeLeft}s`
         );
+        console.log(
+          `[CLIENT] Received reconnectionVoteRequest for ${disconnectedPlayerName}, showing vote dialog`
+        );
+
+        // Add to global window for debugging
+        (window as any).lastVoteRequest = {
+          disconnectedPlayerName,
+          timeLeft,
+          timestamp: Date.now(),
+        };
+
         setReconnectionVote({
           disconnectedPlayerName,
           timeLeft,
@@ -582,6 +593,24 @@ export function useSocketManager(
           disconnectedPlayerName,
           timeLeft,
         });
+      };
+
+      const handleReconnectionTimeUpdate = ({
+        timeLeft,
+        phase,
+        disconnectedPlayerName,
+      }: {
+        timeLeft: number;
+        phase: string;
+        disconnectedPlayerName: string;
+      }) => {
+        if (phase === "waiting_for_reconnection") {
+          addDebugLog(`Reconnection timer update: ${timeLeft}s remaining`);
+          setGamePaused({
+            disconnectedPlayerName,
+            timeLeft,
+          });
+        }
       };
 
       const handleGameResumed = () => {
@@ -660,6 +689,7 @@ export function useSocketManager(
         handleReconnectionVoteUpdate,
         handleReconnectionVoteResult,
         handleGamePausedForDisconnection,
+        handleReconnectionTimeUpdate,
         handleGameResumed,
         handleGameSettingsUpdated,
       };
@@ -750,6 +780,10 @@ export function useSocketManager(
       "gamePausedForDisconnection",
       handlers.handleGamePausedForDisconnection
     );
+    currentSocket.on(
+      "reconnectionTimeUpdate",
+      handlers.handleReconnectionTimeUpdate
+    );
     currentSocket.on("gameResumed", handlers.handleGameResumed);
     currentSocket.on("gameSettingsUpdated", handlers.handleGameSettingsUpdated);
     currentSocket.on("gameStateChanged", handlers.handleGameStateChanged);
@@ -811,6 +845,10 @@ export function useSocketManager(
       currentSocket.off(
         "gamePausedForDisconnection",
         handlers.handleGamePausedForDisconnection
+      );
+      currentSocket.off(
+        "reconnectionTimeUpdate",
+        handlers.handleReconnectionTimeUpdate
       );
       currentSocket.off("gameResumed", handlers.handleGameResumed);
       currentSocket.off(

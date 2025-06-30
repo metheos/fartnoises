@@ -11,6 +11,7 @@ import { PlaybackSubmissionsDisplay } from './PlaybackSubmissionsDisplay';
 import { JudgingDisplay } from './JudgingDisplay';
 import { ResultsDisplay } from './ResultsDisplay';
 import GameOverDisplay from './GameOverDisplay';
+import GamePausedDisplay from './GamePausedDisplay';
 
 interface MainScreenGameDisplayProps {
   room: Room;
@@ -85,6 +86,10 @@ export function MainScreenGameDisplay({
 
       {room.gameState === GameState.GAME_OVER && (
         <GameOverDisplay room={room} />
+      )}
+
+      {room.gameState === GameState.PAUSED_FOR_DISCONNECTION && (
+        <GamePausedDisplay room={room} socket={socket} />
       )}
     </div>
   );

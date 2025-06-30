@@ -14,12 +14,12 @@ export default function GameHeader({
 }: GameHeaderProps) {
   return (
     <div className={`${className}`}>
-      {/* Room code positioned fixed in top left of viewport */}
-      <div className="fixed top-6 left-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl px-6 py-3 shadow-xl z-10 transform -rotate-12 hover:rotate-0 transition-transform duration-300">
+      {/* Room code positioned fixed in bottom left of viewport */}
+      <div className="fixed bottom-6 left-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl px-6 py-3 shadow-xl z-10 transform -rotate-12 hover:rotate-0 transition-transform duration-300 border-4 border-white">
         <div className="flex flex-col items-center">
           <span className="text-sm font-medium text-purple-100 opacity-80 tracking-wide">ROOM</span>
           <h2 className="text-4xl font-black text-white tracking-wider drop-shadow-lg -mt-1">
-            {room.code}
+        {room.code}
           </h2>
         </div>
       </div>

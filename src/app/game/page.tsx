@@ -19,7 +19,7 @@ import {
   ClientJudging,
   ClientResults,
   ClientGameOver,
-  ClientPausedForDisconnection
+  // ClientPausedForDisconnection // Now handled in ClientGameLayout
 } from '@/components/client';
 
 function GamePageContent() {
@@ -44,6 +44,11 @@ function GamePageContent() {
     timeLeft: number;
     showVoteDialog: boolean;
   } | null>(null);
+  
+  // Debug logging for reconnection vote state
+  useEffect(() => {
+    console.log('[CLIENT] reconnectionVote state changed:', reconnectionVote);
+  }, [reconnectionVote]);
   const [gamePaused, setGamePaused] = useState<{
     disconnectedPlayerName: string;
     timeLeft: number;
@@ -268,17 +273,18 @@ function GamePageContent() {
         />
       )}
 
-      {room?.gameState === GameState.PAUSED_FOR_DISCONNECTION && (
+      {/* Disconnection handling is now done entirely in ClientGameLayout modals */}
+      {/* {room?.gameState === GameState.PAUSED_FOR_DISCONNECTION && (
         <ClientPausedForDisconnection 
           room={room} 
           player={player!} 
           onAttemptReconnection={handleAttemptReconnection} 
         />
-      )}        
+      )} */}
 
       {/* Fallback for unknown game states */}
       {room && !Object.values(GameState).includes(room.gameState as GameState) && (
-        <div className="bg-white rounded-3xl p-4 shadow-lg text-center">
+        <div className="bg-white rounded-3xl px-4 py-2 mb-2 shadow-lg">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Unknown Game State</h2>
           <p className="text-gray-800">Current state: {room.gameState}</p>
           <p className="text-gray-800">Expected states: {Object.values(GameState).join(', ')}</p>

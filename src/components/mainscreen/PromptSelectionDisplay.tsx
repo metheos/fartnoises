@@ -14,7 +14,7 @@ export default function PromptSelectionDisplay({ room, socket }: PromptSelection
   const judge = room.players.find(p => p.id === room.currentJudge);
   
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-6 text-center shadow-2xl transition-all duration-300">
       {judge ? (
         <JudgePromptDisplay 
           judge={judge} 

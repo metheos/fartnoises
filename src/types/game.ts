@@ -140,6 +140,11 @@ export interface ServerToClientEvents {
     disconnectedPlayerName: string;
     timeLeft: number;
   }) => void;
+  reconnectionTimeUpdate: (data: {
+    timeLeft: number;
+    phase: string;
+    disconnectedPlayerName: string;
+  }) => void;
   gameResumed: () => void;
   error: (data: { message: string }) => void;
   soundSubmitted: (submission: SoundSubmission) => void;

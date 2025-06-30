@@ -17,7 +17,7 @@ export function WaitingForGameScreen({
   roomCodeFromURL
 }: WaitingForGameScreenProps) {
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-6 text-center shadow-2xl transition-all duration-300">
       {/* Logo/Title */}
       <div className="text-center mb-12">
         <h1 className="text-6xl font-black mb-4 drop-shadow-lg bg-gradient-to-r from-purple-600 via-pink-500 to-purple-700 bg-clip-text text-transparent">

@@ -9,7 +9,7 @@ interface ClientGameHeaderProps {
 
 export default function ClientGameHeader({ room, player }: ClientGameHeaderProps) {
   return (
-    <div className="bg-white rounded-3xl p-4 mb-6 shadow-lg">
+    <div className="bg-white rounded-3xl px-4 py-2 mb-2 shadow-lg">
       <div className="flex justify-between items-center">            
         <div>
           <h1 className="text-2xl font-black text-gray-900 leading-tight">fartnoises</h1>

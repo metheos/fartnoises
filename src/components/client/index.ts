@@ -8,4 +8,3 @@ export { default as ClientSoundSelection } from "./ClientSoundSelection";
 export { default as ClientJudging } from "./ClientJudging";
 export { default as ClientResults } from "./ClientResults";
 export { default as ClientGameOver } from "./ClientGameOver";
-export { default as ClientPausedForDisconnection } from "./ClientPausedForDisconnection";

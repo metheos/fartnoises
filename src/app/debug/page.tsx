@@ -30,7 +30,6 @@ import ClientSoundSelectionComponent from '@/components/client/ClientSoundSelect
 import ClientJudgingComponent from '@/components/client/ClientJudging';
 import ClientResultsComponent from '@/components/client/ClientResults';
 import ClientGameOverComponent from '@/components/client/ClientGameOver';
-import ClientPausedForDisconnectionComponent from '@/components/client/ClientPausedForDisconnection';
 
 
 // Mock Data
@@ -429,14 +428,6 @@ export default function DebugPage() {
         return <ClientResultsComponent room={mockRoom} player={currentPlayer} roundWinner={mockRoundWinner} soundEffects={mockSoundEffects} />;
       case GameState.GAME_OVER:
         return <ClientGameOverComponent room={mockRoom} player={currentPlayer} />;
-      case GameState.PAUSED_FOR_DISCONNECTION:
-        return (
-          <ClientPausedForDisconnectionComponent 
-            room={mockRoom} 
-            player={currentPlayer} 
-            onAttemptReconnection={() => console.log('Attempt reconnection')}
-          />
-        );
       default:
         return <div>Select a view</div>;
     }
