@@ -4,19 +4,31 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SoundSubmission } from '@/types/game';
 import ConnectionStatus from '@/components/mainscreen/ConnectionStatus';
+import AudioActivationBanner from '@/components/mainscreen/AudioActivationBanner';
 import { WaitingForGameScreen } from '@/components/mainscreen/WaitingForGameScreen';
 import { MainScreenGameDisplay } from '@/components/mainscreen/MainScreenGameDisplay';
 import ExplosionOverlay from '@/components/mainscreen/ExplosionOverlay';
 import { useSocket } from '@/hooks/useSocket';
 import { useAudio } from '@/hooks/useAudio';
+import { useBackgroundMusic, BACKGROUND_MUSIC } from '@/hooks/useBackgroundMusic';
 
 function MainScreenContent() {
   const searchParams = useSearchParams();
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
   
-  // Use custom hooks for audio and socket management
+  // Use custom hooks for audio, socket, and background music management
   const { soundEffects, isAudioReady, setIsAudioReady, activateAudio } = useAudio();
+  const { 
+    currentTrack: currentMusicTrack,
+    isPlaying: isMusicPlaying,
+    isFading: isMusicFading,
+    isAudioReady: isMusicAudioReady,
+    changeMusic,
+    setVolume: setMusicVolume,
+    activateAudio: activateBackgroundAudio
+  } = useBackgroundMusic();
+  
   const { 
     socket, 
     isConnected, 
@@ -46,10 +58,73 @@ function MainScreenContent() {
       setRoomCodeInput('');
     }
   }, [searchParams, currentRoom]);
+
+  // Handle background music changes based on game state
+  useEffect(() => {
+    let targetMusic: string | null = null;
+
+    if (!currentRoom) {
+      // No room joined - lobby music
+      targetMusic = BACKGROUND_MUSIC.LOBBY;
+    } else {
+      // Determine music based on game state
+      switch (currentRoom.gameState) {
+        case 'lobby':
+          targetMusic = BACKGROUND_MUSIC.WAITING_FOR_PLAYERS;
+          break;
+        case 'judge_selection':
+          targetMusic = null; // No music during judge selection
+          break;
+        case 'prompt_selection':
+        case 'sound_selection':
+          targetMusic = BACKGROUND_MUSIC.SOUND_SELECTION;
+          break;
+        case 'playback':
+          targetMusic = BACKGROUND_MUSIC.PLAYBACK;
+          break;
+        case 'judging':
+          targetMusic = BACKGROUND_MUSIC.JUDGING;
+          break;
+        case 'round_results':
+          targetMusic = BACKGROUND_MUSIC.RESULTS;
+          break;
+        case 'game_over':
+          targetMusic = BACKGROUND_MUSIC.GAME_OVER;
+          break;
+        case 'paused_for_disconnection':
+          // Keep current music during pause, don't change
+          return;
+        default:
+          targetMusic = BACKGROUND_MUSIC.WAITING_FOR_PLAYERS;
+      }
+    }
+
+    console.log('Main screen: Game state changed to', currentRoom?.gameState, ', setting music to:', targetMusic);
+
+    // Debounce music changes to prevent rapid switching
+    const timeoutId = setTimeout(() => {
+      changeMusic(targetMusic);
+    }, 150);
+    
+    return () => clearTimeout(timeoutId);
+  }, [currentRoom?.gameState, currentRoom?.code]);
   
-  // Wrapper function to match WaitingForGameScreen's expected interface
-  const handleJoinRoom = () => {
+  // Enhanced wrapper function to handle both audio systems
+  const handleJoinRoom = async () => {
+    // Activate both audio systems on user interaction
+    await Promise.all([
+      activateAudio(),
+      activateBackgroundAudio()
+    ]);
     joinRoom(roomCodeInput);
+  };
+
+  // Combined audio activation function
+  const handleActivateAudio = async () => {
+    await Promise.all([
+      activateAudio(),
+      activateBackgroundAudio()
+    ]);
   };
 
   // Handle explosion completion
@@ -65,6 +140,26 @@ function MainScreenContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-2">
       <div className="mx-auto">
+
+        {/* Audio Activation Banner - show if either audio system isn't ready */}
+        {(!isAudioReady || !isMusicAudioReady) && (
+          <div className="mb-4">
+            <AudioActivationBanner 
+              isAudioReady={isAudioReady && isMusicAudioReady}
+              onActivateAudio={handleActivateAudio}
+            />
+          </div>
+        )}
+
+        {/* Music Status Indicator (for debugging) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="fixed top-2 right-2 bg-black bg-opacity-50 text-white p-2 rounded text-xs z-50">
+            <div>Music: {currentMusicTrack ? currentMusicTrack.split('/').pop() : 'None'}</div>
+            <div>Playing: {isMusicPlaying ? 'Yes' : 'No'}</div>
+            <div>Fading: {isMusicFading ? 'Yes' : 'No'}</div>
+            <div>Audio Ready: {isMusicAudioReady ? 'Yes' : 'No'}</div>
+          </div>
+        )}
 
         {currentRoom ? (
           <MainScreenGameDisplay 

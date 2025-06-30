@@ -268,7 +268,7 @@ export function setupSubmissionHandlers(
         `[PLAYBACK] All randomized submissions played for room ${roomCode}, adding delay before transitioning to JUDGING`
       );
 
-      // Add a 2-second delay to let the final submission "breathe" before judging
+      // Add a delay to let the final submission "breathe" before judging
       setTimeout(() => {
         console.log(
           `[PLAYBACK] Delay complete, now transitioning room ${roomCode} to JUDGING`
@@ -283,7 +283,7 @@ export function setupSubmissionHandlers(
           judgeId: room.currentJudge,
         });
         context.io.to(roomCode).emit("roomUpdated", room);
-      }, 2500); // 2.5 second delay
+      }, 5000); // delay
     }
   });
 

@@ -42,7 +42,13 @@ export function useGameStateLogging(
           : "null"
       }`
     );
-  }, [room, addDebugLog, componentName, logRoomChanges]);
+  }, [
+    room?.code,
+    room?.gameState,
+    room?.players?.length,
+    logRoomChanges,
+    componentName,
+  ]);
 
   // Monitor player state changes
   useEffect(() => {
@@ -53,7 +59,7 @@ export function useGameStateLogging(
         player ? player.name : "null"
       }`
     );
-  }, [player, addDebugLog, componentName, logPlayerChanges]);
+  }, [player?.id, player?.name, logPlayerChanges, componentName]);
 
   // Custom event logging function
   const logGameEvent = useCallback(
@@ -65,7 +71,6 @@ export function useGameStateLogging(
       const message = details
         ? `[${componentName}] ${event}: ${JSON.stringify(details)}`
         : `[${componentName}] ${event}`;
-
 
       addDebugLog(message);
       console.log(message);
