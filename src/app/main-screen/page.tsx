@@ -228,14 +228,14 @@ function MainScreenContent() {
         )}
 
         {/* Music Status Indicator (for debugging) */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* {process.env.NODE_ENV === 'development' && (
           <div className="fixed top-2 right-2 bg-black bg-opacity-50 text-white p-2 rounded text-xs z-50">
             <div>Music: {currentMusicTrack ? currentMusicTrack.split('/').pop() : 'None'}</div>
             <div>Playing: {isMusicPlaying ? 'Yes' : 'No'}</div>
             <div>Fading: {isMusicFading ? 'Yes' : 'No'}</div>
             <div>Audio Ready: {isMusicAudioReady ? 'Yes' : 'No'}</div>
           </div>
-        )}
+        )} */}
 
         {currentRoom ? (
           <MainScreenGameDisplay 
