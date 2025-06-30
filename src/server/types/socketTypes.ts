@@ -30,6 +30,6 @@ export interface SocketContext {
 }
 
 // Constants for disconnection handling
-export const INITIAL_GRACE_PERIOD = 10000; // 10 seconds before pausing game
+export const INITIAL_GRACE_PERIOD = 30000; // 30 seconds before pausing game
 export const RECONNECTION_GRACE_PERIOD = 30000; // 30 seconds
 export const RECONNECTION_VOTE_TIMEOUT = 20000; // 20 seconds to vote

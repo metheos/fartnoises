@@ -88,7 +88,7 @@ export function SubmissionCard({
           isCurrentlyPlaying 
             ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
             : isWinner
-              ? 'bg-gradient-to-br from-yellow-200 to-yellow-300'
+              ? 'bg-gradient-to-br from-yellow-200 to-yellow-300 py-4'
               : 'bg-gradient-to-br from-gray-200 to-gray-300'
         }`}
         style={{

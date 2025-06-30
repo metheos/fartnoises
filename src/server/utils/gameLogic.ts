@@ -140,6 +140,9 @@ export async function generatePlayerSoundSets(room: Room): Promise<void> {
   for (const player of nonJudgePlayers) {
     try {
       // Generate 10 random sounds for this player
+      console.log(
+        `[SOUND_GEN] Generating sounds for player ${player.name}, requesting 10 sounds`
+      );
       const playerSounds = await getRandomSounds(
         10,
         undefined,
@@ -147,8 +150,18 @@ export async function generatePlayerSoundSets(room: Room): Promise<void> {
       );
       player.soundSet = playerSounds.map((sound) => sound.id);
       console.log(
-        `Generated ${playerSounds.length} sounds for player ${player.name}`
+        `[SOUND_GEN] Generated ${playerSounds.length} sounds for player ${
+          player.name
+        }: [${player.soundSet.join(", ")}]`
       );
+
+      // Debug: Check if we got less than 10 sounds
+      if (playerSounds.length !== 10) {
+        console.warn(
+          `[SOUND_GEN] ⚠️  Expected 10 sounds, got ${playerSounds.length} for ${player.name}`
+        );
+        console.warn(`[SOUND_GEN] Sound IDs: [${player.soundSet.join(", ")}]`);
+      }
     } catch (error) {
       console.error(
         `Error generating sounds for player ${player.name}:`,

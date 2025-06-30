@@ -11,7 +11,7 @@ process.chdir(path.join(__dirname, ".."));
 async function investigateSlideWhistleBias() {
   console.log("🔍 Investigating 'Slide Whistle Down' bias...");
 
-  const sounds = await getSoundEffects();
+  const sounds = await getSoundEffects(true); // Include explicit content for investigation
 
   // Find the problematic sound
   const slideWhistleIndex = sounds.findIndex(

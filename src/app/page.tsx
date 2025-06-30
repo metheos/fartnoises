@@ -60,9 +60,9 @@ export default function Home() {
   // This ensures a fresh start when users return to the home screen
   useEffect(() => {
     // Clear localStorage data that might cause unwanted reconnection attempts
-    localStorage.removeItem('originalPlayerId');
-    localStorage.removeItem('lastKnownRoomCode');
-    console.log('Home page loaded: Cleared game persistence data for fresh start');
+    // localStorage.removeItem('originalPlayerId');
+    // localStorage.removeItem('lastKnownRoomCode');
+    // console.log('Home page loaded: Cleared game persistence data for fresh start');
   }, []);
 
   // Function to play a random fart sound
@@ -87,8 +87,8 @@ export default function Home() {
 
       console.log('🔍 Loading sound effects...');
       
-      // Get all sound effects
-      const allSounds = await getSoundEffects();
+      // Get all sound effects (including explicit content for preview)
+      const allSounds = await getSoundEffects(true);
       
       // Filter for sounds with "fart" in the name or in "bodily functions" category
       const fartSounds = allSounds.filter(sound => 

@@ -8,8 +8,10 @@ import { processPromptText } from "@/utils/gameUtils";
 // Legacy SOUND_EFFECTS array removed - now using dynamic loader from soundLoader.ts
 
 // Function to get sound effects (use this instead of the static array)
-export async function getSoundEffects(): Promise<SoundEffect[]> {
-  return await loadEarwaxSounds();
+export async function getSoundEffects(
+  allowExplicitContent: boolean = false
+): Promise<SoundEffect[]> {
+  return await loadEarwaxSounds(allowExplicitContent);
 }
 
 // Dynamic game prompts loaded from EarwaxPrompts.jet

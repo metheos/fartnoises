@@ -65,9 +65,28 @@ export function useSoundSelection({
           currentSoundIds.some((id, index) => id !== serverSoundIds[index]);
 
         if (needsNewSoundSet || soundSetChanged) {
+          console.log(
+            `🎵 Processing server sound set: [${player.soundSet.join(", ")}]`
+          );
+          console.log(
+            `🎵 Client has ${soundEffects.length} total sound effects loaded`
+          );
+
           const playerSounds = player.soundSet
-            .map((soundId) => soundEffects.find((s) => s.id === soundId))
+            .map((soundId) => {
+              const sound = soundEffects.find((s) => s.id === soundId);
+              if (!sound) {
+                console.warn(
+                  `🎵 Sound ID "${soundId}" not found in client soundEffects`
+                );
+              }
+              return sound;
+            })
             .filter((sound) => sound !== undefined) as SoundEffect[];
+
+          console.log(
+            `🎵 Server provided ${player.soundSet.length} sound IDs, client found ${playerSounds.length} matching sounds`
+          );
 
           if (playerSounds.length > 0) {
             console.log(

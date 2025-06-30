@@ -109,20 +109,28 @@ function GamePageContent() {
     addDebugLog
   });
 
-  // Load sound effects on component mount using async operation hook
+  // Load sound effects when room data is available and explicit content setting changes
   useEffect(() => {
+    // Only load sounds when we have room data
+    if (!room) {
+      return;
+    }
+
+    const allowExplicitContent = room.allowExplicitContent || false;
+    
     soundEffectsLoader.execute(
-      () => getSoundEffects(),
+      () => getSoundEffects(allowExplicitContent),
       (sounds) => {
         setSoundEffects(sounds);
-        logGameEvent(`Loaded ${sounds.length} sound effects`);
+        logGameEvent(`Loaded ${sounds.length} sound effects (explicit: ${allowExplicitContent})`);
+        addDebugLog(`🔊 Loaded ${sounds.length} sound effects with explicit content: ${allowExplicitContent}`);
       },
       (error) => {
         console.error('Failed to load sound effects:', error);
         logGameEvent(`Failed to load sound effects: ${error.message}`);
       }
     );
-  }, [soundEffectsLoader.execute, logGameEvent]);
+  }, [room?.allowExplicitContent, soundEffectsLoader.execute, logGameEvent, addDebugLog]);
 
   // Handle redirection in a separate effect to avoid dependency issues
   useEffect(() => {
@@ -270,6 +278,7 @@ function GamePageContent() {
         <ClientGameOver 
           room={room} 
           player={player!} 
+          onRestartGame={gameActions.restartGame}
         />
       )}
 

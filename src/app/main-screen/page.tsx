@@ -55,7 +55,7 @@ function MainScreenContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-2">
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-auto">
 
         {currentRoom ? (
           <MainScreenGameDisplay 

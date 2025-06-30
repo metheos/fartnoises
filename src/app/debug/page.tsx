@@ -116,9 +116,9 @@ export default function DebugPage() {
       try {
         console.log('🎮 Debug Page: Loading real game data...');
         
-        // Load real sound effects and prompts
+        // Load real sound effects and prompts (including explicit content for testing)
         const [sounds, prompts] = await Promise.all([
-          getSoundEffects(),
+          getSoundEffects(true),
           getGamePrompts(['Alice', 'Bob', 'Charlie', 'Diana']) // Process prompts with player names
         ]);
         
@@ -427,7 +427,7 @@ export default function DebugPage() {
       case GameState.ROUND_RESULTS:
         return <ClientResultsComponent room={mockRoom} player={currentPlayer} roundWinner={mockRoundWinner} soundEffects={mockSoundEffects} />;
       case GameState.GAME_OVER:
-        return <ClientGameOverComponent room={mockRoom} player={currentPlayer} />;
+        return <ClientGameOverComponent room={mockRoom} player={currentPlayer} onRestartGame={() => console.log('Debug: Restart game clicked')} />;
       default:
         return <div>Select a view</div>;
     }
@@ -440,8 +440,8 @@ export default function DebugPage() {
     const [availableSounds, setAvailableSounds] = useState<SoundEffect[]>([]);
 
     useEffect(() => {
-      // Load some sounds for testing
-      getSoundEffects().then(sounds => {
+      // Load some sounds for testing (including explicit content)
+      getSoundEffects(true).then(sounds => {
         setAvailableSounds(sounds.slice(0, 5)); // Just get first 5 for testing
       });
     }, []);
@@ -739,7 +739,7 @@ export default function DebugPage() {
 
       {/* Render the appropriate view */}
       <div className="bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-4 rounded-lg">
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto">
           {viewType === 'main-screen' ? renderMainScreenView() : renderClientView()}
         </div>
       </div>

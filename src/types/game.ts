@@ -227,7 +227,7 @@ export interface ClientToServerEvents {
   activateTripleSound: () => void; // Activate triple sound ability (once per game per player)
   selectWinner: (submissionId: string) => void;
   voteOnReconnection: (continueWithoutPlayer: boolean) => void;
-  restartGame: () => void;
+  restartGame: () => void; // Request to restart game with current players
   submissionPlaybackComplete: (submissionIndex: number) => void;
   winnerAudioComplete: () => void;
   requestJudgingPlayback: (data: {

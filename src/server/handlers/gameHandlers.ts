@@ -140,6 +140,85 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
     }
   });
 
+  // Restart game handler - keeps all players connected and resets game state
+  socket.on("restartGame", async () => {
+    try {
+      const roomCode = context.playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const room = context.rooms.get(roomCode);
+      if (!room) return;
+
+      const player = room.players.find((p) => p.id === socket.id);
+      if (!player?.isVIP) {
+        socket.emit("error", {
+          message: "Only the host can restart the game",
+        });
+        return;
+      }
+
+      if (room.gameState !== GameState.GAME_OVER) {
+        socket.emit("error", {
+          message: "Game can only be restarted when game is over",
+        });
+        return;
+      }
+
+      if (room.players.length < GAME_CONFIG.MIN_PLAYERS) {
+        socket.emit("error", {
+          message: `Need at least ${GAME_CONFIG.MIN_PLAYERS} players to restart the game`,
+        });
+        return;
+      }
+
+      console.log(
+        `Host ${player.name} is restarting game in room ${roomCode} with ${room.players.length} players`
+      );
+
+      // Reset game state but keep all players and their connections
+      room.gameState = GameState.LOBBY;
+      room.currentRound = 0;
+      room.currentJudge = null;
+      room.currentPrompt = null;
+      room.submissions = [];
+      room.randomizedSubmissions = [];
+      room.submissionSeed = undefined;
+      room.promptChoices = [];
+      room.usedPromptIds = [];
+      room.winner = null;
+      room.lastWinner = null;
+      room.lastWinningSubmission = null;
+      room.soundSelectionTimerStarted = false;
+      room.judgeSelectionTimerStarted = false;
+      room.currentSubmissionIndex = undefined;
+      room.isPlayingBack = false;
+
+      // Reset all player scores and game-specific flags but keep their basic info and connections
+      room.players.forEach((p) => {
+        p.score = 0;
+        p.likeScore = 0;
+        p.hasUsedRefresh = false;
+        p.hasUsedTripleSound = false;
+        p.hasActivatedTripleSound = false;
+        p.soundSet = undefined;
+      });
+
+      // Clear any active timers
+      clearTimer(context, roomCode);
+
+      // Emit updated room state to all players
+      context.io.to(roomCode).emit("roomUpdated", room);
+      context.io.to(roomCode).emit("gameStateChanged", GameState.LOBBY);
+
+      console.log(
+        `Game restarted successfully in room ${roomCode}. All players returned to lobby.`
+      );
+    } catch (error) {
+      console.error("Error restarting game:", error);
+      socket.emit("error", { message: "Failed to restart game" });
+    }
+  });
+
   // Select prompt handler
   socket.on("selectPrompt", async (promptId) => {
     console.log(

@@ -190,6 +190,15 @@ export function useGameActions({
     }
   }, [socket, room, player, addDebugLog]);
 
+  const restartGame = useCallback(() => {
+    if (socket && room && player) {
+      addDebugLog(
+        `🔄 Restarting game in room ${room.code} as host ${player.name}`
+      );
+      socket.emit("restartGame");
+    }
+  }, [socket, room, player, addDebugLog]);
+
   const likeSubmission = useCallback(
     (submissionIndex: number) => {
       if (socket && room && player) {
@@ -214,5 +223,6 @@ export function useGameActions({
     voteOnReconnectionWithCleanup,
     attemptReconnection,
     updateGameSetting,
+    restartGame,
   };
 }

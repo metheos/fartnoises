@@ -12,7 +12,13 @@ interface UseAudioReturn {
   error: string | null;
 }
 
-export function useAudio(): UseAudioReturn {
+interface UseAudioProps {
+  allowExplicitContent?: boolean;
+}
+
+export function useAudio({
+  allowExplicitContent = true,
+}: UseAudioProps = {}): UseAudioReturn {
   const [soundEffects, setSoundEffects] = useState<SoundEffect[]>([]);
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,9 +30,11 @@ export function useAudio(): UseAudioReturn {
       try {
         setIsLoading(true);
         setError(null);
-        const sounds = await getSoundEffects();
+        const sounds = await getSoundEffects(allowExplicitContent);
         setSoundEffects(sounds);
-        console.log(`useAudio: Loaded ${sounds.length} sound effects`);
+        console.log(
+          `useAudio: Loaded ${sounds.length} sound effects (explicit: ${allowExplicitContent})`
+        );
 
         // Check if audio can already be initialized (due to previous user interaction)
         if (audioSystem.canInitialize()) {
@@ -46,7 +54,7 @@ export function useAudio(): UseAudioReturn {
     };
 
     loadSounds();
-  }, []);
+  }, [allowExplicitContent]);
 
   const activateAudio = async () => {
     try {

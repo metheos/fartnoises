@@ -468,7 +468,14 @@ export async function loadEarwaxSounds(
     }
     const earwaxData: EarwaxData = JSON.parse(jetContent);
 
-    console.log(`Processing ${earwaxData.content.length} sound entries...`); // Filter out empty objects and objects without id or name
+    console.log(`Processing ${earwaxData.content.length} sound entries...`);
+
+    // Debug counters
+    let explicitCount = 0;
+    let filteredByExplicit = 0;
+    let validAfterBasicFiltering = 0;
+
+    // Filter out empty objects and objects without id or name
     const validSounds = earwaxData.content.filter(
       (
         sound
@@ -476,7 +483,17 @@ export async function loadEarwaxSounds(
         if (sound.id === undefined || sound.name === undefined) return false;
         if (typeof sound.name !== "string" || sound.name.trim() === "")
           return false;
-        if (!allowExplicitContent && sound.x) return false; // Filter out explicit content based on setting
+
+        validAfterBasicFiltering++;
+
+        // Count explicit content
+        if (sound.x) {
+          explicitCount++;
+          if (!allowExplicitContent) {
+            filteredByExplicit++;
+            return false; // Filter out explicit content based on setting
+          }
+        }
 
         // Check if ID is valid (either number > 0 or non-empty string)
         if (typeof sound.id === "number") {
@@ -489,6 +506,12 @@ export async function loadEarwaxSounds(
       }
     );
 
+    console.log(`📊 Filtering stats:`);
+    console.log(`  - Total entries: ${earwaxData.content.length}`);
+    console.log(`  - Valid after basic filtering: ${validAfterBasicFiltering}`);
+    console.log(`  - Explicit content found: ${explicitCount}`);
+    console.log(`  - Filtered by explicit setting: ${filteredByExplicit}`);
+    console.log(`  - Final valid sounds: ${validSounds.length}`);
     console.log(`Found ${validSounds.length} valid, safe sound entries`); // Convert to our SoundEffect format
     const soundEffects: SoundEffect[] = validSounds.map((sound) => {
       const cleanName = cleanSoundName(sound.name);
@@ -505,9 +528,11 @@ export async function loadEarwaxSounds(
 
     // Remove duplicates by name (keep first occurrence)
     const seenNames = new Set<string>();
+    let duplicatesRemoved = 0;
     const uniqueSoundEffects = soundEffects.filter((sound) => {
       if (seenNames.has(sound.name)) {
-        console.log(`Removing duplicate: "${sound.name}" (ID: ${sound.id})`);
+        console.log(`🗑️ Removing duplicate: "${sound.name}" (ID: ${sound.id})`);
+        duplicatesRemoved++;
         return false;
       }
       seenNames.add(sound.name);
@@ -515,9 +540,7 @@ export async function loadEarwaxSounds(
     });
 
     console.log(
-      `Removed ${
-        soundEffects.length - uniqueSoundEffects.length
-      } duplicate sound names`
+      `🔄 Removed ${duplicatesRemoved} duplicate sound names (${soundEffects.length} -> ${uniqueSoundEffects.length})`
     );
 
     // Sort by name for easier browsing
@@ -562,12 +585,19 @@ export async function getRandomSounds(
     : allSounds;
 
   if (sourceSounds.length === 0) {
+    console.warn(
+      `[RANDOM_SOUNDS] No sounds available! allSounds: ${allSounds.length}, category: ${category}`
+    );
     return [];
   }
 
   const requestedCount = Math.min(count, sourceSounds.length);
   const uniqueIndices = new Set<number>();
   const maxIndex = sourceSounds.length - 1;
+
+  console.log(
+    `[RANDOM_SOUNDS] Requesting ${count} sounds, source has ${sourceSounds.length} sounds, will generate ${requestedCount}`
+  );
 
   // Keep adding random indices until we have the desired count
   while (uniqueIndices.size < requestedCount) {
@@ -576,7 +606,43 @@ export async function getRandomSounds(
   }
 
   // Map the unique indices back to the source sounds array
-  return Array.from(uniqueIndices).map((index) => sourceSounds[index]);
+  const result = Array.from(uniqueIndices)
+    .map((index) => sourceSounds[index])
+    .filter((sound) => sound !== undefined);
+
+  console.log(
+    `[RANDOM_SOUNDS] Generated ${result.length} sounds (expected: ${requestedCount})`
+  );
+
+  if (result.length !== requestedCount) {
+    console.error(
+      `[RANDOM_SOUNDS] ❌ Mismatch! Expected ${requestedCount}, got ${result.length}`
+    );
+    console.error(
+      `[RANDOM_SOUNDS] Indices: [${Array.from(uniqueIndices)
+        .sort()
+        .join(", ")}]`
+    );
+    console.error(
+      `[RANDOM_SOUNDS] sourceSounds.length: ${sourceSounds.length}, maxIndex: ${maxIndex}`
+    );
+
+    // Check for any undefined mappings
+    const mappedResults = Array.from(uniqueIndices).map((index) => {
+      const sound = sourceSounds[index];
+      if (!sound) {
+        console.error(
+          `[RANDOM_SOUNDS] Index ${index} mapped to undefined sound!`
+        );
+      }
+      return sound;
+    });
+    console.error(
+      `[RANDOM_SOUNDS] Mapped results count: ${mappedResults.length}, filtered count: ${result.length}`
+    );
+  }
+
+  return result;
 }
 
 // Clear cache (useful for development or when we know the file has changed)

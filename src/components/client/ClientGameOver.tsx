@@ -6,9 +6,10 @@ import { Card, Button, PlayerAvatar } from '@/components/ui';
 interface ClientGameOverProps {
   room: Room;
   player: Player;
+  onRestartGame: () => void;
 }
 
-export default function ClientGameOver({ room }: ClientGameOverProps) {
+export default function ClientGameOver({ room, player, onRestartGame }: ClientGameOverProps) {
   const sortedPlayers = [...room.players].sort((a, b) => b.score - a.score);
   const sortedByLikes = [...room.players].sort((a, b) => (b.likeScore || 0) - (a.likeScore || 0));
   const overallWinner = sortedPlayers[0];
@@ -190,19 +191,51 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
           Thanks for playing Fartnoises!
         </p>
       </div>
-      <Button
-        onClick={() => {
-          // Clear reconnection data when starting a new game
-          localStorage.removeItem('originalPlayerId');
-          localStorage.removeItem('lastKnownRoomCode');
-          window.location.href = '/';
-        }}
-        variant="primary"
-        size="lg"
-        className="shadow-lg"
-      >
-        Play Again?
-      </Button>
+
+      {/* Play Again Button - Check player count and if user is VIP */}
+      {room.players.length >= 3 && player.isVIP ? (
+        <Button
+          onClick={onRestartGame}
+          variant="success"
+          size="lg"
+          className="shadow-lg"
+        >
+          🎮 Play Another Round!
+        </Button>
+      ) : room.players.length >= 3 && !player.isVIP ? (
+        <div className="text-center">
+          <Button
+            disabled
+            variant="purple"
+            size="lg"
+            className="shadow-lg opacity-60"
+          >
+            Waiting for host to start new game...
+          </Button>
+          <p className="text-sm text-gray-600 mt-2">
+            Only the host can start a new game
+          </p>
+        </div>
+      ) : (
+        <div className="text-center">
+          <Button
+            onClick={() => {
+              // Clear reconnection data when going back to home due to insufficient players
+              localStorage.removeItem('originalPlayerId');
+              localStorage.removeItem('lastKnownRoomCode');
+              window.location.href = '/';
+            }}
+            variant="primary"
+            size="lg"
+            className="shadow-lg"
+          >
+            Back to Home
+          </Button>
+          <p className="text-sm text-gray-600 mt-2">
+            Need at least 3 players to start a new game ({room.players.length}/3)
+          </p>
+        </div>
+      )}
     </Card>
   );
 }
