@@ -32,10 +32,11 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
       room.currentRound = 1;
       room.judgeSelectionTimerStarted = false;
 
-      // Reset hasUsedRefresh and hasUsedTripleSound for all players at the start of a new game
+      // Reset powerup trackers so players can use them again in the new game
       room.players.forEach((player) => {
-        player.hasUsedRefresh = false;
-        player.hasUsedTripleSound = false;
+        player.hasUsedRefresh = false; // New sounds powerup
+        player.hasUsedTripleSound = false; // Triple sound powerup
+        player.hasUsedNuclearOption = false; // Nuclear option powerup
       });
 
       context.io.to(roomCode).emit("roomUpdated", room);
@@ -197,9 +198,11 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
       room.players.forEach((p) => {
         p.score = 0;
         p.likeScore = 0;
-        p.hasUsedRefresh = false;
-        p.hasUsedTripleSound = false;
+        // Reset powerup trackers so players can use them again in the new game
+        p.hasUsedRefresh = false; // New sounds powerup
+        p.hasUsedTripleSound = false; // Triple sound powerup
         p.hasActivatedTripleSound = false;
+        p.hasUsedNuclearOption = false; // Nuclear option powerup
         p.soundSet = undefined;
       });
 
