@@ -7,6 +7,7 @@ import { SocketContext } from "../types/socketTypes";
 import { selectNextJudge, processAndAssignPrompt } from "../utils/roomManager";
 import { startTimer, clearTimer } from "../utils/timerManager";
 import { generatePlayerSoundSets } from "../utils/gameLogic";
+import { addBotsIfNeeded, makeBotSoundSubmissions, makeBotJudgingDecision, makeBotPromptSelection } from "../utils/botManager";
 
 export function setupGameHandlers(socket: Socket, context: SocketContext) {
   // Start game handler
@@ -20,7 +21,13 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
 
       const player = room.players.find((p) => p.id === socket.id);
       if (!player?.isVIP) return;
-      if (room.players.length < GAME_CONFIG.MIN_PLAYERS) {
+      
+      // Check if we need to add bots (for 1-2 human players)
+      const humanPlayers = room.players.filter(p => !p.isBot);
+      if (humanPlayers.length < GAME_CONFIG.MIN_PLAYERS && humanPlayers.length > 0) {
+        console.log(`[BOT] Adding bots to reach minimum player count. Current humans: ${humanPlayers.length}`);
+        await addBotsIfNeeded(context, room);
+      } else if (room.players.length < GAME_CONFIG.MIN_PLAYERS) {
         socket.emit("error", {
           message: `Need at least ${GAME_CONFIG.MIN_PLAYERS} players to start`,
         });
@@ -77,6 +84,9 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
               timeLimit: GAME_CONFIG.PROMPT_SELECTION_TIME,
             });
 
+          // If the judge is a bot, make the prompt selection automatically
+          makeBotPromptSelection(context, room);
+
           // Start countdown timer for prompt selection
           startTimer(
             context,
@@ -113,6 +123,9 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
                     prompt: firstPrompt,
                     timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
                   });
+
+                // Make bot submissions for sound selection
+                await makeBotSoundSubmissions(context, room);
 
                 // Note: Sound selection timer will start when first player submits
                 console.log(
@@ -305,6 +318,9 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
           timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
           currentRound: room.currentRound,
         });
+
+      // Make bot submissions for sound selection
+      await makeBotSoundSubmissions(context, room);
 
       // Note: Sound selection timer will start when first player submits
       console.log(

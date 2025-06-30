@@ -83,8 +83,17 @@ export default function PlayerAvatarGrid({
             key={player.id}
             className={`${getCardStyle()} ${getPlayerColorClass(player.color)}`}
           >
-            <div className={getAvatarSize()}>{player.emoji || "🎵"}</div>
-            <span className={getNameStyle()}>{player.name}</span>
+            <div className={getAvatarSize()}>
+              {player.isBot ? '🤖' : player.emoji || "🎵"}
+            </div>
+            <span className={getNameStyle()}>
+              {player.name}
+              {player.isBot && (
+                <span className="ml-1 text-gray-300 text-xs" title="Bot Player">
+                  🤖
+                </span>
+              )}
+            </span>
           </div>
         ))}
       </div>
@@ -104,9 +113,16 @@ export default function PlayerAvatarGrid({
             }`}
           >
             <div className={getAvatarSize()}>
-              {isJudge ? '👨‍⚖️' : (player.emoji || '🎵')}
+              {isJudge ? '👨‍⚖️' : player.isBot ? '🤖' : (player.emoji || '🎵')}
             </div>
-            <span className={getNameStyle()}>{player.name}</span>
+            <span className={getNameStyle()}>
+              {player.name}
+              {player.isBot && !isJudge && (
+                <span className="ml-1 text-gray-300 text-xs" title="Bot Player">
+                  🤖
+                </span>
+              )}
+            </span>
             {variant === 'status' && (
               <p className="text-white font-bold text-xl mt-1">{player.score}</p>
             )}

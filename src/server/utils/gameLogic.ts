@@ -4,6 +4,7 @@ import { GAME_CONFIG } from "@/data/gameData";
 import { getRandomSounds } from "@/utils/soundLoader";
 import { SocketContext } from "../types/socketTypes";
 import { startTimer, clearTimer } from "./timerManager";
+import { makeBotJudgingDecision } from "./botManager";
 
 // Helper function for starting the delayed sound selection timer
 // This should only be called after the first player submits their sounds
@@ -227,6 +228,9 @@ export function handleAllSubmissionsComplete(
       judgeId: room.currentJudge,
     });
     context.io.to(roomCode).emit("roomUpdated", room);
+    
+    // If judge is a bot, make the judging decision
+    makeBotJudgingDecision(context, room);
   } else {
     // Main screens present - proceed with playback
     room.gameState = GameState.PLAYBACK;

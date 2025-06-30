@@ -115,6 +115,10 @@ export default function PlayerAvatar({
     if (player.isVIP) {
       return '👑';
     }
+    // Show robot emoji for bots
+    if (player.isBot) {
+      return '🤖';
+    }
     return player.emoji || player.name[0].toUpperCase();
   };
 
@@ -148,6 +152,11 @@ export default function PlayerAvatar({
         <div className="mt-2 text-center">
           <span className={`font-bold text-white drop-shadow ${sizeClasses.nameText}`}>
             {player.name}
+            {player.isBot && (
+              <span className="ml-1 text-gray-300 text-xs" title="Bot Player">
+                🤖
+              </span>
+            )}
           </span>
           {player.isVIP && !isHighlighted && (
             <span className="ml-1 text-yellow-400 text-sm animate-bounce" title="Host">

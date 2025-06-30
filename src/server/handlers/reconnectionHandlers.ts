@@ -14,6 +14,7 @@ import {
 } from "../utils/roomManager";
 import { clearTimer, startTimer } from "../utils/timerManager";
 import { startDelayedSoundSelectionTimer } from "../utils/gameLogic";
+import { addBotsIfNeeded, removeAllBots } from "../utils/botManager";
 
 export function setupReconnectionHandlers(
   socket: Socket,
@@ -644,6 +645,27 @@ function removePlayerFromRoom(
     console.log(`Room ${roomCode} closed due to no players.`);
     broadcastRoomListUpdate(context);
   } else {
+    // If a human player left (not a bot), manage bot count
+    const wasBot = player?.isBot;
+    if (!wasBot) {
+      const humanPlayers = room.players.filter(p => !p.isBot);
+      
+      // If we have 3+ humans, remove all bots
+      if (humanPlayers.length >= 3) {
+        removeAllBots(context, room);
+      }
+      // If we have 1-2 humans, ensure we have enough bots to reach 3 total
+      else if (humanPlayers.length > 0) {
+        // First remove all existing bots, then add the right number
+        removeAllBots(context, room);
+        addBotsIfNeeded(context, room);
+      }
+      // If no humans left, remove all bots too (room will close)
+      else {
+        removeAllBots(context, room);
+      }
+    }
+
     // Handle VIP or judge changes if necessary
     if (
       player?.isVIP &&

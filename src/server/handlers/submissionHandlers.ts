@@ -7,6 +7,7 @@ import {
   handleAllSubmissionsComplete,
 } from "../utils/gameLogic";
 import { startNextRound } from "./gameHandlers";
+import { makeBotJudgingDecision } from "../utils/botManager";
 
 export function setupSubmissionHandlers(
   socket: Socket,
@@ -283,6 +284,9 @@ export function setupSubmissionHandlers(
           judgeId: room.currentJudge,
         });
         context.io.to(roomCode).emit("roomUpdated", room);
+        
+        // If judge is a bot, make the judging decision
+        makeBotJudgingDecision(context, room);
       }, 3000); // delay
     }
   });

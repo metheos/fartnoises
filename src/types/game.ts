@@ -7,6 +7,7 @@ export interface Player {
   score: number;
   likeScore: number; // Track total likes received across all rounds
   isVIP: boolean;
+  isBot?: boolean; // Flag to indicate if this is a bot player
   isDisconnected?: boolean; // Track disconnection status
   disconnectedAt?: number; // Timestamp when disconnected
   soundSet?: string[]; // Player's available sound IDs for current round
