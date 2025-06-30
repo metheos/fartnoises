@@ -84,20 +84,23 @@ export function SubmissionCard({
       `}</style>
       
       <div 
-        className={`relative rounded-3xl p-8 transition-all duration-500 ${
+        className={`relative rounded-3xl py-2 px-3 transition-all duration-500 ${
           isCurrentlyPlaying 
             ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
             : isWinner
               ? 'bg-gradient-to-br from-yellow-200 to-yellow-300'
               : 'bg-gradient-to-br from-gray-200 to-gray-300'
         }`}
+        style={{
+          transition: 'all 0.5s ease-in-out, height 0.8s ease-in-out, min-height 0.8s ease-in-out'
+        }}
       >
       {/* Progress Indicator for Winner */}
       {isWinner && isCurrentlyPlaying && (
-        <div className="absolute -top-2 -right-2 w-16 h-16">
+        <div className="absolute -bottom-2 -right-2 w-16 h-16">
           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
             <path
-              className="text-white opacity-30"
+              className="text-white opacity-50"
               stroke="currentColor"
               strokeWidth="3"
               fill="transparent"
@@ -130,7 +133,7 @@ export function SubmissionCard({
       )}
 
       <div className="relative z-10 flex flex-col h-full">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center justify-center">
             <h5 className={`text-2xl font-bold ${
               isCurrentlyPlaying 
@@ -140,22 +143,17 @@ export function SubmissionCard({
                   : 'text-gray-800'
             }`}>
               {isWinner 
-                ? '🏆 Winner 🏆' 
-                : isTripleSound
-                  ? `⚡ Triple Sound ${index + 1} ⚡`
-                  : `🎵 Submission ${index + 1} 🎵`
+                ? '🏆 Winning Sounds' 
+                :  ``
               }
             </h5>
-            {isTripleSound && (
-              <span className="ml-2 text-lg animate-bounce">💎</span>
-            )}
           </div>
           
           {/* Like Count Display */}
-          {(submission.likeCount || 0) > 0 && (
+          {(submission.likeCount || 0) > 0 ? (
             <div className={`flex items-center space-x-1 rounded-full px-3 py-1 ${
               isCurrentlyPlaying 
-                ? 'bg-white bg-opacity-20 text-white' 
+                ? 'bg-white bg-opacity-20 shadow-lg' 
                 : isWinner 
                   ? 'bg-pink-200 text-pink-700'
                   : 'bg-pink-100 text-pink-600'
@@ -165,20 +163,32 @@ export function SubmissionCard({
                 {submission.likeCount}
               </span>
             </div>
+          ) : (
+            <div className={`flex items-center space-x-1 rounded-full px-3 py-1 bg-gray-100 text-gray-400`}>
+              <span className="text-lg">💔</span>
+              <span className="font-bold text-lg">
+                0
+              </span>
+            </div>
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-2 transition-all duration-700 ease-in-out">
           {submission.sounds.map((soundId, soundIndex) => {
             const sound = soundEffects.find(s => s.id === soundId);
             const isCurrentSound = isCurrentlyPlaying && currentPlayingSoundIndex === soundIndex;
             const hasBeenRevealed = revealedSounds.has(soundId);
             const isThirdSound = soundIndex === 2 && isTripleSound;
             
+            // Hide third sound slot until it's revealed or currently playing
+            if (isThirdSound && !hasBeenRevealed && !isCurrentSound && playingMode === 'playback') {
+              return null;
+            }
+            
             return (
               <div 
                 key={soundIndex} 
-                className={`px-6 py-4 rounded-xl transition-all ${
+                className={`px-3 py-2 rounded-xl transition-all ${
                   isThirdSound && isCurrentSound
                     ? 'duration-1000 border-4 border-solid'
                     : 'duration-300'
@@ -196,20 +206,21 @@ export function SubmissionCard({
                 style={{
                   animation: isThirdSound && isCurrentSound 
                     ? 'dazzle 1.5s ease-out, sparkle 2s ease-in-out infinite, rainbow-border 3s linear infinite' 
-                    : undefined
+                    : undefined,
+                  transition: isThirdSound ? 'all 0.8s ease-in-out, opacity 0.6s ease-in-out, transform 0.8s ease-in-out' : undefined
                 }}
               >
-                <div className="flex items-center justify-center space-x-3">
-                  <span className={`text-2xl ${
+                <div className="flex items-center justify-start space-x-1">
+                  <span className={`text-xl ${
                     isThirdSound && isCurrentSound ? 'animate-bounce' : ''
                   }`}>
                     {isCurrentSound 
                       ? isThirdSound 
-                        ? '⚡🎵⚡' 
+                        ? '🔊' 
                         : '🔊' 
                       : isWinner 
                         ? '🔊' 
-                        : ''
+                        : '🔊'
                     }
                   </span>
                   <span className={`text-xl font-bold ${
@@ -228,7 +239,8 @@ export function SubmissionCard({
                     }
                   </span>
                   {isThirdSound && (isCurrentSound || hasBeenRevealed) && (
-                    <span className="text-lg animate-pulse">💎</span>
+                    // <span className="text-lg animate-pulse">💎</span>
+                    <></>
                   )}
                 </div>
               </div>

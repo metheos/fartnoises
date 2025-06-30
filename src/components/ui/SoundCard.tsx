@@ -50,7 +50,7 @@ export default function SoundCard({
   };
 
   const getCardClasses = () => {
-    const baseClasses = 'relative border-2 rounded-xl pt-6 transition-all duration-300 cursor-pointer';
+    const baseClasses = 'relative border-2 rounded-xl py-2 px-3 transition-all duration-300 cursor-pointer';
     
     if (isSelected) {
       return `${baseClasses} bg-gradient-to-br from-purple-500 to-purple-600 text-white border-purple-700 shadow-lg transform scale-105`;
@@ -94,27 +94,27 @@ export default function SoundCard({
       )}
 
       {/* Sound Name */}
-      <div className="text-center">
-        <h4 className="font-bold text-xs">
+      <div className="flex items-center justify-center h-full">
+        <h4 className="font-bold text-xs text-center">
           {sound.name}
         </h4>
         
         {/* Playing indicator */}
-        {isPlaying && (
+        {/* {isPlaying && (
           <div className="flex items-center justify-center space-x-1 text-xs">
             <div className="w-1 h-1 bg-current rounded-full animate-bounce"></div>
             <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
             <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
             <span className="ml-1">Playing</span>
           </div>
-        )}
+        )} */}
         
         {/* Selection status */}
-        {isSelected && !isPlaying && (
+        {/* {isSelected && !isPlaying && (
           <div className="text-xs font-medium opacity-90">
             Selected
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );

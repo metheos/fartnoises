@@ -171,7 +171,7 @@ export function PlaybackSubmissionsDisplay({
   const submissions = room.randomizedSubmissions || room.submissions; // Use randomized order if available
 
   return (
-    <div className="bg-white rounded-3xl p-12 shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300">
       
       
       {/* Judge and Prompt Display - Side by Side */}

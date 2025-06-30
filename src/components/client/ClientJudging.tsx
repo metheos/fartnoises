@@ -98,6 +98,7 @@ export default function ClientJudging({
               judge={judge || undefined} 
               prompt={room.currentPrompt || undefined} 
               showPrompt={true} 
+              showJudge={false}
               size="small"
             />
           </div>
@@ -106,18 +107,14 @@ export default function ClientJudging({
         </>
       ) : (
         <div className="mb-0">
-          <div className="flex items-center justify-center gap-2 mb-2">
             <JudgePromptDisplay 
               judge={judge || undefined} 
               prompt={room.currentPrompt || undefined} 
               showPrompt={true} 
+              showJudge={false}
               size="small"
             />
           </div>
-          {/* <p className="text-sm text-gray-600 text-center">
-            💡 While you wait, you can like submissions you enjoyed! (except your own)
-          </p> */}
-        </div>
       )}
       
       {submissionsToShow.length === 0 ? (
@@ -148,7 +145,7 @@ export default function ClientJudging({
               {isJudge ? (
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-md font-bold text-gray-800 px-2">
-                    Submission {index + 1}
+                    {/* Submission {index + 1} */}
                   </h4>
                   
                   <div className="flex items-center space-x-2">
@@ -218,7 +215,7 @@ export default function ClientJudging({
                         className="px-2 py-1.5 rounded-lg bg-white text-gray-800 shadow-sm"
                       >
                         <div className="flex items-center space-x-1">
-                          <span className="text-sm">🎵</span>
+                          {/* <span className="text-sm">🎵</span> */}
                           <span className="font-medium text-xs truncate">{sound?.name || soundId}</span>
                         </div>
                       </div>

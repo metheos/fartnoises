@@ -27,7 +27,7 @@ export function JudgePromptDisplay({
             
             {/* Main judge content */}
             <div className={`relative z-10 flex flex-col items-center`}>
-              <div className={`bg-white bg-opacity-90 rounded-2xl ${isSmall ? 'p-2' : 'p-4'} shadow-lg border-1 border-yellow-300 text-center`}>
+              <div className={`bg-white bg-opacity-90 rounded-2xl ${isSmall ? 'px-2 py-1' : 'px-4 py-1'} shadow-lg border-1 border-yellow-300 text-center`}>
                 
                 {/* Judge Title */}
                 <div className={`${isSmall ? 'mb-1' : 'mb-3'}`}>

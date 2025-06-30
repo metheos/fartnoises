@@ -28,7 +28,7 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
   });
   
   return (
-    <div className="bg-white rounded-3xl p-12 shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300">
       {/* Judge and Prompt Display - Side by Side */}
       {room.currentPrompt && judge && (
         <JudgePromptDisplay 
@@ -60,51 +60,49 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
             <div 
               key={player.id} 
               className={`text-center p-4 rounded-2xl transition-all duration-300 ${
-                hasSubmitted 
-                  ? isFirstSubmitter 
-                    ? 'bg-gradient-to-br from-green-200 to-blue-200 border-2 border-green-400 scale-105' 
-                    : 'bg-green-100 border-2 border-green-300'
-                  : hasFirstSubmission 
-                    ? 'bg-yellow-100 border-2 border-yellow-300 animate-pulse'
-                    : 'bg-gray-100'
+              hasSubmitted 
+                ? isFirstSubmitter 
+                ? 'bg-gradient-to-br from-green-200 to-blue-200 border-2 border-green-400 scale-105 animate-bounce' 
+                : 'bg-green-100 border-2 border-green-300 hover:scale-105'
+                : hasFirstSubmission 
+                ? 'bg-yellow-100 border-2 border-yellow-300 animate-pulse'
+                : 'bg-gray-100 hover:bg-gray-200 animate-pulse'
               }`}
             >
               <div 
-                className={`w-24 h-24 text-5xl rounded-full mx-auto mb-2 flex items-center justify-center ${getPlayerColorClass(player.color)}`}
-              >
-                {player.emoji || '🍑'}
-              </div>
-              <p className="font-bold text-2xl text-gray-900">{player.name}</p>
-              
-              {/* Status indicators */}
-              {/* <div className="space-y-1">
-                {player.hasUsedRefresh && (
-                  <p className="text-sm text-orange-600 font-medium">
-                    🔄 Used Refresh
-                  </p>
-                )}
-                {player.hasActivatedTripleSound && (
-                  <p className="text-sm text-purple-600 font-bold animate-pulse">
-                    ⚡ Triple Sound! ⚡
-                  </p>
-                )}
-              </div> */}
-              
-              <p className={`text-xl font-semibold ${
+              className={`w-24 h-24 text-5xl rounded-full mx-auto mb-2 flex items-center justify-center transition-transform duration-300 ${getPlayerColorClass(player.color)} ${
                 hasSubmitted 
-                  ? isFirstSubmitter 
-                    ? 'text-blue-700' 
-                    : 'text-green-700'
-                  : hasFirstSubmission 
-                    ? 'text-yellow-700' 
-                    : 'text-gray-700'
+                ? isFirstSubmitter 
+                  ? 'animate-spin' 
+                  : 'hover:rotate-12'
+                : 'animate-pulse'
+              }`}
+              >
+              {player.emoji || '🍑'}
+              </div>
+              <p className={`font-bold text-2xl text-gray-900 transition-all duration-300 ${
+              hasSubmitted 
+                ? isFirstSubmitter 
+                ? 'animate-pulse' 
+                : 'hover:scale-105'
+                : 'animate-pulse'
               }`}>
-                {hasSubmitted 
-                  ? isFirstSubmitter 
-                    ? '🎯 Started Timer!' 
-                    : '✅ Ready'
-                  : '⏳ Thinking...'
-                }
+              {player.name}
+              </p>
+              
+              <p className={`text-xl font-semibold transition-all duration-300 ${
+              hasSubmitted 
+                ? isFirstSubmitter 
+                ? 'text-blue-700 animate-pulse' 
+                : 'text-green-700'
+                : hasFirstSubmission 
+                ? 'text-yellow-700' 
+                : 'text-gray-700'
+              }`}>
+              {hasSubmitted 
+                ? '✔️ Ready'
+                : '🤔 Thinking...'
+              }
               </p>
             </div>
           );

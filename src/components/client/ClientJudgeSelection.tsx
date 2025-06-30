@@ -28,8 +28,7 @@ export default function ClientJudgeSelection({ room, player }: ClientJudgeSelect
       
       {player.id === room.currentJudge && (
         <div className="mt-6 p-4 bg-green-100 rounded-2xl border-2 border-green-300">
-          <p className="text-lg font-bold text-green-700">🎉 You are the Judge! 🎉</p>
-          <p className="text-sm text-green-600 mt-1">Get ready to make some tough decisions!</p>
+          <p className="text-lg font-bold text-green-700">You are the Judge!</p>
         </div>
       )}
     </div>

@@ -137,15 +137,8 @@ export default function GameOverDisplay({ room }: GameOverDisplayProps) {
       {/* Celebration Message */}
       <div className="mt-8 text-center">
         <p className="text-xl text-gray-700 font-semibold mb-4">
-          🎵 Thanks for playing Fartnoises! 🎵
+          Thanks for playing Fartnoises!
         </p>
-        <div className="flex justify-center space-x-4 text-3xl animate-pulse">
-          <span>🎪</span>
-          <span>🎭</span>
-          <span>🎨</span>
-          <span>🎸</span>
-          <span>🎺</span>
-        </div>
       </div>
     </div>
   );

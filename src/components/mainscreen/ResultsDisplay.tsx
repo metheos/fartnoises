@@ -264,7 +264,7 @@ export function ResultsDisplay({
   };
   
   return (
-    <div className="bg-white rounded-3xl p-12 shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300">
       {/* Show loading state if roundWinner is null (e.g., after page refresh) */}
       {!roundWinner ? (
         <div className="text-center">

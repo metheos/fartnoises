@@ -141,12 +141,26 @@ function handlePlayerDisconnection(
 
   console.log(`Player ${player.name} disconnected from room ${roomCode}`);
 
-  // If we're in lobby or game over, handle immediately without grace period
-  if (
-    room.gameState === GameState.LOBBY ||
-    room.gameState === GameState.GAME_OVER
-  ) {
+  // If we're in lobby, handle immediately without grace period
+  // During game over, preserve players for final scoring display
+  if (room.gameState === GameState.LOBBY) {
     removePlayerFromRoom(context, socketId, roomCode);
+    return;
+  }
+
+  // During game over, keep disconnected players visible but don't start reconnection process
+  if (room.gameState === GameState.GAME_OVER) {
+    console.log(
+      `Player ${player.name} disconnected during game over - keeping visible in final results`
+    );
+    // Just remove from socket tracking but keep in players list for display
+    context.playerRooms.delete(socketId);
+    // Notify about disconnection but don't remove from room
+    context.io.to(roomCode).emit("playerDisconnected", {
+      playerId: socketId,
+      playerName: player.name,
+      canReconnect: false, // No reconnection during game over
+    });
     return;
   }
 

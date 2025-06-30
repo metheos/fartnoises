@@ -18,7 +18,7 @@ export function JudgingDisplay({
   const judge = room.players.find(p => p.id === room.currentJudge);
   
   return (
-    <div className="bg-white rounded-3xl p-12 shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300">
       {/* Judge and Prompt Display - Side by Side */}
       {room.currentPrompt && judge && (
         <JudgePromptDisplay 

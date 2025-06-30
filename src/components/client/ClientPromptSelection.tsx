@@ -26,16 +26,16 @@ export default function ClientPromptSelection({
       {isJudge ? (
         <>
           {/* Judge Display for the judge themselves */}
-          <div className="mb-6">
+          {/* <div className="mb-6">
             <JudgePromptDisplay 
               judge={judge || undefined} 
               prompt={undefined} 
               showPrompt={false} 
               size="small"
             />
-          </div>
+          </div> */}
           
-          <p className="text-gray-800 mb-4">Choose a prompt for this round:</p>
+          {/* <p className="text-gray-800 mb-4">Choose a prompt for this round:</p> */}
           <div className="space-y-3">
             {room.availablePrompts?.map((prompt: GamePrompt) => (
               <Button

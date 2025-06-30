@@ -69,10 +69,15 @@ export default function ClientSoundSelection({
   if (isJudge) {
     return (
       <Card className="text-center">
-        <p className="text-2xl font-bold text-purple-600 mb-4">Players are choosing sounds...</p>
-        <div className="bg-purple-100 rounded-2xl p-6 mb-6">
-          <p className="text-lg text-gray-800 font-bold" dangerouslySetInnerHTML={{ __html: room.currentPrompt?.text || '' }}></p>
-        </div>
+        
+        <JudgePromptDisplay 
+          judge={undefined}
+          showJudge={false}
+          prompt={room.currentPrompt || undefined}
+          showPrompt={true}
+          size="small"
+        />
+        <p className="text-xl font-bold text-purple-600 mb-4">Players are choosing sounds...</p>
       </Card>
     );
   }
@@ -83,12 +88,12 @@ export default function ClientSoundSelection({
     <>
       <style jsx>{`
         @keyframes slap {
-          0% { transform: translateX(-50%) translateY(-60px) rotate(45deg) scale(0.5); opacity: 0; }
-          20% { transform: translateX(-50%) translateY(10px) rotate(25deg) scale(1.2); opacity: 1; }
-          40% { transform: translateX(-50%) translateY(-5px) rotate(8deg) scale(1.1); }
-          60% { transform: translateX(-50%) translateY(2px) rotate(15deg) scale(1.05); }
-          80% { transform: translateX(-50%) translateY(-1px) rotate(10deg) scale(1.02); }
-          100% { transform: translateX(-50%) translateY(0px) rotate(12deg) scale(1); }
+          0% { transform: translateY(-60px) rotate(45deg) scale(0.5); opacity: 0; }
+          20% { transform: translateY(10px) rotate(25deg) scale(1.2); opacity: 1; }
+          40% { transform: translateY(-5px) rotate(8deg) scale(1.1); }
+          60% { transform: translateY(2px) rotate(15deg) scale(1.05); }
+          80% { transform: translateY(-1px) rotate(10deg) scale(1.02); }
+          100% { transform: translateY(0px) rotate(12deg) scale(1); }
         }
       `}</style>
       <Card className="text-center">
@@ -192,7 +197,7 @@ export default function ClientSoundSelection({
       ) : (
         <div className="space-y-6">
           {/* Power-up buttons - shiny and attractive */}
-          <div className="flex gap-3 justify-center mb-4">
+          <div className="flex gap-4 justify-center mb-4">
             {!player.hasUsedRefresh && (
               <div className="flex-1 max-w-[120px]">
                 <Button
@@ -218,15 +223,16 @@ export default function ClientSoundSelection({
                 </Button>
               </div>
             )}
+            
+          {player.hasActivatedTripleSound && (
+          <div className="flex-1 max-w-[120px]">
+              <span className="flex items-center justify-center w-full h-full text-xs text-white bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1 rounded-full font-bold shadow-md animate-pulse">
+                ⚡ ×3 Active
+              </span>
+          </div>
+          )}
           </div>
 
-          {player.hasActivatedTripleSound && (
-            <div className="text-center mb-3">
-              <span className="text-xs text-white bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1 rounded-full font-bold shadow-md animate-pulse">
-                ⚡ Triple Mode Active
-              </span>
-            </div>
-          )}
 
           {/* Sound Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto">
@@ -240,7 +246,7 @@ export default function ClientSoundSelection({
                 onPreview={(soundId) => playSoundWithFeedback(soundId, `grid-preview-${soundId}`)}
                 isPlaying={isPlaying(sound.id, `grid-preview-${sound.id}`)}
                 previewDisabled={isPlaying(sound.id, `grid-preview-${sound.id}`)}
-                className="min-h-[80px]"
+                className=""
               />
             ))}
           </div>
@@ -327,15 +333,15 @@ export default function ClientSoundSelection({
 
               {/* Sound 3 Slot - Only visible when triple sound is active and positioned chaotically */}
               {player.hasActivatedTripleSound && (
-                <div className={`absolute top-2 left-1/2 transform -translate-x-1/2 rotate-12 flex-1 max-w-xs z-10 ${
-                  showThirdSoundSlap ? 'animate-bounce' : ''
+                <div className={`absolute top-2 left-1/2 -translate-x-1/2 w-40 z-10 ${
+                  showThirdSoundSlap ? '' : 'rotate-12'
                 }`} style={{
                   animation: showThirdSoundSlap ? 'slap 1s ease-out' : undefined
                 }}>
                   <div className={`w-full h-20 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center ${
                     selectedSoundsLocal.length > 2 
                       ? 'border-pink-400 bg-gradient-to-br from-pink-500 to-red-500 shadow-2xl transform scale-110 shadow-pink-500/50' 
-                      : 'border-pink-300 bg-pink-50 hover:border-pink-400 hover:bg-pink-100'
+                      : 'border-pink-300 bg-pink-50/30 hover:border-pink-400 hover:bg-pink-100/50'
                   }`}>
                     {selectedSoundsLocal.length > 2 ? (
                       <div className="text-center text-white">
@@ -344,15 +350,15 @@ export default function ClientSoundSelection({
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center text-pink-600">
-                        <div className="text-xs opacity-75 mt-1">BONUS!</div>
+                      <div className="text-center text-pink-600/70">
+                        <div className="text-xs mt-1">⚡⚡⚡</div>
                       </div>
                     )}
                   </div>
                   {/* Number marker for selected sound */}
                   {selectedSoundsLocal.length > 2 && (
-                    <div className="absolute -top-2 -left-2 w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg border-2 border-white animate-pulse">
-                      ⚡3
+                    <div className="absolute -top-2 -left-2 w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-md font-bold text-white shadow-lg border-2 border-white">
+                      3
                     </div>
                   )}
                   {selectedSoundsLocal.length > 2 && (

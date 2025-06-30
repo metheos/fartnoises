@@ -187,15 +187,8 @@ export default function ClientGameOver({ room }: ClientGameOverProps) {
       {/* Celebration Message */}
       <div className="mb-6 text-center">
         <p className="text-lg text-gray-700 font-semibold mb-3">
-          🎵 Thanks for playing Fartnoises! 🎵
+          Thanks for playing Fartnoises!
         </p>
-        <div className="flex justify-center space-x-3 text-2xl animate-pulse">
-          <span>🎪</span>
-          <span>🎭</span>
-          <span>🎨</span>
-          <span>🎸</span>
-          <span>🎺</span>
-        </div>
       </div>
       <Button
         onClick={() => {
