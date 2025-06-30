@@ -534,7 +534,8 @@ export function useSocketManager(
           `[CLIENT] Received reconnectionVoteRequest for ${disconnectedPlayerName}, showing vote dialog`
         );
 
-        // Add to global window for debugging
+        // Add to global window for debugging - any cast needed for window object extension
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).lastVoteRequest = {
           disconnectedPlayerName,
           timeLeft,

@@ -131,7 +131,7 @@ function GamePageContent() {
         logGameEvent(`Failed to load sound effects: ${error.message}`);
       }
     );
-  }, [room, soundEffectsLoader.execute, logGameEvent, addDebugLog]);
+  }, [room, soundEffectsLoader, logGameEvent, addDebugLog]);
 
   // Handle redirection in a separate effect to avoid dependency issues
   useEffect(() => {

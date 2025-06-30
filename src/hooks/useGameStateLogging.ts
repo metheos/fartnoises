@@ -57,12 +57,15 @@ export function useGameStateLogging(
 
   // Custom event logging function
   const logGameEvent = useCallback(
+    // Using any for details parameter as game events can contain various data structures
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (event: string, details?: any) => {
       if (!logGameEvents) return;
 
       const message = details
         ? `[${componentName}] ${event}: ${JSON.stringify(details)}`
         : `[${componentName}] ${event}`;
+
 
       addDebugLog(message);
       console.log(message);
@@ -72,6 +75,8 @@ export function useGameStateLogging(
 
   // Room-specific logging utilities
   const logRoomEvent = useCallback(
+    // Using any for details parameter as room events can contain various data structures
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (event: string, details?: any) => {
       if (!room) return;
 
@@ -82,6 +87,8 @@ export function useGameStateLogging(
 
   // Player-specific logging utilities
   const logPlayerEvent = useCallback(
+    // Using any for details parameter as player events can contain various data structures
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (event: string, details?: any) => {
       if (!player) return;
 

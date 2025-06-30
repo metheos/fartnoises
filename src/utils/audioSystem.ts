@@ -364,6 +364,8 @@ export class AudioSystem {
       // AudioContext state starts as 'suspended' until user interaction
       // We can detect this by seeing if we can create one in a 'running' state
       const tempContext = new (window.AudioContext ||
+        // Legacy Safari WebKit prefix support - any cast needed for window extension
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).webkitAudioContext ||
         AudioContext)();
 

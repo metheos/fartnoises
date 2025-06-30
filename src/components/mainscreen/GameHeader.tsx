@@ -1,5 +1,4 @@
 import { Room } from '@/types/game';
-import { getGameStateDisplay } from '@/utils/gameUtils';
 
 interface GameHeaderProps {
   /** Room object containing game info */

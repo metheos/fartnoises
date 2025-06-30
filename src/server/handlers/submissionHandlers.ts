@@ -552,7 +552,7 @@ export function setupSubmissionHandlers(
   });
 
   // Nuclear option handler - Judge can't decide!
-  socket.on("judgeNuclearOption", (data) => {
+  socket.on("judgeNuclearOption", () => {
     try {
       const roomCode = context.playerRooms.get(socket.id);
       if (!roomCode) return;

@@ -1,6 +1,8 @@
 import { useEffect, useCallback, useRef } from "react";
 import { Socket } from "socket.io-client";
 
+// Generic event handler interface - uses any because Socket.IO events can have any payload type
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface EventHandler<T = any> {
   (data: T): void;
 }
@@ -27,6 +29,8 @@ export function useSocketEventHandler(
 
   // Register an event listener with automatic cleanup tracking
   const addEventListener = useCallback(
+    // Using any as default type parameter for maximum flexibility with Socket.IO events
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     <T = any>(
       event: string,
       handler: EventHandler<T>,
@@ -53,6 +57,8 @@ export function useSocketEventHandler(
 
   // One-time event listener with timeout
   const addOneTimeListener = useCallback(
+    // Using any as default type parameter for Socket.IO event data flexibility
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     <T = any>(
       event: string,
       handler: EventHandler<T>,
@@ -64,6 +70,9 @@ export function useSocketEventHandler(
           return;
         }
 
+        // We need to use let here because timeoutId is assigned after responseHandler is defined
+        // but used within responseHandler (closure requires forward reference)
+        // eslint-disable-next-line prefer-const
         let timeoutId: NodeJS.Timeout;
 
         const responseHandler = (data: T) => {
@@ -86,6 +95,8 @@ export function useSocketEventHandler(
 
   // Emit event and wait for specific response
   const emitAndWaitForResponse = useCallback(
+    // Using any for both emit data and response types for Socket.IO flexibility
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async <T = any, R = any>(
       emitEvent: string,
       emitData: T,
@@ -99,6 +110,9 @@ export function useSocketEventHandler(
           return;
         }
 
+        // We need to use let here because timeoutId is assigned after responseHandler is defined
+        // but used within responseHandler (closure requires forward reference)
+        // eslint-disable-next-line prefer-const
         let timeoutId: NodeJS.Timeout;
 
         const responseHandler = (data: R) => {
@@ -153,6 +167,8 @@ export function useSocketEventHandler(
 
   // Emit with connection check
   const emit = useCallback(
+    // Using any for data parameter as Socket.IO emit can send any JSON-serializable data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (event: string, data?: any) => {
       if (!socket || !socket.connected) {
         console.warn(`Attempted to emit ${event} but socket is not connected`);

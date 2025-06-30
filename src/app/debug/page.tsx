@@ -382,6 +382,7 @@ export default function DebugPage() {
             onActivateTripleSound={() => console.log('Activate triple sound')}
             timeLeft={timeLeft}
             soundEffects={mockSoundEffects}
+            socket={null}
           />
         );
       case GameState.PLAYBACK:

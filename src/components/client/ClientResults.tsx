@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Room, Player, SoundEffect } from '@/types/game';
 import { WaveformAnimation } from '@/components/shared/WaveformAnimation';
 import { getPlayerColorClass } from '@/utils/gameUtils';
-import { Card, Button, PlayerAvatar, SoundCard } from '@/components/ui';
+import { Card, Button, PlayerAvatar } from '@/components/ui';
 import { audioSystem } from '@/utils/audioSystem';
 
 interface ClientResultsProps {

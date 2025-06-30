@@ -3,7 +3,7 @@ import { WaveformAnimation } from '@/components/shared/WaveformAnimation';
 
 interface SubmissionCardProps {
   submission: SoundSubmission;
-  index: number;
+  index: number; // Used by parent components for React keys
   soundEffects: SoundEffect[];
   isCurrentlyPlaying?: boolean;
   currentPlayingSoundIndex?: number;
@@ -16,7 +16,8 @@ interface SubmissionCardProps {
 
 export function SubmissionCard({
   submission,
-  index,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  index: _,
   soundEffects,
   isCurrentlyPlaying = false,
   currentPlayingSoundIndex = -1,

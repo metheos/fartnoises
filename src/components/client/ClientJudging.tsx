@@ -359,7 +359,7 @@ export default function ClientJudging({
             
             <div className="relative z-10 text-center">
               <h3 className="text-xl font-bold mb-2 text-yellow-300">⚠️ EMERGENCY PROTOCOL ⚠️</h3>
-              <p className="text-sm mb-4 opacity-90">Can't decide?</p>
+              <p className="text-sm mb-4 opacity-90">Can&rsquo;t decide?</p>
               
               {canteDecideStage === 'locked' && (
                 <div className="space-y-4">

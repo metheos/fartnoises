@@ -270,7 +270,12 @@ export function useSoundSelection({
       setSelectedSoundsLocal(newSelectedSounds);
       onSelectSounds(newSelectedSounds);
     },
-    [selectedSoundsLocal, player.name, onSelectSounds]
+    [
+      selectedSoundsLocal,
+      player.name,
+      player.hasActivatedTripleSound,
+      onSelectSounds,
+    ]
   );
 
   // Check submission status

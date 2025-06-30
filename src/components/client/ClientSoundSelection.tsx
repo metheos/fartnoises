@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
-import { Room, Player, SoundEffect, GameState } from '@/types/game';
+import { Room, Player, SoundEffect } from '@/types/game';
 import { GAME_CONFIG } from '@/data/gameData';
-import { audioSystem } from '@/utils/audioSystem';
 import { Card, Button, SoundCard, CircularButton } from '@/components/ui';
 import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 import GameTimer from '../mainscreen/GameTimer';
@@ -54,8 +53,6 @@ export default function ClientSoundSelection({
   });
 
   const {
-    playingSounds,
-    playingButtons,
     isPlaying,
     playSoundWithFeedback,
     playSoundCombinationWithFeedback

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getSoundEffects } from '@/data/gameData';
 import { getPlayerColorClass } from '@/utils/gameUtils';
 import { useAudioSystem } from '@/utils/audioSystem';
-import { Button, Card } from '@/components/ui';
+import { Button } from '@/components/ui';
 
 export default function Home() {
   const [playerName, setPlayerName] = useState('');

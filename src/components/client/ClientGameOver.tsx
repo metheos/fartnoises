@@ -117,7 +117,7 @@ export default function ClientGameOver({ room, player, onRestartGame }: ClientGa
             </div>
             
             <p className="text-sm font-bold text-rose-800 italic text-center">
-              "Most Loved by the Audience!"
+              &ldquo;Most Loved by the Audience!&rdquo;
             </p>
           </div>
         </div>

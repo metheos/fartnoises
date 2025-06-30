@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 
+// Generic async operation state - uses any as default for maximum flexibility
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface AsyncOperationState<T = any> {
   data: T | null;
   loading: boolean;
@@ -7,7 +9,8 @@ interface AsyncOperationState<T = any> {
 }
 
 interface UseAsyncOperationOptions {
-  /** Initial data value */
+  /** Initial data value - can be any type depending on the operation */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialData?: any;
   /** Whether to clear error when starting new operation */
   clearErrorOnStart?: boolean;
@@ -17,6 +20,8 @@ interface UseAsyncOperationOptions {
  * Custom hook for managing async operations with loading and error states
  * Provides consistent patterns for handling async operations across components
  */
+// Using any as default type parameter for maximum flexibility across different async operations
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useAsyncOperation<T = any>(
   options: UseAsyncOperationOptions = {}
 ) {
@@ -45,6 +50,8 @@ export function useAsyncOperation<T = any>(
 
         setState((prev) => ({
           ...prev,
+          // Type assertion needed since asyncFunction return type may not match T exactly
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data: result as any,
           loading: false,
           error: null,

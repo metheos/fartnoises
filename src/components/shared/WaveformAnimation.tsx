@@ -84,7 +84,6 @@ export function WaveformAnimation({
     // Use logarithmic distribution optimized for musical content
     for (let i = 0; i < barCount; i++) {
       // Use a more aggressive curve that compresses lows and highs
-      const normalizedPosition = i / (barCount - 1); // 0 to 1
       
       // Create a custom curve that:
       // - First bar gets ALL the bass (150Hz-500Hz)

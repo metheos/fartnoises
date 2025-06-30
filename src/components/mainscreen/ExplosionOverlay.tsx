@@ -76,7 +76,7 @@ export default function ExplosionOverlay({
               FAIL-UNSAFE OPTION ACTIVATED
             </h1>
             <p className="text-3xl font-bold mb-6">
-              Judge {judgeName} couldn't decide!
+              Judge {judgeName} couldn&rsquo;t decide!
             </p>
             <div className="text-9xl font-black text-red-400 animate-bounce">
               {warningCount}

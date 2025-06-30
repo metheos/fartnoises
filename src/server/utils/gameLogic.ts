@@ -310,6 +310,8 @@ export function shuffleWithSeed<T>(array: T[], seed: number): T[] {
 
     console.log(
       `[SHUFFLE] Final shuffled array:`,
+      // Using any here because this debug function works with either submission objects or strings
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       shuffled.map((item: any) => item.playerName || item)
     );
     return shuffled;
@@ -343,6 +345,8 @@ export function shuffleWithSeed<T>(array: T[], seed: number): T[] {
 
   console.log(
     `[SHUFFLE] Final shuffled array:`,
+    // Using any here because this debug function works with either submission objects or strings
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     shuffled.map((item: any) => item.playerName || item)
   );
   return shuffled;
