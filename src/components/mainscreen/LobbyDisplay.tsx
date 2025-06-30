@@ -9,7 +9,7 @@ interface LobbyDisplayProps {
 
 export default function LobbyDisplay({ room }: LobbyDisplayProps) {
   return (
-    <div className="bg-white rounded-3xl p-6 text-center shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-6 text-center shadow-2xl transition-all duration-300 min-h-[75vh]">
       {/* Game Settings and Main Status */}
       <div className="space-y-4 mb-6">
         {/* Game Settings Row */}

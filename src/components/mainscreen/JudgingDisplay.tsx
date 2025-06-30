@@ -18,7 +18,7 @@ export function JudgingDisplay({
   const judge = room.players.find(p => p.id === room.currentJudge);
   
   return (
-    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300 min-h-[75vh]">
       {/* Judge and Prompt Display - Side by Side */}
       {room.currentPrompt && judge && (
         <JudgePromptDisplay 
@@ -42,8 +42,8 @@ export function JudgingDisplay({
           <div className="h-3 rounded-full transition-all duration-1000 bg-white" style={{ width: '100%' }}></div>
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+      <div className="flex justify-center gap-8">
         {(room.randomizedSubmissions || room.submissions).map((submission, index) => {
           const isCurrentlyPlaying = currentPlayingSubmission?.playerId === submission.playerId;
           

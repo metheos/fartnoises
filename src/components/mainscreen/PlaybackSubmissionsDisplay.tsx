@@ -171,7 +171,7 @@ export function PlaybackSubmissionsDisplay({
   const submissions = room.randomizedSubmissions || room.submissions; // Use randomized order if available
 
   return (
-    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300 min-h-[75vh]">
       
       
       {/* Judge and Prompt Display - Side by Side */}
@@ -190,7 +190,7 @@ export function PlaybackSubmissionsDisplay({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="flex justify-center gap-8">
         {submissions.map((submission, index) => {
           const isCurrentlyPlaying = currentPlayingSubmission?.playerId === submission.playerId;
 

@@ -264,7 +264,7 @@ export function ResultsDisplay({
   };
   
   return (
-    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-3 shadow-2xl transition-all duration-300 min-h-[75vh]">
       {/* Show loading state if roundWinner is null (e.g., after page refresh) */}
       {!roundWinner ? (
         <div className="text-center">
@@ -289,7 +289,7 @@ export function ResultsDisplay({
             size="large"
           />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-8">
+        <div className="flex justify-center gap-16 mb-8">
           {/* Left Column - Winning Sound Combination Card */}
           <div className="text-center">
             {roundWinner.winningSubmission && (
@@ -310,7 +310,7 @@ export function ResultsDisplay({
           </div>
 
           {/* Right Column - Scores List */}
-          <div className="text-center">
+          <div className="text-center w-[35rem]">
           <PlayerScoreList
             players={room.players}
             roundWinnerId={roundWinner.winnerId}

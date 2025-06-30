@@ -84,7 +84,7 @@ export function SubmissionCard({
       `}</style>
       
       <div 
-        className={`relative rounded-3xl py-2 px-3 transition-all duration-500 ${
+        className={`relative rounded-3xl py-2 px-3 transition-all duration-500 min-w-[20rem] max-w-[25rem] ${
           isCurrentlyPlaying 
             ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
             : isWinner
@@ -137,9 +137,9 @@ export function SubmissionCard({
           <div className="flex items-center justify-center">
             <h5 className={`text-2xl font-bold ${
               isCurrentlyPlaying 
-                ? 'text-white' 
+                ? 'text-white   mx-8' 
                 : isWinner 
-                  ? 'text-yellow-800'
+                  ? 'text-yellow-800 mx-8'
                   : 'text-gray-800'
             }`}>
               {isWinner 

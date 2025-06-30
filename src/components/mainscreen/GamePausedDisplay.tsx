@@ -61,7 +61,7 @@ export default function GamePausedDisplay({ room, socket }: GamePausedDisplayPro
   }, [room.disconnectionTimestamp]);
 
   return (
-    <div className="bg-white rounded-3xl p-6 text-center shadow-2xl transition-all duration-300">
+    <div className="bg-white rounded-3xl p-6 text-center shadow-2xl transition-all duration-300 min-h-[75vh]">
       {/* Title */}
       <div className="mb-8">
         <div className="text-6xl mb-4 animate-pulse">⏸️</div>
