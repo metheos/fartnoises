@@ -7,7 +7,12 @@ import { SocketContext } from "../types/socketTypes";
 import { selectNextJudge, processAndAssignPrompt } from "../utils/roomManager";
 import { startTimer, clearTimer } from "../utils/timerManager";
 import { generatePlayerSoundSets } from "../utils/gameLogic";
-import { addBotsIfNeeded, makeBotSoundSubmissions, makeBotJudgingDecision, makeBotPromptSelection } from "../utils/botManager";
+import {
+  addBotsIfNeeded,
+  makeBotSoundSubmissions,
+  makeBotJudgingDecision,
+  makeBotPromptSelection,
+} from "../utils/botManager";
 
 export function setupGameHandlers(socket: Socket, context: SocketContext) {
   // Start game handler
@@ -21,11 +26,16 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
 
       const player = room.players.find((p) => p.id === socket.id);
       if (!player?.isVIP) return;
-      
+
       // Check if we need to add bots (for 1-2 human players)
-      const humanPlayers = room.players.filter(p => !p.isBot);
-      if (humanPlayers.length < GAME_CONFIG.MIN_PLAYERS && humanPlayers.length > 0) {
-        console.log(`[BOT] Adding bots to reach minimum player count. Current humans: ${humanPlayers.length}`);
+      const humanPlayers = room.players.filter((p) => !p.isBot);
+      if (
+        humanPlayers.length < GAME_CONFIG.MIN_PLAYERS &&
+        humanPlayers.length > 0
+      ) {
+        console.log(
+          `[BOT] Adding bots to reach minimum player count. Current humans: ${humanPlayers.length}`
+        );
         await addBotsIfNeeded(context, room);
       } else if (room.players.length < GAME_CONFIG.MIN_PLAYERS) {
         socket.emit("error", {

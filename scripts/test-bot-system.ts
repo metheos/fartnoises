@@ -10,25 +10,29 @@ import {
 const SERVER_URL = "http://localhost:3000";
 
 let roomCodeGlobal: string | null = null;
-let testSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
+let testSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null =
+  null;
 
 // Test with just 1 human player to trigger bot addition
 function testBotSystem() {
   console.log("🤖 Testing Bot System...");
-  
+
   const playerName = "TestHuman1";
-  const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(SERVER_URL, {
-    path: "/api/socket",
-    transports: ["polling", "websocket"],
-    reconnectionAttempts: 3,
-    timeout: 10000,
-  });
+  const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(
+    SERVER_URL,
+    {
+      path: "/api/socket",
+      transports: ["polling", "websocket"],
+      reconnectionAttempts: 3,
+      timeout: 10000,
+    }
+  );
 
   testSocket = socket;
 
   socket.on("connect", () => {
     console.log(`🔌 Human player ${playerName} (ID: ${socket.id}) connected.`);
-    
+
     // Create the room
     socket.emit("createRoom", { name: playerName }, (roomCode) => {
       console.log(`🏠 Human player ${playerName} created room: ${roomCode}`);
@@ -39,22 +43,32 @@ function testBotSystem() {
   socket.on("roomCreated", ({ room, player }) => {
     console.log(`🎉 Room created - Code: ${room.code}, Host: ${player.name}`);
     console.log(`👥 Players in room: ${room.players.length}`);
-    room.players.forEach(p => {
-      console.log(`  - ${p.name} ${p.isBot ? '(BOT)' : '(HUMAN)'} ${p.isVIP ? '(VIP)' : ''}`);
+    room.players.forEach((p) => {
+      console.log(
+        `  - ${p.name} ${p.isBot ? "(BOT)" : "(HUMAN)"} ${
+          p.isVIP ? "(VIP)" : ""
+        }`
+      );
     });
   });
 
   socket.on("roomUpdated", (room) => {
-    console.log(`📊 Room updated - Players: ${room.players.length}, State: ${room.gameState}`);
-    room.players.forEach(p => {
-      console.log(`  - ${p.name} ${p.isBot ? '(BOT)' : '(HUMAN)'} ${p.isVIP ? '(VIP)' : ''}`);
+    console.log(
+      `📊 Room updated - Players: ${room.players.length}, State: ${room.gameState}`
+    );
+    room.players.forEach((p) => {
+      console.log(
+        `  - ${p.name} ${p.isBot ? "(BOT)" : "(HUMAN)"} ${
+          p.isVIP ? "(VIP)" : ""
+        }`
+      );
     });
-    
+
     // If we have players and this is the host, start the game to test bot behavior
     if (
       room.players.length >= 3 &&
       room.gameState === GameState.LOBBY &&
-      room.players.find(p => p.id === socket.id)?.isVIP
+      room.players.find((p) => p.id === socket.id)?.isVIP
     ) {
       console.log(`🎮 Starting the game with bots...`);
       setTimeout(() => {
@@ -100,7 +114,9 @@ function testBotSystem() {
           const submissions = (data as any).submissions;
           if (submissions && submissions.length > 0) {
             // Pick the first submission as winner
-            console.log(`⚖️ Human judge selecting winner: ${submissions[0].playerName}`);
+            console.log(
+              `⚖️ Human judge selecting winner: ${submissions[0].playerName}`
+            );
             socket.emit("selectWinner", submissions[0].playerId);
           }
         }
@@ -117,7 +133,11 @@ function testBotSystem() {
   });
 
   socket.on("soundSubmitted", (submission) => {
-    console.log(`🎵 Sound submitted by ${submission.playerName}: [${submission.sounds.join(", ")}]`);
+    console.log(
+      `🎵 Sound submitted by ${
+        submission.playerName
+      }: [${submission.sounds.join(", ")}]`
+    );
   });
 
   socket.on("roundComplete", (data) => {
@@ -126,7 +146,7 @@ function testBotSystem() {
 
   socket.on("gameComplete", (winnerId, winnerName) => {
     console.log(`🎊 GAME WINNER: ${winnerName}`);
-    
+
     // Cleanup and exit
     setTimeout(() => {
       console.log("✅ Bot system test completed!");

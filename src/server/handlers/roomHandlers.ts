@@ -107,9 +107,9 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
       room.players.push(player);
       context.playerRooms.set(socket.id, roomCode);
       socket.join(roomCode);
-      
+
       // Manage bots when a new human player joins
-      const humanPlayers = room.players.filter(p => !p.isBot);
+      const humanPlayers = room.players.filter((p) => !p.isBot);
       if (humanPlayers.length >= 3) {
         // Remove all bots if we now have 3+ human players
         removeAllBots(context, room);
@@ -117,7 +117,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
         // Add bots if we have fewer than 3 human players
         addBotsIfNeeded(context, room);
       }
-      
+
       callback(true);
       socket.emit("roomJoined", { room, player });
       context.io.to(roomCode).emit("roomUpdated", room);
@@ -212,7 +212,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
             socket.leave(roomCode);
           } else {
             // Regular player leaving
-            const wasBot = room.players.find(p => p.id === socket.id)?.isBot;
+            const wasBot = room.players.find((p) => p.id === socket.id)?.isBot;
             room.players = room.players.filter((p) => p.id !== socket.id);
             context.playerRooms.delete(socket.id);
             socket.leave(roomCode);
@@ -227,8 +227,8 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
             } else {
               // If a human player left (not a bot), manage bot count
               if (!wasBot) {
-                const humanPlayers = room.players.filter(p => !p.isBot);
-                
+                const humanPlayers = room.players.filter((p) => !p.isBot);
+
                 // If we have 3+ humans, remove all bots
                 if (humanPlayers.length >= 3) {
                   removeAllBots(context, room);
@@ -244,7 +244,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
                   removeAllBots(context, room);
                 }
               }
-              
+
               // If room still active, select new VIP if old one left, or new judge
               if (
                 room.players.every((p) => !p.isVIP) &&

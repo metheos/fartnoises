@@ -648,8 +648,8 @@ function removePlayerFromRoom(
     // If a human player left (not a bot), manage bot count
     const wasBot = player?.isBot;
     if (!wasBot) {
-      const humanPlayers = room.players.filter(p => !p.isBot);
-      
+      const humanPlayers = room.players.filter((p) => !p.isBot);
+
       // If we have 3+ humans, remove all bots
       if (humanPlayers.length >= 3) {
         removeAllBots(context, room);

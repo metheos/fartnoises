@@ -228,7 +228,7 @@ export function handleAllSubmissionsComplete(
       judgeId: room.currentJudge,
     });
     context.io.to(roomCode).emit("roomUpdated", room);
-    
+
     // If judge is a bot, make the judging decision
     makeBotJudgingDecision(context, room);
   } else {
