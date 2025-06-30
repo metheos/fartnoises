@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SoundSubmission } from '@/types/game';
 import ConnectionStatus from '@/components/mainscreen/ConnectionStatus';
@@ -11,11 +11,13 @@ import ExplosionOverlay from '@/components/mainscreen/ExplosionOverlay';
 import { useSocket } from '@/hooks/useSocket';
 import { useAudio } from '@/hooks/useAudio';
 import { useBackgroundMusic, BACKGROUND_MUSIC } from '@/hooks/useBackgroundMusic';
+import { useGameplayEffects } from '@/hooks/useGameplayEffects';
 
 function MainScreenContent() {
   const searchParams = useSearchParams();
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
+  const prevGameState = useRef<string | null>(null);
   
   // Use custom hooks for audio, socket, and background music management
   const { soundEffects, isAudioReady, setIsAudioReady, activateAudio } = useAudio();
@@ -28,6 +30,21 @@ function MainScreenContent() {
     setVolume: setMusicVolume,
     activateAudio: activateBackgroundAudio
   } = useBackgroundMusic();
+  
+  // Gameplay sound effects hook
+  const {
+    effects: availableEffects,
+    isLoading: effectsLoading,
+    playEffect,
+    playJudgeReveal,
+    playPromptReveal,
+    playSubmissionActivate,
+    playRoundResult,
+    playLikeIncrement,
+    playPointIncrement,
+    playGameOver,
+    playFailSound
+  } = useGameplayEffects(isAudioReady);
   
   const { 
     socket, 
@@ -42,7 +59,10 @@ function MainScreenContent() {
     soundEffects, 
     isAudioReady, 
     setIsAudioReady, 
-    setCurrentPlayingSubmission 
+    setCurrentPlayingSubmission,
+    gameplayEffects: {
+      playLikeIncrement
+    }
   });
 
   // Handle URL parameters - populate input field on load and handle browser navigation
@@ -133,6 +153,62 @@ function MainScreenContent() {
     setNuclearExplosion(null);
   };
 
+  // Handle gameplay sound effects based on game state changes and events
+  useEffect(() => {
+    if (!isAudioReady || effectsLoading) return;
+    
+    if (currentRoom && prevGameState.current !== currentRoom.gameState) {
+      console.log(`🎵 Game state changed from ${prevGameState.current} to ${currentRoom.gameState}`);
+      
+      // Play appropriate sound effect for state transition
+      switch (currentRoom.gameState) {
+        case 'judge_selection':
+          // Judge being revealed
+          playJudgeReveal();
+          break;
+        case 'prompt_selection':
+          break;
+        case 'sound_selection':
+          // Sound selection phase starts
+          // Prompt reveal
+          playPromptReveal();
+          break;
+        case 'playback':
+          break;
+        case 'round_results':
+          // Round results being shown
+          playRoundResult();
+          break;
+        case 'game_over':
+          // Game over
+          playGameOver();
+          break;
+        default:
+          // No specific sound for other states
+          break;
+      }
+      
+      prevGameState.current = currentRoom.gameState;
+    }
+  }, [currentRoom?.gameState, isAudioReady, effectsLoading, playJudgeReveal, playPromptReveal, playEffect, playSubmissionActivate, playRoundResult, playGameOver]);
+
+  // Handle round winner announcement effects - now handled by winnerAudioComplete event
+  // (Point increment sound is triggered when winner audio finishes playing)
+  useEffect(() => {
+    if (roundWinner && isAudioReady && !effectsLoading) {
+      console.log('🎵 Round winner announced, point increment sound will play after winner audio completes');
+    }
+  }, [roundWinner, isAudioReady, effectsLoading]);
+
+  // Handle nuclear explosion effect
+  useEffect(() => {
+    if (nuclearExplosion?.isExploding && isAudioReady && !effectsLoading) {
+      console.log('🎵 Nuclear explosion triggered, playing dramatic effect');
+      // Play a dramatic sound effect for the nuclear explosion
+      playEffect('judge', { volume: 1.0, speed: 0.7 }); // Slower, more dramatic
+    }
+  }, [nuclearExplosion?.isExploding, isAudioReady, effectsLoading, playEffect]);
+
   if (!isConnected) {
     return <ConnectionStatus isConnected={isConnected} />;
   }
@@ -170,6 +246,17 @@ function MainScreenContent() {
             onActivateAudio={activateAudio}
             currentPlayingSubmission={currentPlayingSubmission}
             socket={socket}
+            gameplayEffects={{
+              playEffect,
+              playJudgeReveal,
+              playPromptReveal,
+              playSubmissionActivate,
+              playRoundResult,
+              playLikeIncrement,
+              playPointIncrement,
+              playGameOver,
+              playFailSound
+            }}
           />
         ) : (          
         <WaitingForGameScreen 

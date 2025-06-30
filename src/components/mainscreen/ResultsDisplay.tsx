@@ -18,13 +18,15 @@ interface ResultsDisplayProps {
   } | null;
   soundEffects: SoundEffect[];
   socket: Socket | null;
+  onWinnerAudioComplete?: () => void;
 }
 
 export function ResultsDisplay({ 
   room, 
   roundWinner,
   soundEffects,
-  socket
+  socket,
+  onWinnerAudioComplete
 }: ResultsDisplayProps) {  
   const [isPlayingWinner, setIsPlayingWinner] = useState(false);
   const [playbackProgress, setPlaybackProgress] = useState(0);
@@ -84,7 +86,7 @@ export function ResultsDisplay({
       
       const playDelay = setTimeout(() => {
         playWinningCombination();
-      }, 1000); // 1 second delay for dramatic effect
+      }, 3000); // 3 second delay for dramatic effect
 
       return () => clearTimeout(playDelay);
     } else if (playbackStartedRef.current) {
@@ -120,6 +122,12 @@ export function ResultsDisplay({
           console.log(`[WINNER AUDIO] All sounds finished`);
           setIsPlayingWinner(false);
           setPlaybackProgress(0);
+          
+          // Trigger point increment sound immediately when audio completes
+          if (onWinnerAudioComplete) {
+            console.log('[WINNER AUDIO] Triggering point increment sound callback');
+            onWinnerAudioComplete();
+          }
           
           // Trigger score animation after audio completes
           setTimeout(() => {

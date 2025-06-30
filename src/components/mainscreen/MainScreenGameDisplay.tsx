@@ -13,6 +13,18 @@ import { ResultsDisplay } from './ResultsDisplay';
 import GameOverDisplay from './GameOverDisplay';
 import GamePausedDisplay from './GamePausedDisplay';
 
+interface GameplayEffects {
+  playEffect: (effectName: string, options?: { reverse?: boolean; speed?: number; volume?: number }) => Promise<void>;
+  playJudgeReveal: () => Promise<void>;
+  playPromptReveal: () => Promise<void>;
+  playSubmissionActivate: () => Promise<void>;
+  playRoundResult: () => Promise<void>;
+  playLikeIncrement: () => Promise<void>;
+  playPointIncrement: () => Promise<void>;
+  playGameOver: () => Promise<void>;
+  playFailSound: () => Promise<void>;
+}
+
 interface MainScreenGameDisplayProps {
   room: Room;
   roundWinner: {
@@ -26,6 +38,7 @@ interface MainScreenGameDisplayProps {
   onActivateAudio: () => Promise<void>;
   currentPlayingSubmission: SoundSubmission | null;
   socket: Socket | null;
+  gameplayEffects?: GameplayEffects;
 }
 
 export function MainScreenGameDisplay({ 
@@ -35,7 +48,8 @@ export function MainScreenGameDisplay({
   isAudioReady,
   onActivateAudio,
   currentPlayingSubmission,
-  socket
+  socket,
+  gameplayEffects
 }: MainScreenGameDisplayProps) {
   return (
     <div className="space-y-2">
@@ -81,7 +95,29 @@ export function MainScreenGameDisplay({
       )}
       
       {room.gameState === GameState.ROUND_RESULTS && (
-        <ResultsDisplay room={room} roundWinner={roundWinner} soundEffects={soundEffects} socket={socket} />
+        <ResultsDisplay 
+          room={room} 
+          roundWinner={roundWinner} 
+          soundEffects={soundEffects} 
+          socket={socket} 
+          onWinnerAudioComplete={() => {
+            console.log('[MAIN SCREEN] Winner audio complete callback triggered');
+            if (gameplayEffects?.playPointIncrement) {
+              console.log('[MAIN SCREEN] Calling playPointIncrement function');
+                setTimeout(() => {
+                gameplayEffects.playPointIncrement()
+                  .then(() => {
+                  console.log('[MAIN SCREEN] playPointIncrement completed successfully');
+                  })
+                  .catch((error) => {
+                  console.error('[MAIN SCREEN] playPointIncrement failed:', error);
+                  });
+                }, 500);
+            } else {
+              console.warn('[MAIN SCREEN] playPointIncrement function not available in gameplayEffects');
+            }
+          }}
+        />
       )}
 
       {room.gameState === GameState.GAME_OVER && (

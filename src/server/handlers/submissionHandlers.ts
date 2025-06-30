@@ -283,7 +283,7 @@ export function setupSubmissionHandlers(
           judgeId: room.currentJudge,
         });
         context.io.to(roomCode).emit("roomUpdated", room);
-      }, 5000); // delay
+      }, 3000); // delay
     }
   });
 

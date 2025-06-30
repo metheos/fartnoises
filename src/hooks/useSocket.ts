@@ -16,6 +16,9 @@ interface UseSocketOptions {
   isAudioReady: boolean;
   setIsAudioReady: (ready: boolean) => void;
   setCurrentPlayingSubmission: (submission: SoundSubmission | null) => void;
+  gameplayEffects?: {
+    playLikeIncrement: () => Promise<void>;
+  };
 }
 
 interface UseSocketReturn {
@@ -67,6 +70,7 @@ export function useSocket({
   isAudioReady,
   setIsAudioReady,
   setCurrentPlayingSubmission,
+  gameplayEffects,
 }: UseSocketOptions): UseSocketReturn {
   const searchParams = useSearchParams();
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -263,28 +267,32 @@ export function useSocket({
 
           const newRoom = { ...prevRoom, ...updatedData };
 
-          // Play prompt audio when transitioning to sound selection
+          // Play prompt audio when transitioning to sound selection (with 2-second delay)
           if (
             newState === GameState.SOUND_SELECTION &&
             newRoom.currentPrompt &&
             newRoom.currentPrompt.audioFile
           ) {
             console.log(
-              "useSocket: Playing prompt audio:",
+              "useSocket: Scheduling prompt audio playback in 2 seconds:",
               newRoom.currentPrompt.audioFile
             );
             const audioFile = newRoom.currentPrompt.audioFile;
-            audioSystem
-              .initialize()
-              .then(() => {
-                audioSystem.loadAndPlayPromptAudio(audioFile);
-              })
-              .catch((error) => {
-                console.error(
-                  "useSocket: Failed to initialize audio system for prompt playback:",
-                  error
-                );
-              });
+
+            // Add 2-second delay before playing prompt audio
+            setTimeout(() => {
+              audioSystem
+                .initialize()
+                .then(() => {
+                  audioSystem.loadAndPlayPromptAudio(audioFile);
+                })
+                .catch((error) => {
+                  console.error(
+                    "useSocket: Failed to initialize audio system for prompt playback:",
+                    error
+                  );
+                });
+            }, 2000); // 2 second delay
           }
 
           return newRoom;
@@ -532,6 +540,28 @@ export function useSocket({
           isExploding: true,
           judgeName: data.judgeName,
         });
+      }
+    );
+
+    // Handler for submission likes
+    socketInstance.on(
+      "submissionLiked",
+      (data: {
+        submissionIndex: number;
+        likedBy: string;
+        likedByName: string;
+        totalLikes: number;
+      }) => {
+        console.log("useSocket: Submission liked:", data);
+
+        // Play like increment sound effect
+        if (gameplayEffects?.playLikeIncrement) {
+          gameplayEffects
+            .playLikeIncrement()
+            .catch((error) =>
+              console.warn("Failed to play like increment sound:", error)
+            );
+        }
       }
     );
 

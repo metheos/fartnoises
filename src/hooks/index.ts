@@ -18,3 +18,4 @@ export { useAsyncOperation } from "./useAsyncOperation";
 export { useJudgeCheck } from "./useJudgeCheck";
 export { useGameStateLogging } from "./useGameStateLogging";
 export { useSocketEventHandler } from "./useSocketEventHandler";
+export { useGameplayEffects } from "./useGameplayEffects";

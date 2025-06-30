@@ -20,7 +20,7 @@ export default function ConnectionStatus({
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center ${className}`}>
-      <div className="bg-white rounded-3xl p-6 text-center shadow-2xl transition-all duration-300 min-h-[75vh]">
+      <div className="bg-white rounded-3xl p-6 text-center shadow-2xl transition-all duration-300">
         <div className="animate-spin w-24 h-24 border-8 border-purple-500 border-t-transparent rounded-full mx-auto mb-8"></div>
         <h2 className="text-3xl font-bold text-gray-800 mb-4">Connecting to {appName}</h2>
         <p className="text-gray-800 text-xl">{message}</p>
