@@ -550,6 +550,92 @@ export function setupSubmissionHandlers(
       console.error("[LIKE] Error handling like submission:", error);
     }
   });
+
+  // Nuclear option handler - Judge can't decide!
+  socket.on("judgeNuclearOption", (data) => {
+    try {
+      const roomCode = context.playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const room = context.rooms.get(roomCode);
+      if (!room || room.gameState !== GameState.JUDGING) return;
+
+      const player = room.players.find((p) => p.id === socket.id);
+      if (!player) return;
+
+      // Must be the current judge
+      if (socket.id !== room.currentJudge) return;
+
+      // Check if judge has already used their nuclear option
+      if (player.hasUsedNuclearOption) {
+        console.warn(
+          `[NUCLEAR] Judge ${player.name} has already used nuclear option`
+        );
+        return;
+      }
+
+      console.log(
+        `[NUCLEAR] Judge ${player.name} triggered nuclear option in room ${roomCode}`
+      );
+
+      // Mark this judge as having used their nuclear option
+      player.hasUsedNuclearOption = true;
+
+      // Trigger the explosion on all screens
+      context.io.to(roomCode).emit("nuclearOptionTriggered", {
+        judgeId: player.id,
+        judgeName: player.name,
+        roomCode: roomCode,
+      });
+
+      // After explosion animation (we'll give it 5 seconds), proceed to next round
+      setTimeout(async () => {
+        if (room.gameState === GameState.JUDGING) {
+          console.log(
+            `[NUCLEAR] Proceeding to next round after nuclear explosion`
+          );
+
+          // Move to next round without selecting a winner
+          room.currentRound += 1;
+
+          // Check if game should end
+          const isEndOfRounds = room.currentRound > room.maxRounds;
+
+          if (isEndOfRounds) {
+            // Game over - determine winner by current scores
+            const maxScore = Math.max(...room.players.map((p) => p.score));
+            const gameWinners = room.players.filter(
+              (p) => p.score === maxScore
+            );
+
+            if (gameWinners.length === 1) {
+              room.gameState = GameState.GAME_OVER;
+              room.winner = gameWinners[0].id;
+              context.io
+                .to(roomCode)
+                .emit("gameComplete", gameWinners[0].id, gameWinners[0].name);
+            } else {
+              // Tie - continue with tie-breaker
+              context.io.to(roomCode).emit("tieBreakerRound", {
+                tiedPlayers: gameWinners.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                })),
+              });
+              // Continue to next round for tie-breaker - this will be handled by the existing tie-breaker logic
+            }
+          } else {
+            // Start next round
+            await startNextRound(context, roomCode);
+          }
+
+          context.io.to(roomCode).emit("roomUpdated", room);
+        }
+      }, 5000); // 5 seconds for explosion animation
+    } catch (error) {
+      console.error("[NUCLEAR] Error handling nuclear option:", error);
+    }
+  });
 }
 
 // Helper function to handle winner flow when no main screens are connected

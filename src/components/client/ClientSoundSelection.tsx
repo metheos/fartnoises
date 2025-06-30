@@ -250,12 +250,16 @@ export default function ClientSoundSelection({
           </div>
             
         {/* Timer Display - Only show after first submission */}
-        {hasFirstSubmission && (
+        {hasFirstSubmission ? (
           <GameTimer 
             maxTime={GAME_CONFIG.SOUND_SELECTION_TIME}
             socket={socket}
             className="mb-4"
           />
+        ) : (
+          <div className="text-gray-500 text-sm mt-2">
+            Timer starts after first submission!
+          </div>
         )}
 
           {/* Selected sounds display */}

@@ -27,6 +27,14 @@ export default function ClientJudging({
 }: ClientJudgingProps) {
   // State for tracking likes
   const [likedSubmissions, setLikedSubmissions] = useState<Set<number>>(new Set());
+  
+  // State for the protected "Can't Decide" nuclear option
+  type NuclearStage = 'locked' | 'armed' | 'confirmed' | 'launched';
+  const [canteDecideStage, setCantDecideStage] = useState<NuclearStage>('locked');
+  const [countdown, setCountdown] = useState<number>(0);
+  
+  // Check if player has used nuclear option from room data
+  const hasUsedNuclearOption = player.hasUsedNuclearOption || false;
 
   // Use custom hooks for common patterns
   const { isJudge, judge } = useJudgeCheck(room, player);
@@ -66,6 +74,35 @@ export default function ClientJudging({
     };
   }, [socket, player.id]);
 
+  // Countdown effect for nuclear option
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (canteDecideStage === 'confirmed' && countdown > 0) {
+      interval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            // Trigger the nuclear explosion
+            if (socket) {
+              socket.emit('judgeNuclearOption', {
+                roomCode: room.code,
+                judgeId: player.id,
+                judgeName: player.name
+              });
+            }
+            setCantDecideStage('launched');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [canteDecideStage, countdown, socket, room.code, player.id, player.name]);
+
   // Function to handle liking a submission
   const handleLikeSubmission = (submissionIndex: number) => {
     if (isJudge) return;
@@ -81,6 +118,25 @@ export default function ClientJudging({
     
     onLikeSubmission(submissionIndex);
     setLikedSubmissions(prev => new Set([...prev, submissionIndex]));
+  };
+
+  // Nuclear option functions
+  const handleNuclearStage1 = () => {
+    if (canteDecideStage === 'locked') {
+      setCantDecideStage('armed');
+    }
+  };
+
+  const handleNuclearStage2 = () => {
+    if (canteDecideStage === 'armed') {
+      setCantDecideStage('confirmed');
+      setCountdown(5); // 5 second countdown
+    }
+  };
+
+  const handleNuclearAbort = () => {
+    setCantDecideStage('locked');
+    setCountdown(0);
   };
 
   // Debug logging for submissions
@@ -289,6 +345,88 @@ export default function ClientJudging({
             </div>
           </div>
         ))}
+        </div>
+      )}
+
+      {/* Nuclear Option - Only for judges who haven't used it yet */}
+      {isJudge && !hasUsedNuclearOption && (
+        <div className="mt-8 border-t-2 border-red-300 pt-6">
+          <div className="bg-gradient-to-br from-red-600 to-red-800 rounded-3xl p-6 text-white relative overflow-hidden">
+            {/* Warning stripes background */}
+            <div className="absolute inset-0 opacity-20">
+              <div className="h-full w-full bg-gradient-to-r from-transparent via-yellow-400 to-transparent transform -skew-x-12 animate-pulse"></div>
+            </div>
+            
+            <div className="relative z-10 text-center">
+              <h3 className="text-xl font-bold mb-2 text-yellow-300">⚠️ EMERGENCY PROTOCOL ⚠️</h3>
+              <p className="text-sm mb-4 opacity-90">Can't decide? Nuclear option available.</p>
+              
+              {canteDecideStage === 'locked' && (
+                <div className="space-y-4">
+                  <p className="text-xs opacity-75">This will trigger an explosion and skip to the next round!</p>
+                  <Button
+                    onClick={handleNuclearStage1}
+                    variant="secondary"
+                    className="bg-yellow-600 hover:bg-yellow-700 text-black font-bold border-2 border-yellow-400"
+                  >
+                    🔒 ARM NUCLEAR OPTION
+                  </Button>
+                </div>
+              )}
+
+              {canteDecideStage === 'armed' && (
+                <div className="space-y-4">
+                  <p className="text-yellow-200 font-bold animate-pulse">SYSTEM ARMED - CONFIRM TO PROCEED</p>
+                  <div className="flex gap-3 justify-center">
+                    <Button
+                      onClick={handleNuclearAbort}
+                      variant="secondary"
+                      className="bg-gray-600 hover:bg-gray-700 text-white"
+                    >
+                      🚫 ABORT
+                    </Button>
+                    <Button
+                      onClick={handleNuclearStage2}
+                      variant="secondary"
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold border-2 border-red-400 animate-pulse"
+                    >
+                      💥 CONFIRM LAUNCH
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {canteDecideStage === 'confirmed' && (
+                <div className="space-y-4">
+                  <div className="text-4xl font-black text-yellow-300 animate-bounce">
+                    {countdown}
+                  </div>
+                  <p className="text-red-200 font-bold animate-pulse">LAUNCH IMMINENT!</p>
+                  <Button
+                    onClick={handleNuclearAbort}
+                    variant="secondary"
+                    className="bg-gray-600 hover:bg-gray-700 text-white"
+                    disabled={countdown <= 2}
+                  >
+                    {countdown <= 2 ? '🚫 TOO LATE!' : '🚫 EMERGENCY STOP'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Show explosion confirmation after launch */}
+      {isJudge && hasUsedNuclearOption && (
+        <div className="mt-8 border-t-2 border-red-300 pt-6">
+          <div className="bg-gradient-to-br from-gray-800 to-black rounded-3xl p-6 text-white text-center">
+            <div className="space-y-4">
+              <div className="text-6xl animate-spin">💥</div>
+              <p className="text-red-400 font-bold text-xl">NUCLEAR OPTION USED!</p>
+              <p className="text-gray-300">The main screen should be exploding...</p>
+            </div>
+          </div>
         </div>
       )}
     </Card>

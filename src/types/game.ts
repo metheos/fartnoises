@@ -13,6 +13,7 @@ export interface Player {
   hasUsedRefresh?: boolean; // Track if player has used their one-time refresh this game
   hasUsedTripleSound?: boolean; // Track if player has used their one-time triple sound ability this game (submitted 3 sounds)
   hasActivatedTripleSound?: boolean; // Track if player has activated triple sound for the current round
+  hasUsedNuclearOption?: boolean; // Track if player has used their one-time nuclear option as judge
 }
 
 export interface DisconnectedPlayer {
@@ -29,6 +30,7 @@ export interface DisconnectedPlayer {
   hasUsedRefresh?: boolean; // Track if player has used their one-time refresh this game
   hasUsedTripleSound?: boolean; // Track if player has used their one-time triple sound ability this game (submitted 3 sounds)
   hasActivatedTripleSound?: boolean; // Track if player has activated triple sound for the current round
+  hasUsedNuclearOption?: boolean; // Track if player has used their one-time nuclear option as judge
 }
 
 export interface ReconnectionVote {
@@ -189,6 +191,11 @@ export interface ServerToClientEvents {
     likedByName: string;
     totalLikes: number;
   }) => void;
+  nuclearOptionTriggered: (data: {
+    judgeId: string;
+    judgeName: string;
+    roomCode: string;
+  }) => void;
 }
 
 // Player data for socket events
@@ -235,4 +242,9 @@ export interface ClientToServerEvents {
     sounds: string[];
   }) => void;
   likeSubmission: (submissionIndex: number) => void;
+  judgeNuclearOption: (data: {
+    roomCode: string;
+    judgeId: string;
+    judgeName: string;
+  }) => void;
 }

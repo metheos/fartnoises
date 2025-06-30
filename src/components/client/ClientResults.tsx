@@ -90,7 +90,7 @@ export default function ClientResults({
     <Card className="text-center">
       
       {/* Winner Announcement */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl p-8 mb-8 shadow-2xl transform transition-all duration-500 hover:scale-105">
+      <div className="relative bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl p-8 mb-8 shadow-2xl transform transition-all duration-500 hover:scale-105">
         {/* Decorative elements */}
         <div className="absolute -top-4 -left-4 w-24 h-24 bg-white opacity-10 rounded-full animate-pulse"></div>
         <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white opacity-10 rounded-full animate-pulse delay-500"></div>

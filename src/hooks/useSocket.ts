@@ -45,6 +45,16 @@ interface UseSocketReturn {
       submissionIndex: number;
     } | null>
   >;
+  nuclearExplosion: {
+    isExploding: boolean;
+    judgeName: string;
+  } | null;
+  setNuclearExplosion: React.Dispatch<
+    React.SetStateAction<{
+      isExploding: boolean;
+      judgeName: string;
+    } | null>
+  >;
   joinError: string;
   setJoinError: React.Dispatch<React.SetStateAction<string>>;
   updateURLWithRoom: (roomCode: string | null) => void;
@@ -67,6 +77,10 @@ export function useSocket({
     winnerName: string;
     winningSubmission: SoundSubmission;
     submissionIndex: number;
+  } | null>(null);
+  const [nuclearExplosion, setNuclearExplosion] = useState<{
+    isExploding: boolean;
+    judgeName: string;
   } | null>(null);
   const [joinError, setJoinError] = useState("");
 
@@ -504,6 +518,23 @@ export function useSocket({
       }
     );
 
+    // Nuclear option handler - triggers explosion animation
+    socketInstance.on(
+      "nuclearOptionTriggered",
+      (data: { judgeId: string; judgeName: string; roomCode: string }) => {
+        console.log(
+          "useSocket: Nuclear option triggered by judge:",
+          data.judgeName
+        );
+
+        // Set explosion state in the main screen
+        setNuclearExplosion({
+          isExploding: true,
+          judgeName: data.judgeName,
+        });
+      }
+    );
+
     return () => {
       socketInstance.disconnect();
     };
@@ -567,6 +598,8 @@ export function useSocket({
     setCurrentRoom,
     roundWinner,
     setRoundWinner,
+    nuclearExplosion,
+    setNuclearExplosion,
     joinError,
     setJoinError,
     updateURLWithRoom,

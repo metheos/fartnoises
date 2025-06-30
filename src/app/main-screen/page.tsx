@@ -6,6 +6,7 @@ import { SoundSubmission } from '@/types/game';
 import ConnectionStatus from '@/components/mainscreen/ConnectionStatus';
 import { WaitingForGameScreen } from '@/components/mainscreen/WaitingForGameScreen';
 import { MainScreenGameDisplay } from '@/components/mainscreen/MainScreenGameDisplay';
+import ExplosionOverlay from '@/components/mainscreen/ExplosionOverlay';
 import { useSocket } from '@/hooks/useSocket';
 import { useAudio } from '@/hooks/useAudio';
 
@@ -21,6 +22,8 @@ function MainScreenContent() {
     isConnected, 
     currentRoom, 
     roundWinner, 
+    nuclearExplosion,
+    setNuclearExplosion,
     joinError, 
     joinRoom
   } = useSocket({ 
@@ -47,6 +50,12 @@ function MainScreenContent() {
   // Wrapper function to match WaitingForGameScreen's expected interface
   const handleJoinRoom = () => {
     joinRoom(roomCodeInput);
+  };
+
+  // Handle explosion completion
+  const handleExplosionComplete = () => {
+    console.log('Main screen: Explosion animation completed');
+    setNuclearExplosion(null);
   };
 
   if (!isConnected) {
@@ -78,6 +87,13 @@ function MainScreenContent() {
         )}
 
       </div>
+
+      {/* Nuclear Explosion Overlay */}
+      <ExplosionOverlay 
+        isExploding={nuclearExplosion?.isExploding || false}
+        judgeName={nuclearExplosion?.judgeName || ''}
+        onExplosionComplete={handleExplosionComplete}
+      />
     </div>
   );
 }
