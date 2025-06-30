@@ -73,7 +73,7 @@ export default function ExplosionOverlay({
           <div className="text-center text-white">
             <div className="text-8xl font-black mb-4 animate-bounce">⚠️</div>
             <h1 className="text-6xl font-black mb-8 text-yellow-300 animate-pulse">
-              NUCLEAR OPTION ACTIVATED
+              FAIL-UNSAFE OPTION ACTIVATED
             </h1>
             <p className="text-3xl font-bold mb-6">
               Judge {judgeName} couldn't decide!

@@ -350,7 +350,7 @@ export default function ClientJudging({
 
       {/* Nuclear Option - Only for judges who haven't used it yet */}
       {isJudge && !hasUsedNuclearOption && (
-        <div className="mt-8 border-t-2 border-red-300 pt-6">
+        <div className="mt-8 pt-6">
           <div className="bg-gradient-to-br from-red-600 to-red-800 rounded-3xl p-6 text-white relative overflow-hidden">
             {/* Warning stripes background */}
             <div className="absolute inset-0 opacity-20">
@@ -359,17 +359,16 @@ export default function ClientJudging({
             
             <div className="relative z-10 text-center">
               <h3 className="text-xl font-bold mb-2 text-yellow-300">⚠️ EMERGENCY PROTOCOL ⚠️</h3>
-              <p className="text-sm mb-4 opacity-90">Can't decide? Nuclear option available.</p>
+              <p className="text-sm mb-4 opacity-90">Can't decide?</p>
               
               {canteDecideStage === 'locked' && (
                 <div className="space-y-4">
-                  <p className="text-xs opacity-75">This will trigger an explosion and skip to the next round!</p>
                   <Button
                     onClick={handleNuclearStage1}
                     variant="secondary"
                     className="bg-yellow-600 hover:bg-yellow-700 text-black font-bold border-2 border-yellow-400"
                   >
-                    🔒 ARM NUCLEAR OPTION
+                    🔒 ARM LAUNCH SYSTEM
                   </Button>
                 </div>
               )}
@@ -418,17 +417,17 @@ export default function ClientJudging({
       )}
 
       {/* Show explosion confirmation after launch */}
-      {isJudge && hasUsedNuclearOption && (
+      {/* {isJudge && hasUsedNuclearOption && (
         <div className="mt-8 border-t-2 border-red-300 pt-6">
           <div className="bg-gradient-to-br from-gray-800 to-black rounded-3xl p-6 text-white text-center">
             <div className="space-y-4">
               <div className="text-6xl animate-spin">💥</div>
-              <p className="text-red-400 font-bold text-xl">NUCLEAR OPTION USED!</p>
+              <p className="text-red-400 font-bold text-xl">EMERGENCY OPTION USED!</p>
               <p className="text-gray-300">The main screen should be exploding...</p>
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </Card>
   );
 }
