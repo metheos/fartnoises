@@ -109,28 +109,29 @@ function GamePageContent() {
     addDebugLog
   });
 
-  // Load sound effects when room data is available and explicit content setting changes
+  // Load sound effects when room data is available
   useEffect(() => {
     // Only load sounds when we have room data
     if (!room) {
       return;
     }
 
-    const allowExplicitContent = room.allowExplicitContent || false;
+    // Always load all sounds - let server handle filtering during selection
+    const allowExplicitContent = true;
     
     soundEffectsLoader.execute(
       () => getSoundEffects(allowExplicitContent),
       (sounds) => {
         setSoundEffects(sounds);
-        logGameEvent(`Loaded ${sounds.length} sound effects (explicit: ${allowExplicitContent})`);
-        addDebugLog(`🔊 Loaded ${sounds.length} sound effects with explicit content: ${allowExplicitContent}`);
+        logGameEvent(`Loaded ${sounds.length} sound effects (all content loaded, server handles filtering)`);
+        addDebugLog(`🔊 Loaded ${sounds.length} sound effects (all content - server filters during selection)`);
       },
       (error) => {
         console.error('Failed to load sound effects:', error);
         logGameEvent(`Failed to load sound effects: ${error.message}`);
       }
     );
-  }, [room?.allowExplicitContent, soundEffectsLoader.execute, logGameEvent, addDebugLog]);
+  }, [room, soundEffectsLoader.execute, logGameEvent, addDebugLog]);
 
   // Handle redirection in a separate effect to avoid dependency issues
   useEffect(() => {
@@ -250,6 +251,7 @@ function GamePageContent() {
           onActivateTripleSound={gameActions.activateTripleSound}
           timeLeft={timeLeft}
           soundEffects={soundEffects}
+          socket={socket}
         />
       )}        
 

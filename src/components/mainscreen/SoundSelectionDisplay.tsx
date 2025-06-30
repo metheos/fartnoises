@@ -62,7 +62,7 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
               className={`text-center p-4 rounded-2xl transition-all duration-300 ${
               hasSubmitted 
                 ? isFirstSubmitter 
-                ? 'bg-gradient-to-br from-green-200 to-blue-200 border-2 border-green-400 scale-105 animate-bounce' 
+                ? 'bg-gradient-to-br from-green-200 to-blue-200 border-2 border-green-400 scale-105' 
                 : 'bg-green-100 border-2 border-green-300 hover:scale-105'
                 : hasFirstSubmission 
                 ? 'bg-yellow-100 border-2 border-yellow-300 animate-pulse'

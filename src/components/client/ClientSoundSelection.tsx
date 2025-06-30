@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Socket } from 'socket.io-client';
 import { Room, Player, SoundEffect, GameState } from '@/types/game';
+import { GAME_CONFIG } from '@/data/gameData';
 import { audioSystem } from '@/utils/audioSystem';
 import { Card, Button, SoundCard, CircularButton } from '@/components/ui';
 import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
+import GameTimer from '../mainscreen/GameTimer';
 import { useSoundSelection, useAudioPlaybackEnhanced } from '@/hooks';
 
 interface ClientSoundSelectionProps {
@@ -17,6 +20,7 @@ interface ClientSoundSelectionProps {
   onActivateTripleSound: () => void; // New triple sound activation callback
   timeLeft: number;
   soundEffects: SoundEffect[];
+  socket: Socket | null; // Add socket prop
 }
 
 export default function ClientSoundSelection({ 
@@ -28,7 +32,8 @@ export default function ClientSoundSelection({
   onRefreshSounds,
   onActivateTripleSound,
   timeLeft, 
-  soundEffects 
+  soundEffects,
+  socket 
 }: ClientSoundSelectionProps) {
   const isJudge = player.id === room.currentJudge;
   const [showThirdSoundSlap, setShowThirdSoundSlap] = useState(false);
@@ -104,13 +109,6 @@ export default function ClientSoundSelection({
           showPrompt={true}
           size="small"
         />
-            
-      {/* Only show timer after first submission */}
-      {hasFirstSubmission ? (
-        <p className="text-red-500 font-bold mb-4">Time Left: {timeLeft}s</p>
-      ) : (
-        <></>
-      )}
         {hasSubmitted && submission ? (
         <div className="text-center">
           {/* Enhanced submission display */}
@@ -250,6 +248,15 @@ export default function ClientSoundSelection({
               />
             ))}
           </div>
+            
+        {/* Timer Display - Only show after first submission */}
+        {hasFirstSubmission && (
+          <GameTimer 
+            maxTime={GAME_CONFIG.SOUND_SELECTION_TIME}
+            socket={socket}
+            className="mb-4"
+          />
+        )}
 
           {/* Selected sounds display */}
           <div className="bg-gradient-to-br from-purple-300 to-pink-300 rounded-2xl p-3 max-w-2xl mx-auto border border-purple-100 shadow-lg">
