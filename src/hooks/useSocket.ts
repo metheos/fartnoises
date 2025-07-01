@@ -468,7 +468,7 @@ export function useSocket({
           for (let i = 0; i < sounds.length; i++) {
             // Set current playing sound index
             setCurrentPlayingSoundIndex(i);
-            
+
             console.log(
               `🎵 useSocket: Playing sound ${i + 1} of ${sounds.length}: ${
                 sounds[i]

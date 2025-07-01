@@ -29,8 +29,8 @@ export default function ClientJudging({
   const [likedSubmissions, setLikedSubmissions] = useState<Set<number>>(new Set());
   
   // State for the protected "Can't Decide" nuclear option
-  type NuclearStage = 'locked' | 'armed' | 'confirmed' | 'launched';
-  const [canteDecideStage, setCantDecideStage] = useState<NuclearStage>('locked');
+  type NuclearStage = 'hidden' | 'locked' | 'armed' | 'confirmed' | 'launched';
+  const [canteDecideStage, setCantDecideStage] = useState<NuclearStage>('hidden');
   const [countdown, setCountdown] = useState<number>(0);
   
   // Check if player has used nuclear option from room data
@@ -121,6 +121,10 @@ export default function ClientJudging({
   };
 
   // Nuclear option functions
+  const handleShowNuclearOption = () => {
+    setCantDecideStage('locked');
+  };
+
   const handleNuclearStage1 = () => {
     if (canteDecideStage === 'locked') {
       setCantDecideStage('armed');
@@ -135,7 +139,7 @@ export default function ClientJudging({
   };
 
   const handleNuclearAbort = () => {
-    setCantDecideStage('locked');
+    setCantDecideStage('hidden');
     setCountdown(0);
   };
 
@@ -350,69 +354,94 @@ export default function ClientJudging({
 
       {/* Nuclear Option - Only for judges who haven't used it yet */}
       {isJudge && !hasUsedNuclearOption && (
-        <div className="mt-8 pt-6">
-          <div className="bg-gradient-to-br from-red-600 to-red-800 rounded-3xl p-6 text-white relative overflow-hidden">
-            {/* Warning stripes background */}
-            <div className="absolute inset-0 opacity-20">
-              <div className="h-full w-full bg-gradient-to-r from-transparent via-yellow-400 to-transparent transform -skew-x-12 animate-pulse"></div>
+        <div className="mt-6 pt-4">
+          {/* Inconspicuous "Can't Decide?" button */}
+          {canteDecideStage === 'hidden' && (
+            <div className="flex justify-center">
+              <Button
+                onClick={handleShowNuclearOption}
+                variant="secondary"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-600 text-sm px-4 py-2 rounded-full transition-all duration-300 transform hover:scale-105"
+              >
+                🤔 Can&rsquo;t Decide?
+              </Button>
             </div>
-            
-            <div className="relative z-10 text-center">
-              <h3 className="text-xl font-bold mb-2 text-yellow-300">⚠️ EMERGENCY PROTOCOL ⚠️</h3>
-              <p className="text-sm mb-4 opacity-90">Can&rsquo;t decide?</p>
-              
-              {canteDecideStage === 'locked' && (
-                <div className="space-y-4">
-                  <Button
-                    onClick={handleNuclearStage1}
-                    variant="secondary"
-                    className="bg-yellow-600 hover:bg-yellow-700 text-black font-bold border-2 border-yellow-400"
-                  >
-                    🔒 ARM LAUNCH SYSTEM
-                  </Button>
-                </div>
-              )}
+          )}
 
-              {canteDecideStage === 'armed' && (
-                <div className="space-y-4">
-                  <p className="text-yellow-200 font-bold animate-pulse">SYSTEM ARMED - CONFIRM TO PROCEED</p>
-                  <div className="flex gap-3 justify-center">
+          {/* Full nuclear option interface - slides down when revealed */}
+          {canteDecideStage !== 'hidden' && (
+            <div className="bg-gradient-to-br from-red-600 to-red-800 rounded-3xl p-6 text-white relative overflow-hidden animate-in slide-in-from-top-4 fade-in duration-500">
+              {/* Warning stripes background */}
+              <div className="absolute inset-0 opacity-20">
+                <div className="h-full w-full bg-gradient-to-r from-transparent via-yellow-400 to-transparent transform -skew-x-12 animate-pulse"></div>
+              </div>
+              
+              <div className="relative z-10 text-center">
+                <h3 className="text-xl font-bold mb-2 text-yellow-300">⚠️ EMERGENCY PROTOCOL ⚠️</h3>
+                <p className="text-sm mb-4 opacity-90">Can&rsquo;t decide?</p>
+                
+                {canteDecideStage === 'locked' && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <Button
+                      onClick={handleNuclearStage1}
+                      variant="secondary"
+                      className="bg-yellow-600 hover:bg-yellow-700 text-black font-bold border-2 border-yellow-400 transition-all duration-200"
+                    >
+                      🔒 ARM LAUNCH SYSTEM
+                    </Button>
+                    <div className="mt-2">
+                      <Button
+                        onClick={handleNuclearAbort}
+                        variant="secondary"
+                        className="bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {canteDecideStage === 'armed' && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <p className="text-yellow-200 font-bold animate-pulse">SYSTEM ARMED - CONFIRM TO PROCEED</p>
+                    <div className="flex gap-3 justify-center">
+                      <Button
+                        onClick={handleNuclearAbort}
+                        variant="secondary"
+                        className="bg-gray-600 hover:bg-gray-700 text-white transition-all duration-200"
+                      >
+                        🚫 ABORT
+                      </Button>
+                      <Button
+                        onClick={handleNuclearStage2}
+                        variant="secondary"
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold border-2 border-red-400 animate-pulse transition-all duration-200"
+                      >
+                        💥 CONFIRM LAUNCH
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {canteDecideStage === 'confirmed' && (
+                  <div className="space-y-4 animate-in zoom-in duration-300">
+                    <div className="text-4xl font-black text-yellow-300 animate-bounce">
+                      {countdown}
+                    </div>
+                    <p className="text-red-200 font-bold animate-pulse">LAUNCH IMMINENT!</p>
                     <Button
                       onClick={handleNuclearAbort}
                       variant="secondary"
-                      className="bg-gray-600 hover:bg-gray-700 text-white"
+                      className="bg-gray-600 hover:bg-gray-700 text-white transition-all duration-200"
+                      disabled={countdown <= 2}
                     >
-                      🚫 ABORT
-                    </Button>
-                    <Button
-                      onClick={handleNuclearStage2}
-                      variant="secondary"
-                      className="bg-red-600 hover:bg-red-700 text-white font-bold border-2 border-red-400 animate-pulse"
-                    >
-                      💥 CONFIRM LAUNCH
+                      {countdown <= 2 ? '🚫 TOO LATE!' : '🚫 EMERGENCY STOP'}
                     </Button>
                   </div>
-                </div>
-              )}
-
-              {canteDecideStage === 'confirmed' && (
-                <div className="space-y-4">
-                  <div className="text-4xl font-black text-yellow-300 animate-bounce">
-                    {countdown}
-                  </div>
-                  <p className="text-red-200 font-bold animate-pulse">LAUNCH IMMINENT!</p>
-                  <Button
-                    onClick={handleNuclearAbort}
-                    variant="secondary"
-                    className="bg-gray-600 hover:bg-gray-700 text-white"
-                    disabled={countdown <= 2}
-                  >
-                    {countdown <= 2 ? '🚫 TOO LATE!' : '🚫 EMERGENCY STOP'}
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
