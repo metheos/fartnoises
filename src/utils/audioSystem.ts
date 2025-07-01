@@ -1,4 +1,8 @@
 // Audio system for playing sound effects
+
+// Configuration for sound file locations
+const SOUND_BASE_URL = process.env.NEXT_PUBLIC_SOUND_BASE_URL || "/sounds";
+
 export class AudioSystem {
   private static instance: AudioSystem;
   private audioContext: AudioContext | null = null;
@@ -53,7 +57,7 @@ export class AudioSystem {
     try {
       // Earwax audio files are located in /sounds/Earwax/EarwaxAudio/Audio/
       const response = await fetch(
-        `/sounds/Earwax/EarwaxAudio/Audio/${fileName}`
+        `${SOUND_BASE_URL}/Earwax/EarwaxAudio/Audio/${fileName}`
       );
 
       if (!response.ok) {

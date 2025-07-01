@@ -9,5 +9,9 @@
       "source": "/socket.io/(.*)",
       "destination": "/api/socket"
     }
-  ]
+  ],
+  "buildCommand": "node scripts/download-assets.js && npm run build",
+  "env": {
+    "NEXT_PUBLIC_SOUND_BASE_URL": "/sounds"
+  }
 }

@@ -6,6 +6,7 @@ import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getSoundE
 import { getPlayerColorClass } from '@/utils/gameUtils';
 import { useAudioSystem } from '@/utils/audioSystem';
 import { Button } from '@/components/ui';
+import Footer from '@/components/shared/Footer';
 
 export default function Home() {
   const [playerName, setPlayerName] = useState('');
@@ -154,7 +155,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 px-4 py-1">
-      <div className="max-w-md mx-auto pt-8">
+      <div className="max-w-md mx-auto pt-8 flex-grow">
         {/* Logo/Title */}
         <div className="text-center mb-6">
           <h1 className="text-6xl font-black text-white mb-4 drop-shadow-lg">
@@ -424,6 +425,7 @@ export default function Home() {
           )}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { useAudio } from '@/hooks/useAudio';
 import { useBackgroundMusic, BACKGROUND_MUSIC } from '@/hooks/useBackgroundMusic';
 import { useGameplayEffects } from '@/hooks/useGameplayEffects';
+import Footer from '@/components/shared/Footer';
 
 function MainScreenContent() {
   const searchParams = useSearchParams();
@@ -351,6 +352,9 @@ function MainScreenContent() {
           </button>
         </div>
       )} */}
+      
+      {/* Footer */}
+      <Footer className="mt-auto" />
     </div>
   );
 }

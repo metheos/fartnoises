@@ -2,6 +2,9 @@
 import { SoundEffect, GamePrompt } from "@/types/game";
 import { processPromptText } from "@/utils/gameUtils";
 
+// Configuration for sound file locations
+const SOUND_BASE_URL = process.env.NEXT_PUBLIC_SOUND_BASE_URL || "/sounds";
+
 interface EarwaxSound {
   id?: number | string;
   name?: string;
@@ -446,7 +449,7 @@ export async function loadEarwaxSounds(
     // Check if we're in a browser or server environment
     if (typeof window !== "undefined") {
       // Browser environment - use fetch
-      const response = await fetch("/sounds/Earwax/EarwaxAudio.jet");
+      const response = await fetch(`${SOUND_BASE_URL}/Earwax/EarwaxAudio.jet`);
       if (!response.ok) {
         throw new Error(
           `Failed to load EarwaxAudio.jet: ${response.statusText}`
@@ -684,7 +687,9 @@ export async function loadEarwaxPrompts(
     // Check if we're in a browser or server environment
     if (typeof window !== "undefined") {
       // Browser environment - use fetch
-      const response = await fetch("/sounds/Earwax/EarwaxPrompts.jet");
+      const response = await fetch(
+        `${SOUND_BASE_URL}/Earwax/EarwaxPrompts.jet`
+      );
       if (!response.ok) {
         throw new Error(
           `Failed to load EarwaxPrompts.jet: ${response.statusText}`

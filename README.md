@@ -45,7 +45,7 @@ npm run dev
 
 ### Audio Content Setup
 
-**Important**: The Earwax audio files are not included in this repository due to copyright. You'll need to copy them from your Jackbox Party Pack 2 installation.
+**Important**: The Earwax audio files are not included in this repository due to copyright. You'll need to copy them from your Jackbox Party Pack 2 installation if you wish to use them. There are also instructions further down on how to build your own prompt and sound libraries.
 
 1. **Locate your Jackbox Party Pack 2 installation**:
 
@@ -170,8 +170,6 @@ fartnoises/
 ### Customization
 
 - **Game Settings**: Modify `GAME_CONFIG` for rounds, timers, etc.
-- **Colors**: Update `PLAYER_COLORS` for avatar colors
-- **Sounds**: Add new sound effects to the library
 
 ### Adding Custom Sounds and Prompts
 
@@ -183,27 +181,26 @@ Sound effects are defined in `public/sounds/Earwax/EarwaxAudio.jet`:
 
 ```json
 {
-    "episodeid": 1234,
-    "content": [
-        {
-            "x": false,                    // false = safe content, true = explicit
-            "name": "deodorant/spray paint spray",
-            "short": "deodorant/spray paint spray",
-            "id": 22199,                   // Unique identifier
-            "categories": [                // Used for filtering/organization
-                "household"
-            ]
-        },
-        {
-            "x": false,
-            "name": "compressed air release",
-            "short": "compressed air release", 
-            "id": 22222,
-            "categories": [
-                "tools"
-            ]
-        }
-    ]
+  "episodeid": 1234,
+  "content": [
+    {
+      "x": false, // false = safe content, true = explicit
+      "name": "deodorant/spray paint spray",
+      "short": "deodorant/spray paint spray",
+      "id": 22199, // Unique identifier
+      "categories": [
+        // Used for filtering/organization
+        "household"
+      ]
+    },
+    {
+      "x": false,
+      "name": "compressed air release",
+      "short": "compressed air release",
+      "id": 22222,
+      "categories": ["tools"]
+    }
+  ]
 }
 ```
 
@@ -214,14 +211,11 @@ Sound effects are defined in `public/sounds/Earwax/EarwaxAudio.jet`:
 
 ```json
 {
-    "x": false,
-    "name": "my custom sound effect",
-    "short": "custom sound",
-    "id": 99999,                // Use a unique ID (high number to avoid conflicts)
-    "categories": [
-        "custom",
-        "funny"
-    ]
+  "x": false,
+  "name": "my custom sound effect",
+  "short": "custom sound",
+  "id": 99999, // Use a unique ID (high number to avoid conflicts)
+  "categories": ["custom", "funny"]
 }
 ```
 
@@ -231,20 +225,20 @@ Prompts are defined in `public/sounds/Earwax/EarwaxPrompts.jet`:
 
 ```json
 {
-    "content": [
-        {
-            "id": 23594,
-            "x": false,                    // false = safe content, true = explicit
-            "PromptAudio": "414727_1f",    // Optional: audio file name (without .mp3)
-            "name": "purple nurple"        // The prompt text displayed to players
-        },
-        {
-            "id": 23593,
-            "x": false,
-            "PromptAudio": "414725_0f",
-            "name": "I shouldn't have eaten that expired meat."
-        }
-    ]
+  "content": [
+    {
+      "id": 23594,
+      "x": false, // false = safe content, true = explicit
+      "PromptAudio": "414727_1f", // Optional: audio file name (without .mp3)
+      "name": "purple nurple" // The prompt text displayed to players
+    },
+    {
+      "id": 23593,
+      "x": false,
+      "PromptAudio": "414725_0f",
+      "name": "I shouldn't have eaten that expired meat."
+    }
+  ]
 }
 ```
 
@@ -254,10 +248,10 @@ Prompts are defined in `public/sounds/Earwax/EarwaxPrompts.jet`:
 
 ```json
 {
-    "id": 99999,                // Use a unique ID
-    "x": false,
-    "PromptAudio": null,        // Optional: leave null if no audio
-    "name": "your funny custom prompt here"
+  "id": 99999, // Use a unique ID
+  "x": false,
+  "PromptAudio": null, // Optional: leave null if no audio
+  "name": "your funny custom prompt here"
 }
 ```
 

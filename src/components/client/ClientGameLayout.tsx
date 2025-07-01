@@ -4,6 +4,7 @@ import { ReactNode, useState, useEffect } from 'react';
 import { Room, Player } from '@/types/game';
 import ClientGameHeader from './ClientGameHeader';
 import { Card, LoadingSpinner, Button, Modal } from '@/components/ui';
+import Footer from '@/components/shared/Footer';
 
 interface ClientGameLayoutProps {
   room: Room | null;
@@ -132,7 +133,7 @@ export default function ClientGameLayout({
   // Main game layout
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 px-4 py-2">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto flex-grow">
         {/* Header */}
         <ClientGameHeader room={room} player={player} />
         
@@ -222,6 +223,9 @@ export default function ClientGameLayout({
           <LoadingSpinner size="xl" message="Attempting to reconnect to the game..." />
         </Modal>
       </div>
+      
+      {/* Footer */}
+      <Footer className="mt-auto" />
     </div>
   );
 }
