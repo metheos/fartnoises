@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface ExplosionOverlayProps {
   isExploding: boolean;
@@ -15,6 +15,37 @@ export default function ExplosionOverlay({
 }: ExplosionOverlayProps) {
   const [stage, setStage] = useState<'hidden' | 'warning' | 'exploding' | 'falling' | 'complete'>('hidden');
   const [warningCount, setWarningCount] = useState(3);
+  const [isClient, setIsClient] = useState(false);
+
+  // Generate stable random values only on the client side to avoid hydration mismatch
+  const explosionParticles = useMemo(() => {
+    if (!isClient) return [];
+    return Array.from({ length: 50 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      delay: Math.random() * 2,
+      duration: 0.5 + Math.random() * 1
+    }));
+  }, [isClient]);
+
+  const fallingFragments = useMemo(() => {
+    if (!isClient) return [];
+    return Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      width: 50 + Math.random() * 100,
+      height: 50 + Math.random() * 100,
+      left: Math.random() * 100,
+      duration: 1 + Math.random() * 2,
+      delay: Math.random() * 1,
+      rotation: Math.random() * 360
+    }));
+  }, [isClient]);
+
+  // Set client flag after hydration
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (!isExploding) {
@@ -107,15 +138,15 @@ export default function ExplosionOverlay({
           <div className="absolute inset-0 bg-gradient-to-b from-yellow-300 via-orange-500 to-red-700 animate-pulse" />
           
           {/* Explosion particles */}
-          {[...Array(50)].map((_, i) => (
+          {explosionParticles.map((particle) => (
             <div
-              key={i}
+              key={particle.id}
               className="absolute w-4 h-4 bg-yellow-300 rounded-full animate-ping"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 2}s`,
-                animationDuration: `${0.5 + Math.random() * 1}s`
+                left: `${particle.left}%`,
+                top: `${particle.top}%`,
+                animationDelay: `${particle.delay}s`,
+                animationDuration: `${particle.duration}s`
               }}
             />
           ))}
@@ -134,18 +165,18 @@ export default function ExplosionOverlay({
       {stage === 'falling' && (
         <div className="absolute inset-0 bg-black overflow-hidden">
           {/* Screen fragments falling */}
-          {[...Array(20)].map((_, i) => (
+          {fallingFragments.map((fragment) => (
             <div
-              key={i}
+              key={fragment.id}
               className="absolute bg-white opacity-80 rounded-lg shadow-2xl"
               style={{
-                width: `${50 + Math.random() * 100}px`,
-                height: `${50 + Math.random() * 100}px`,
-                left: `${Math.random() * 100}%`,
+                width: `${fragment.width}px`,
+                height: `${fragment.height}px`,
+                left: `${fragment.left}%`,
                 top: '-100px',
-                animation: `fall ${1 + Math.random() * 2}s ease-in forwards`,
-                animationDelay: `${Math.random() * 1}s`,
-                transform: `rotate(${Math.random() * 360}deg)`
+                animation: `fall ${fragment.duration}s ease-in forwards`,
+                animationDelay: `${fragment.delay}s`,
+                transform: `rotate(${fragment.rotation}deg)`
               }}
             />
           ))}

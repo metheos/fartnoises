@@ -15,11 +15,19 @@ export default function Home() {
   const [mode, setMode] = useState<'create' | 'join' | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isPlayingSound, setIsPlayingSound] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const router = useRouter();
   const { audioSystem } = useAudioSystem();
 
-  // Load player data from localStorage on component mount
+  // Set client flag after hydration to prevent SSR/client mismatch
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Load player data from localStorage on component mount (client-side only)
+  useEffect(() => {
+    if (!isClient) return;
+    
     const savedPlayerData = localStorage.getItem('playerCustomization');
     if (savedPlayerData) {
       try {
@@ -42,19 +50,19 @@ export default function Home() {
       setPlayerEmoji(getRandomEmoji());
       setIsEditingProfile(true);
     }
-  }, []);
+  }, [isClient]);
 
-  // Save player data to localStorage whenever it changes
+  // Save player data to localStorage whenever it changes (client-side only)
   useEffect(() => {
-    if (playerColor && playerEmoji) {
-      const playerData = {
-        name: playerName,
-        color: playerColor,
-        emoji: playerEmoji
-      };
-      localStorage.setItem('playerCustomization', JSON.stringify(playerData));
-    }
-  }, [playerName, playerColor, playerEmoji]);
+    if (!isClient || !playerColor || !playerEmoji) return;
+    
+    const playerData = {
+      name: playerName,
+      color: playerColor,
+      emoji: playerEmoji
+    };
+    localStorage.setItem('playerCustomization', JSON.stringify(playerData));
+  }, [isClient, playerName, playerColor, playerEmoji]);
 
   // Clear any game persistence data when the home page loads
   // This ensures a fresh start when users return to the home screen

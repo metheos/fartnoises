@@ -68,110 +68,151 @@ export function WaveformAnimation({
 
     // Process frequency data to create visual bars
     const newFrequencyData: number[] = [];
-    const totalBins = rawFrequencyData.length; // 128 bins from FFT size 256
+    const totalBins = rawFrequencyData.length; // 256 bins from FFT size 512
     
     // Map to human hearing range: 20Hz to 20kHz
     // With standard sample rate of 44.1kHz, Nyquist frequency is 22.05kHz
-    // Each bin represents: sampleRate / (fftSize) = 44100 / 256 = ~172.3 Hz per bin
+    // Each bin represents: sampleRate / (fftSize) = 44100 / 512 = ~86.1 Hz per bin
     const sampleRate = 44100; // Standard audio sample rate
     const nyquistFreq = sampleRate / 2; // 22.05kHz
-    const freqPerBin = nyquistFreq / totalBins; // ~172.3 Hz per bin
+    const freqPerBin = nyquistFreq / totalBins; // ~86.1 Hz per bin
     
-    // Cover musical spectrum with better distribution
-    const minFreq = 150; // Start lower since we're cramming all bass into bar 1
-    const maxFreq = 15000; // Extend highs a bit for sweep testing
+    // Cover musical spectrum with heavy emphasis on vocal range
+    const minFreq = 60; // Start lower to capture more bass
+    const maxFreq = 18000; // Extended range for better high-frequency coverage
     
-    // Use logarithmic distribution optimized for musical content
+    // Vocal range optimization: 85% of bars for vocal frequencies (85Hz - 8kHz)
+    const vocalMinFreq = 85;   // Start of vocal range
+    const vocalMaxFreq = 8000; // End of vocal range
+    
+    // Fixed distribution: 2 bass + 20 vocal + 2 treble = 24 total
+    // This gives us 20/24 = 83.3% for vocal (close to 85%)
+    const bassBarCount = 2;     // Fixed 2 bars for bass (60-85Hz)
+    const vocalBarCount = 20;   // Fixed 20 bars for vocal (85-8000Hz) = 83.3%
+    const trebleBarCount = 2;   // Fixed 2 bars for treble (8000-18000Hz)
+    
+    // Use logarithmic distribution optimized for vocal content
     for (let i = 0; i < barCount; i++) {
-      // Use a more aggressive curve that compresses lows and highs
+      let startFreq: number;
+      let endFreq: number;
       
-      // Create a custom curve that:
-      // - First bar gets ALL the bass (150Hz-500Hz)
-      // - Bars 2-21 get massively expanded mid-range (500Hz-8kHz) 
-      // - Last 3 bars get super-compressed highs (8kHz-15kHz)
-      let curvedPosition;
-      if (i === 0) {
-        // First bar: all bass frequencies
-        curvedPosition = 0; // Start at minFreq
-      } else if (i === 1) {
-        // Second bar starts at ~500Hz (beginning of mids)
-        curvedPosition = Math.log(500 / minFreq) / Math.log(maxFreq / minFreq);
-      } else if (i <= 21) {
-        // Bars 2-21: Massively expanded mid-range (500Hz to 8kHz)
-        const midStart = Math.log(500 / minFreq) / Math.log(maxFreq / minFreq);
-        const midEnd = Math.log(8000 / minFreq) / Math.log(maxFreq / minFreq);
-        const midProgress = (i - 1) / 20; // Progress through 20 bars (bars 2-21)
-        curvedPosition = midStart + midProgress * (midEnd - midStart);
-      } else {
-        // Last 3 bars: Super-compressed highs (8kHz to 15kHz)
-        const highStart = Math.log(8000 / minFreq) / Math.log(maxFreq / minFreq);
-        const highProgress = (i - 22) / 2; // Progress through last 3 bars (22, 23, 24)
-        curvedPosition = highStart + Math.pow(highProgress, 0.5) * (1 - highStart);
-      }
-      
-      const startFreq = minFreq * Math.pow(maxFreq / minFreq, curvedPosition);
-      
-      // Calculate end frequency for this bar
-      let endFreq;
-      if (i === 0) {
-        // First bar covers all bass up to 500Hz
-        endFreq = 500;
-      } else if (i === barCount - 1) {
-        // Last bar goes to maxFreq
-        endFreq = maxFreq;
-      } else {
-        // Calculate next bar's start frequency
-        let nextCurvedPosition;
-        if (i + 1 === 1) {
-          nextCurvedPosition = Math.log(500 / minFreq) / Math.log(maxFreq / minFreq);
-        } else if (i + 1 <= 21) {
-          const midStart = Math.log(500 / minFreq) / Math.log(maxFreq / minFreq);
-          const midEnd = Math.log(8000 / minFreq) / Math.log(maxFreq / minFreq);
-          const midProgress = ((i + 1) - 1) / 20; // Progress through 20 bars
-          nextCurvedPosition = midStart + midProgress * (midEnd - midStart);
+      if (i < bassBarCount) {
+        // Bass range: 60Hz - 85Hz (first 2 bars)
+        const bassProgress = i / bassBarCount;
+        const bassLogProgress = Math.pow(bassProgress, 0.7);
+        startFreq = minFreq * Math.pow(vocalMinFreq / minFreq, bassLogProgress);
+        
+        if (i === bassBarCount - 1) {
+          endFreq = vocalMinFreq;
         } else {
-          const highStart = Math.log(8000 / minFreq) / Math.log(maxFreq / minFreq);
-          const highProgress = ((i + 1) - 22) / 2; // Progress through last 3 bars
-          nextCurvedPosition = highStart + Math.pow(highProgress, 0.5) * (1 - highStart);
+          const nextBassProgress = (i + 1) / bassBarCount;
+          const nextBassLogProgress = Math.pow(nextBassProgress, 0.7);
+          endFreq = minFreq * Math.pow(vocalMinFreq / minFreq, nextBassLogProgress);
         }
-        endFreq = minFreq * Math.pow(maxFreq / minFreq, nextCurvedPosition);
+      } else if (i < bassBarCount + vocalBarCount) {
+        // Vocal range: 85Hz - 8kHz (20 bars = 83.3% of total)
+        const vocalIndex = i - bassBarCount;
+        const vocalProgress = vocalIndex / (vocalBarCount - 1);
+        
+        // Use a gentler logarithmic curve for vocal range to give more resolution
+        const vocalLogProgress = Math.pow(vocalProgress, 0.4); // Very gentle curve for detailed vocal analysis
+        startFreq = vocalMinFreq * Math.pow(vocalMaxFreq / vocalMinFreq, vocalLogProgress);
+        
+        if (i === bassBarCount + vocalBarCount - 1) {
+          endFreq = vocalMaxFreq;
+        } else {
+          const nextVocalProgress = (vocalIndex + 1) / (vocalBarCount - 1);
+          const nextVocalLogProgress = Math.pow(nextVocalProgress, 0.4);
+          endFreq = vocalMinFreq * Math.pow(vocalMaxFreq / vocalMinFreq, nextVocalLogProgress);
+        }
+      } else {
+        // Treble range: 8kHz - 18kHz (last 2 bars)
+        const trebleIndex = i - bassBarCount - vocalBarCount;
+        const trebleProgress = trebleIndex / Math.max(1, trebleBarCount - 1);
+        const trebleLogProgress = Math.pow(trebleProgress, 0.6);
+        startFreq = vocalMaxFreq * Math.pow(maxFreq / vocalMaxFreq, trebleLogProgress);
+        
+        if (i === barCount - 1) {
+          endFreq = maxFreq;
+        } else {
+          const nextTrebleProgress = (trebleIndex + 1) / Math.max(1, trebleBarCount - 1);
+          const nextTrebleLogProgress = Math.pow(nextTrebleProgress, 0.6);
+          endFreq = vocalMaxFreq * Math.pow(maxFreq / vocalMaxFreq, nextTrebleLogProgress);
+        }
       }
       
       const startBin = Math.max(0, Math.floor(startFreq / freqPerBin));
-      const endBin = Math.min(totalBins, Math.floor(endFreq / freqPerBin));
+      const endBin = Math.min(totalBins - 1, Math.floor(endFreq / freqPerBin));
       
       // Ensure we have at least one bin per bar
-      const actualEndBin = Math.max(startBin + 1, endBin);
+      const actualEndBin = Math.max(startBin + 1, endBin + 1);
       
-      // Use peak detection for more dramatic visualization
+      // Use weighted average with peak detection for better cross-browser consistency
       let peakValue = 0;
-      let averageValue = 0;
+      let weightedSum = 0;
+      let totalWeight = 0;
       const binCount = Math.max(1, actualEndBin - startBin);
       
-      for (let j = startBin; j < actualEndBin; j++) {
+      for (let j = startBin; j < actualEndBin && j < totalBins; j++) {
         const normalizedValue = rawFrequencyData[j] / 255;
+        
+        // Weight bins by their position in the frequency range for this bar
+        const binWeight = 1.0; // Equal weighting for now
+        
         peakValue = Math.max(peakValue, normalizedValue);
-        averageValue += normalizedValue;
+        weightedSum += normalizedValue * binWeight;
+        totalWeight += binWeight;
       }
-      averageValue /= binCount;
       
-      // Combine peak and average for better responsiveness
+      const averageValue = totalWeight > 0 ? weightedSum / totalWeight : 0;
+      
+      // Combine peak and average for better responsiveness across browsers
       let intensity = (peakValue * 0.7) + (averageValue * 0.3);
       
-      // No frequency boosting - use raw intensity for natural response
+      // Apply frequency-specific boosting optimized for vocal range
+      if (i < bassBarCount) {
+        // Bass range: minimal boost since it's naturally prominent
+        intensity *= 1.0;
+      } else if (i < bassBarCount + vocalBarCount) {
+        // Vocal range: the star of the show - slight boost for clarity
+        const vocalPosition = (i - bassBarCount) / vocalBarCount;
+        if (vocalPosition < 0.3) {
+          // Lower vocal range (consonants, male voices): boost
+          intensity *= 1.2;
+        } else if (vocalPosition < 0.7) {
+          // Mid vocal range (vowels, female voices): strong boost
+          intensity *= 1.4;
+        } else {
+          // Upper vocal range (harmonics, sibilants): moderate boost
+          intensity *= 1.1;
+        }
+      } else {
+        // Treble range: boost significantly to compensate for natural rolloff
+        intensity *= 1.8;
+      }
       
-      // Apply a gentle power curve to make lower values visible
-      intensity = Math.pow(intensity, 0.6);
+      // Apply a power curve to make lower values more visible, but preserve high-frequency dynamics
+      intensity = Math.pow(Math.min(1, intensity), 0.6);
       
-      newFrequencyData.push(Math.min(1, intensity));
+      newFrequencyData.push(intensity);
     }
     
-    // Apply light smoothing to prevent jitter while preserving dynamics
+    // Apply adaptive smoothing for better cross-browser performance
     setFrequencyData(prev => {
-      const smoothingFactor = 0.3; // Reduced smoothing for more variation
+      // Use lighter smoothing for Chrome compatibility
+      const smoothingFactor = 0.15; // Reduced smoothing for more dynamic response
       return newFrequencyData.map((val, index) => {
         const prevVal = prev[index] || 0;
-        return prevVal * smoothingFactor + val * (1 - smoothingFactor);
+        const smoothedValue = prevVal * smoothingFactor + val * (1 - smoothingFactor);
+        
+        // Apply additional Chrome-specific adjustments
+        const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
+        if (isChrome && val > 0.1) {
+          // Boost responsiveness in Chrome for active frequencies
+          return Math.min(1, smoothedValue * 1.1);
+        }
+        
+        return smoothedValue;
       });
     });
 

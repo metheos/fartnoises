@@ -297,8 +297,8 @@ export class AudioSystem {
     try {
       // Create analyser node for frequency analysis
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 256; // Gives us 128 frequency bins
-      this.analyser.smoothingTimeConstant = 0.8;
+      this.analyser.fftSize = 512; // Gives us 256 frequency bins (increased resolution)
+      this.analyser.smoothingTimeConstant = 0.3; // Reduced smoothing for more responsive visualization
 
       // Create gain node for volume control
       this.gainNode = this.audioContext.createGain();
