@@ -282,6 +282,54 @@ export function makeBotJudgingDecision(
         judgeName: judge.name,
         roomCode: room.code,
       });
+
+      // Add the same timeout logic as the human nuclear option handler
+      // After explosion animation (5 seconds), proceed to next round
+      setTimeout(async () => {
+        if (room.gameState === GameState.JUDGING) {
+          console.log(
+            `[BOT NUCLEAR] Proceeding to next round after bot nuclear explosion`
+          );
+
+          // Move to next round without selecting a winner
+          room.currentRound += 1;
+
+          // Check if game should end
+          const isEndOfRounds = room.currentRound > room.maxRounds;
+
+          if (isEndOfRounds) {
+            // Game over - determine winner by current scores
+            const maxScore = Math.max(...room.players.map((p) => p.score));
+            const gameWinners = room.players.filter(
+              (p) => p.score === maxScore
+            );
+
+            if (gameWinners.length === 1) {
+              room.gameState = GameState.GAME_OVER;
+              room.winner = gameWinners[0].id;
+              context.io
+                .to(room.code)
+                .emit("gameComplete", gameWinners[0].id, gameWinners[0].name);
+            } else {
+              // Tie - continue with tie-breaker
+              context.io.to(room.code).emit("tieBreakerRound", {
+                tiedPlayers: gameWinners.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                })),
+              });
+              // Continue to next round for tie-breaker
+            }
+          } else {
+            // Start next round - import the function
+            const { startNextRound } = await import("../handlers/gameHandlers");
+            await startNextRound(context, room.code);
+          }
+
+          context.io.to(room.code).emit("roomUpdated", room);
+        }
+      }, 5000); // 5 seconds for explosion animation
+
       return;
     }
 

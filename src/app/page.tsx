@@ -154,9 +154,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 px-4 py-1">
-      <div className="max-w-md mx-auto pt-16">
+      <div className="max-w-md mx-auto pt-8">
         {/* Logo/Title */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-6">
           <h1 className="text-6xl font-black text-white mb-4 drop-shadow-lg">
             fartnoises
           </h1>

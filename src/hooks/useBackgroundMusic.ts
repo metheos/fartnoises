@@ -134,7 +134,8 @@ export function useBackgroundMusic(): BackgroundMusicHook {
       audioContextActivated.current &&
       currentFolder &&
       !isPlaying &&
-      !currentTrack
+      !currentTrack &&
+      !isFading // Don't interrupt fading operations
     ) {
       console.log(
         "Background music: Audio is now ready, resuming music for folder:",
@@ -142,8 +143,11 @@ export function useBackgroundMusic(): BackgroundMusicHook {
       );
       // Use a small delay to prevent immediate conflicts with other music requests
       const timeoutId = setTimeout(() => {
-        changeMusic(currentFolder);
-      }, 100);
+        // Double-check that we're still in the same state before resuming
+        if (currentFolderRef.current === currentFolder && !isPlayingRef.current) {
+          changeMusic(currentFolder);
+        }
+      }, 200); // Increased delay to 200ms
       return () => clearTimeout(timeoutId);
     }
   }, [isAudioReady]);

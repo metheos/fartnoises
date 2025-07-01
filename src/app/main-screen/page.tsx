@@ -82,6 +82,11 @@ function MainScreenContent() {
 
   // Handle background music changes based on game state
   useEffect(() => {
+    // Don't change music if audio isn't ready yet to prevent duplicate playback
+    if (!isMusicAudioReady) {
+      return;
+    }
+
     let targetMusic: string | null = null;
 
     if (!currentRoom) {
@@ -121,7 +126,6 @@ function MainScreenContent() {
     }
 
     console.log('🎵 Main screen: Game state changed to', currentRoom?.gameState, ', setting music to:', targetMusic);
-    console.log('🎵 Main screen: Music audio ready?', isMusicAudioReady, 'Current track:', currentMusicTrack, 'Playing:', isMusicPlaying);
 
     // Debounce music changes to prevent rapid switching
     const timeoutId = setTimeout(() => {
@@ -129,7 +133,7 @@ function MainScreenContent() {
     }, 150);
     
     return () => clearTimeout(timeoutId);
-  }, [currentRoom?.gameState, currentRoom?.code, isMusicAudioReady, currentMusicTrack, isMusicPlaying]);
+  }, [currentRoom?.gameState, currentRoom?.code, isMusicAudioReady, changeMusic]);
   
   // Debug logging for background music state changes
   useEffect(() => {
@@ -143,20 +147,35 @@ function MainScreenContent() {
 
   // Enhanced wrapper function to handle both audio systems
   const handleJoinRoom = async () => {
-    // Activate both audio systems on user interaction
-    await Promise.all([
-      activateAudio(),
-      activateBackgroundAudio()
-    ]);
-    joinRoom(roomCodeInput);
+    console.log('🎵 Main screen: Joining room - activating audio systems...');
+    
+    try {
+      // Activate both audio systems sequentially to prevent race conditions
+      await activateAudio();
+      await activateBackgroundAudio();
+      
+      console.log('🎵 Main screen: Audio systems activated, joining room');
+      joinRoom(roomCodeInput);
+    } catch (error) {
+      console.error('🎵 Main screen: Error activating audio before joining room:', error);
+      // Still try to join room even if audio activation fails
+      joinRoom(roomCodeInput);
+    }
   };
 
   // Combined audio activation function
   const handleActivateAudio = async () => {
-    await Promise.all([
-      activateAudio(),
-      activateBackgroundAudio()
-    ]);
+    console.log('🎵 Main screen: Activating audio systems...');
+    
+    try {
+      // Activate both audio systems sequentially to prevent race conditions
+      await activateAudio();
+      await activateBackgroundAudio();
+      
+      console.log('🎵 Main screen: Both audio systems activated successfully');
+    } catch (error) {
+      console.error('🎵 Main screen: Error activating audio:', error);
+    }
   };
 
   // Handle explosion completion
@@ -299,7 +318,7 @@ function MainScreenContent() {
         onExplosionComplete={handleExplosionComplete}
       />
 
-      {/* Debug: Force music activation button (for debugging) */}
+      {/* Debug: Force music activation button (for debugging)
       {process.env.NODE_ENV === 'development' && (
         <div className="fixed top-20 right-2 bg-black bg-opacity-75 text-white p-3 rounded text-xs z-50 space-y-2">
           <div><strong>Background Music Debug</strong></div>
@@ -330,7 +349,7 @@ function MainScreenContent() {
             Test Volume Change
           </button>
         </div>
-      )}
+      )} */}
     </div>
   );
 }
