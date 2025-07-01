@@ -60,6 +60,7 @@ interface UseSocketReturn {
   >;
   joinError: string;
   setJoinError: React.Dispatch<React.SetStateAction<string>>;
+  currentPlayingSoundIndex: number;
   updateURLWithRoom: (roomCode: string | null) => void;
   joinRoom: (roomCode: string) => void;
   leaveRoom: () => void;
@@ -87,6 +88,7 @@ export function useSocket({
     judgeName: string;
   } | null>(null);
   const [joinError, setJoinError] = useState("");
+  const [currentPlayingSoundIndex, setCurrentPlayingSoundIndex] = useState(-1);
 
   // Helper function to update URL with room code
   const updateURLWithRoom = (roomCode: string | null) => {
@@ -464,6 +466,9 @@ export function useSocket({
           );
 
           for (let i = 0; i < sounds.length; i++) {
+            // Set current playing sound index
+            setCurrentPlayingSoundIndex(i);
+            
             console.log(
               `🎵 useSocket: Playing sound ${i + 1} of ${sounds.length}: ${
                 sounds[i]
@@ -521,6 +526,8 @@ export function useSocket({
             error
           );
         } finally {
+          // Reset sound index when playback ends
+          setCurrentPlayingSoundIndex(-1);
           setCurrentPlayingSubmission(null);
         }
       }
@@ -632,6 +639,7 @@ export function useSocket({
     setNuclearExplosion,
     joinError,
     setJoinError,
+    currentPlayingSoundIndex,
     updateURLWithRoom,
     joinRoom,
     leaveRoom,

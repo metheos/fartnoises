@@ -8,12 +8,14 @@ interface JudgingDisplayProps {
   room: Room;
   soundEffects: SoundEffect[];
   currentPlayingSubmission: SoundSubmission | null;
+  currentPlayingSoundIndex: number;
 }
 
 export function JudgingDisplay({ 
   room, 
   soundEffects, 
-  currentPlayingSubmission 
+  currentPlayingSubmission,
+  currentPlayingSoundIndex
 }: JudgingDisplayProps) {
   const judge = room.players.find(p => p.id === room.currentJudge);
   
@@ -54,6 +56,7 @@ export function JudgingDisplay({
               index={index}
               soundEffects={soundEffects}
               isCurrentlyPlaying={isCurrentlyPlaying}
+              currentPlayingSoundIndex={isCurrentlyPlaying ? currentPlayingSoundIndex : -1}
               showSoundNames={true}
               playingMode="judging"
             />

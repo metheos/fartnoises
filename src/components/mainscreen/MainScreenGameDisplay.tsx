@@ -37,6 +37,7 @@ interface MainScreenGameDisplayProps {
   isAudioReady: boolean;
   onActivateAudio: () => Promise<void>;
   currentPlayingSubmission: SoundSubmission | null;
+  currentPlayingSoundIndex: number;
   socket: Socket | null;
   gameplayEffects?: GameplayEffects;
   backgroundMusic: {
@@ -58,6 +59,7 @@ export function MainScreenGameDisplay({
   isAudioReady,
   onActivateAudio,
   currentPlayingSubmission,
+  currentPlayingSoundIndex,
   socket,
   gameplayEffects,
   backgroundMusic
@@ -103,7 +105,12 @@ export function MainScreenGameDisplay({
       )}
 
       {room.gameState === GameState.JUDGING && (
-        <JudgingDisplay room={room} soundEffects={soundEffects} currentPlayingSubmission={currentPlayingSubmission} />
+        <JudgingDisplay 
+          room={room} 
+          soundEffects={soundEffects} 
+          currentPlayingSubmission={currentPlayingSubmission} 
+          currentPlayingSoundIndex={currentPlayingSoundIndex}
+        />
       )}
       
       {room.gameState === GameState.ROUND_RESULTS && (

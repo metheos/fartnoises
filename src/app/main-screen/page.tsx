@@ -55,7 +55,8 @@ function MainScreenContent() {
     nuclearExplosion,
     setNuclearExplosion,
     joinError, 
-    joinRoom
+    joinRoom,
+    currentPlayingSoundIndex
   } = useSocket({ 
     soundEffects, 
     isAudioReady, 
@@ -276,6 +277,7 @@ function MainScreenContent() {
             isAudioReady={isAudioReady}
             onActivateAudio={activateAudio}
             currentPlayingSubmission={currentPlayingSubmission}
+            currentPlayingSoundIndex={currentPlayingSoundIndex}
             socket={socket}
             gameplayEffects={{
               playEffect,

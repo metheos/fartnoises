@@ -10,7 +10,7 @@ export default function JudgeSelectionDisplay({ room }: JudgeSelectionDisplayPro
   const judge = room.players.find(p => p.id === room.currentJudge);
   
   return (
-    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl ">     
+    <div className="bg-white rounded-3xl p-12 text-center shadow-2xl min-h-[75vh]">     
       {/* Judge Display*/} 
       {judge ? (
         <JudgePromptDisplay 

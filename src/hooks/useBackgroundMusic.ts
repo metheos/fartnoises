@@ -144,7 +144,10 @@ export function useBackgroundMusic(): BackgroundMusicHook {
       // Use a small delay to prevent immediate conflicts with other music requests
       const timeoutId = setTimeout(() => {
         // Double-check that we're still in the same state before resuming
-        if (currentFolderRef.current === currentFolder && !isPlayingRef.current) {
+        if (
+          currentFolderRef.current === currentFolder &&
+          !isPlayingRef.current
+        ) {
           changeMusic(currentFolder);
         }
       }, 200); // Increased delay to 200ms

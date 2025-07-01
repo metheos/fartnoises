@@ -90,7 +90,7 @@ export function SubmissionCard({
             ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
             : isWinner
               ? 'bg-gradient-to-br from-yellow-200 to-yellow-300 py-4'
-              : 'bg-gradient-to-br from-gray-200 to-gray-300'
+              : 'bg-gradient-to-br from-slate-100 via-blue-100 to-purple-100 border-2 border-slate-300 shadow-lg hover:shadow-xl hover:border-purple-300 hover:from-purple-100 hover:to-blue-100'
         }`}
         style={{
           transition: 'all 0.5s ease-in-out, height 0.8s ease-in-out, min-height 0.8s ease-in-out'
@@ -165,10 +165,16 @@ export function SubmissionCard({
               </span>
             </div>
           ) : (
-            <div className={`flex items-center space-x-1 rounded-full px-3 py-1 bg-gray-100 text-gray-400`}>
+            <div className={`flex items-center space-x-1 rounded-full px-3 py-1 ${
+              isCurrentlyPlaying 
+              ? 'bg-gradient-to-r from-white/30 to-white/10 backdrop-blur-sm border border-white/20 shadow-lg' 
+              : isWinner 
+                ? 'bg-gradient-to-r from-amber-200 via-yellow-200 to-amber-200 text-amber-700 shadow-md'
+                : 'bg-gradient-to-r from-slate-200 via-gray-100 to-slate-200 text-gray-500 shadow-sm hover:from-purple-200 hover:via-pink-100 hover:to-purple-200 hover:text-purple-600 transition-all duration-300'
+            }`}>
               <span className="text-lg">💔</span>
               <span className="font-bold text-lg">
-                0
+              0
               </span>
             </div>
           )}
@@ -180,6 +186,11 @@ export function SubmissionCard({
             const isCurrentSound = isCurrentlyPlaying && currentPlayingSoundIndex === soundIndex;
             const hasBeenRevealed = revealedSounds.has(soundId);
             const isThirdSound = soundIndex === 2 && isTripleSound;
+            
+            // Debug logging for sound playback
+            if (isCurrentlyPlaying) {
+              console.log(`[SUBMISSION CARD] Sound ${soundIndex}: currentPlayingSoundIndex=${currentPlayingSoundIndex}, isCurrentSound=${isCurrentSound}, soundId=${soundId}`);
+            }
             
             // Hide third sound slot until it's revealed or currently playing
             if (isThirdSound && !hasBeenRevealed && !isCurrentSound && playingMode === 'playback') {
@@ -207,7 +218,9 @@ export function SubmissionCard({
                 style={{
                   animation: isThirdSound && isCurrentSound 
                     ? 'dazzle 1.5s ease-out, sparkle 2s ease-in-out infinite, rainbow-border 3s linear infinite' 
-                    : undefined,
+                    : isCurrentSound && !isThirdSound
+                      ? undefined //'pulse 1s ease-in-out infinite'
+                      : undefined,
                   transition: isThirdSound ? 'all 0.8s ease-in-out, opacity 0.6s ease-in-out, transform 0.8s ease-in-out' : undefined
                 }}
               >
