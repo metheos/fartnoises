@@ -297,8 +297,31 @@ export class AudioSystem {
     try {
       // Create analyser node for frequency analysis
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 512; // Gives us 256 frequency bins (increased resolution)
-      this.analyser.smoothingTimeConstant = 0.3; // Reduced smoothing for more responsive visualization
+
+      // Detect browser for performance optimization
+      const isChrome =
+        /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
+
+      // Configure for optimal frequency analysis with browser-specific settings
+      if (isChrome) {
+        // Chrome-optimized settings for better performance
+        this.analyser.fftSize = 512; // Lower FFT for Chrome performance (256 bins)
+        this.analyser.smoothingTimeConstant = 0.2; // Slightly more smoothing to reduce jitter
+      } else {
+        // Firefox/other browsers can handle higher resolution
+        this.analyser.fftSize = 1024; // Higher resolution for other browsers (512 bins)
+        this.analyser.smoothingTimeConstant = 0.1; // Less smoothing for responsiveness
+      }
+
+      this.analyser.minDecibels = -90; // Lower noise floor for better sensitivity
+      this.analyser.maxDecibels = -10; // Higher ceiling for dynamic range
+
+      // Log actual audio context sample rate and browser-specific settings
+      console.log(
+        `🔊 Audio Context Sample Rate: ${this.audioContext.sampleRate}Hz (${
+          isChrome ? "Chrome" : "Other"
+        } optimized)`
+      );
 
       // Create gain node for volume control
       this.gainNode = this.audioContext.createGain();
@@ -313,10 +336,17 @@ export class AudioSystem {
       this.frequencyData = new Uint8Array(bufferLength);
       this.timeData = new Uint8Array(bufferLength);
 
-      console.log("✅ Audio analysis nodes set up successfully");
+      console.log(
+        `✅ Audio analysis nodes set up successfully - FFT: ${this.analyser.fftSize}, Bins: ${bufferLength}, Sample Rate: ${this.audioContext.sampleRate}Hz`
+      );
     } catch (error) {
       console.error("❌ Failed to set up audio analysis:", error);
     }
+  }
+
+  // Get the actual sample rate from the audio context
+  getSampleRate(): number {
+    return this.audioContext?.sampleRate || 44100;
   }
 
   // Get real-time frequency data for visualization

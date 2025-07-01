@@ -68,21 +68,21 @@ export function processPromptText(
 ): string {
   let processedText = text;
 
-  console.log("processPromptText called with:", { text, playerNames });
+  // console.log("processPromptText called with:", { text, playerNames });
 
   // Replace <ANY> tags with random player names
   if (playerNames.length > 0) {
     processedText = processedText.replace(/<ANY>/g, () => {
       const randomIndex = Math.floor(Math.random() * playerNames.length);
       const selectedName = playerNames[randomIndex];
-      console.log("Replacing <ANY> with:", selectedName);
+      // console.log("Replacing <ANY> with:", selectedName);
       return selectedName;
     });
   } else {
-    console.log("No player names provided, <ANY> tags will remain unchanged");
+    // console.log("No player names provided, <ANY> tags will remain unchanged");
   }
 
-  console.log("processPromptText result:", processedText);
+  // console.log("processPromptText result:", processedText);
 
   // Keep <i></i> tags as HTML for React rendering
   return processedText;

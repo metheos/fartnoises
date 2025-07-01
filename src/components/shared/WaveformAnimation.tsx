@@ -47,12 +47,12 @@ export function WaveformAnimation({
 
   const config = sizeConfig[size];
 
-  // Real-time frequency analysis
+  // Real-time frequency analysis with Chrome performance optimization
   const updateFrequencyData = () => {
     if (!isPlaying || !audioSystem.isAnalysisReady() || !audioSystem.getAnalysisActive()) {
       // Gradually fade out the bars when not playing, but keep minimum stub height
       setFrequencyData(prev => prev.map(val => {
-        const fadedValue = Math.max(0, val * 0.85);
+        const fadedValue = Math.max(0, val * 0.55);
         // Ensure we always have at least a small stub visible
         return Math.max(0.1, fadedValue);
       }));
@@ -66,56 +66,65 @@ export function WaveformAnimation({
       return;
     }
 
+    // Detect Chrome for performance optimization
+    const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
+    
     // Process frequency data to create visual bars
     const newFrequencyData: number[] = [];
-    const totalBins = rawFrequencyData.length; // 256 bins from FFT size 512
+    const totalBins = rawFrequencyData.length; // 256 bins (Chrome) or 512 bins (others)
     
-    // Map to human hearing range: 20Hz to 20kHz
-    // With standard sample rate of 44.1kHz, Nyquist frequency is 22.05kHz
-    // Each bin represents: sampleRate / (fftSize) = 44100 / 512 = ~86.1 Hz per bin
-    const sampleRate = 44100; // Standard audio sample rate
-    const nyquistFreq = sampleRate / 2; // 22.05kHz
-    const freqPerBin = nyquistFreq / totalBins; // ~86.1 Hz per bin
+    // Get the actual sample rate from the audio system
+    const sampleRate = audioSystem.getSampleRate(); // Get real sample rate instead of assuming
+    const nyquistFreq = sampleRate / 2; // Usually 22.05kHz for 44.1kHz sample rate
+    const freqPerBin = nyquistFreq / totalBins; // Actual Hz per bin based on real sample rate
+    
+    // console.log(`🎵 Audio Analysis: ${totalBins} bins, ${sampleRate}Hz sample rate, ${freqPerBin.toFixed(1)}Hz per bin`);
     
     // Cover musical spectrum with heavy emphasis on vocal range
-    const minFreq = 60; // Start lower to capture more bass
-    const maxFreq = 18000; // Extended range for better high-frequency coverage
+    const minFreq = 20; // Start lower to capture more bass
+    const maxFreq = 10000; // Extended range for better high-frequency coverage
     
     // Vocal range optimization: 85% of bars for vocal frequencies (85Hz - 8kHz)
-    const vocalMinFreq = 85;   // Start of vocal range
-    const vocalMaxFreq = 8000; // End of vocal range
+    const vocalMinFreq = 100;   // Start of vocal range
+    const vocalMaxFreq = 3000; // End of vocal range
     
     // Fixed distribution: 2 bass + 20 vocal + 2 treble = 24 total
     // This gives us 20/24 = 83.3% for vocal (close to 85%)
-    const bassBarCount = 2;     // Fixed 2 bars for bass (60-85Hz)
-    const vocalBarCount = 20;   // Fixed 20 bars for vocal (85-8000Hz) = 83.3%
-    const trebleBarCount = 2;   // Fixed 2 bars for treble (8000-18000Hz)
-    
+    const bassBarCount = 0;     // Fixed 0 bars for bass (100-85Hz)
+    const vocalBarCount = 24;   // Fixed 24 bars for vocal (85-5000Hz) = 100%
+    const trebleBarCount = 0;   // Fixed 0 bars for treble (5000-10000Hz)
+
+    // Debug logging to verify distribution
+    // console.log(`🎵 Frequency distribution: Bass(${bassBarCount} bars, 100-${vocalMinFreq}Hz) + Vocal(${vocalBarCount} bars, ${vocalMinFreq}-${vocalMaxFreq}Hz) + Treble(${trebleBarCount} bars, ${vocalMaxFreq}-${maxFreq}Hz)`);
+
     // Use logarithmic distribution optimized for vocal content
     for (let i = 0; i < barCount; i++) {
       let startFreq: number;
       let endFreq: number;
+      let barType: string;
       
       if (i < bassBarCount) {
-        // Bass range: 60Hz - 85Hz (first 2 bars)
+        // Bass range: 60Hz - 85Hz (first ~2 bars)
+        barType = "BASS";
         const bassProgress = i / bassBarCount;
-        const bassLogProgress = Math.pow(bassProgress, 0.7);
+        const bassLogProgress = Math.pow(bassProgress, 0.001);
         startFreq = minFreq * Math.pow(vocalMinFreq / minFreq, bassLogProgress);
         
         if (i === bassBarCount - 1) {
           endFreq = vocalMinFreq;
         } else {
           const nextBassProgress = (i + 1) / bassBarCount;
-          const nextBassLogProgress = Math.pow(nextBassProgress, 0.7);
+          const nextBassLogProgress = Math.pow(nextBassProgress, 0.001);
           endFreq = minFreq * Math.pow(vocalMinFreq / minFreq, nextBassLogProgress);
         }
       } else if (i < bassBarCount + vocalBarCount) {
-        // Vocal range: 85Hz - 8kHz (20 bars = 83.3% of total)
+        // Vocal range: 85Hz - 8kHz (next ~20 bars)
+        barType = "VOCAL";
         const vocalIndex = i - bassBarCount;
         const vocalProgress = vocalIndex / (vocalBarCount - 1);
         
         // Use a gentler logarithmic curve for vocal range to give more resolution
-        const vocalLogProgress = Math.pow(vocalProgress, 0.4); // Very gentle curve for detailed vocal analysis
+        const vocalLogProgress = Math.pow(vocalProgress, 0.3); // Very gentle curve for detailed vocal analysis
         startFreq = vocalMinFreq * Math.pow(vocalMaxFreq / vocalMinFreq, vocalLogProgress);
         
         if (i === bassBarCount + vocalBarCount - 1) {
@@ -126,10 +135,11 @@ export function WaveformAnimation({
           endFreq = vocalMinFreq * Math.pow(vocalMaxFreq / vocalMinFreq, nextVocalLogProgress);
         }
       } else {
-        // Treble range: 8kHz - 18kHz (last 2 bars)
+        // Treble range: 8kHz - 18kHz (last ~2 bars)
+        barType = "TREBLE";
         const trebleIndex = i - bassBarCount - vocalBarCount;
         const trebleProgress = trebleIndex / Math.max(1, trebleBarCount - 1);
-        const trebleLogProgress = Math.pow(trebleProgress, 0.6);
+        const trebleLogProgress = Math.pow(trebleProgress, 0.4);
         startFreq = vocalMaxFreq * Math.pow(maxFreq / vocalMaxFreq, trebleLogProgress);
         
         if (i === barCount - 1) {
@@ -139,6 +149,11 @@ export function WaveformAnimation({
           const nextTrebleLogProgress = Math.pow(nextTrebleProgress, 0.6);
           endFreq = vocalMaxFreq * Math.pow(maxFreq / vocalMaxFreq, nextTrebleLogProgress);
         }
+      }
+      
+      // Log frequency ranges for debugging
+      if (i < 5 || i >= barCount - 3) {
+        // console.log(`Bar ${i}: ${barType} ${Math.round(startFreq)}Hz - ${Math.round(endFreq)}Hz`);
       }
       
       const startBin = Math.max(0, Math.floor(startFreq / freqPerBin));
@@ -197,26 +212,30 @@ export function WaveformAnimation({
       newFrequencyData.push(intensity);
     }
     
-    // Apply adaptive smoothing for better cross-browser performance
+    // Apply adaptive smoothing optimized for browser performance
     setFrequencyData(prev => {
-      // Use lighter smoothing for Chrome compatibility
-      const smoothingFactor = 0.15; // Reduced smoothing for more dynamic response
+      // Chrome-specific smoothing optimization
+      const smoothingFactor = isChrome ? 0.25 : 0.15; // More smoothing for Chrome stability
+      
       return newFrequencyData.map((val, index) => {
         const prevVal = prev[index] || 0;
-        const smoothedValue = prevVal * smoothingFactor + val * (1 - smoothingFactor);
+        let smoothedValue = prevVal * smoothingFactor + val * (1 - smoothingFactor);
         
-        // Apply additional Chrome-specific adjustments
-        const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
+        // Chrome-specific performance boost
         if (isChrome && val > 0.1) {
-          // Boost responsiveness in Chrome for active frequencies
-          return Math.min(1, smoothedValue * 1.1);
+          // Boost responsiveness in Chrome for active frequencies, but cap to prevent jitter
+          smoothedValue = Math.min(1, smoothedValue * 1.05); // Reduced boost to prevent stuttering
         }
         
         return smoothedValue;
       });
     });
 
-    animationRef.current = requestAnimationFrame(updateFrequencyData);
+    // Chrome performance: Use longer intervals between updates
+    const nextUpdateDelay = isChrome ? 32 : 16; // ~30fps for Chrome, ~60fps for others
+    setTimeout(() => {
+      animationRef.current = requestAnimationFrame(updateFrequencyData);
+    }, nextUpdateDelay);
   };
 
   // Start/stop animation loop
