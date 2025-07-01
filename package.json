@@ -2,6 +2,20 @@
   "name": "fartnoises",
   "version": "0.1.0",
   "private": true,
+  "license": "CC-BY-NC-SA-4.0",
+  "description": "A hilarious sound-based party game for 3-8 players",
+  "keywords": [
+    "party-game",
+    "multiplayer",
+    "sound-game",
+    "jackbox-inspired"
+  ],
+  "author": "Your Name",
+  "homepage": "https://github.com/metheos/fartnoises",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/metheos/fartnoises.git"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
