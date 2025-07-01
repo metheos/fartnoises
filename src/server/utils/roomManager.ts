@@ -127,7 +127,7 @@ export function removeMainScreen(
   // Clean up if no main screens left
   if (roomMainScreens.size === 0) {
     context.mainScreens.delete(roomCode);
-    
+
     // Check if we should destroy the room (if only bots remain or room is empty)
     const room = context.rooms.get(roomCode);
     if (room) {

@@ -11,7 +11,11 @@ import {
 import { getRandomSounds } from "@/utils/soundLoader";
 import { GAME_CONFIG } from "@/data/gameData";
 import { clearTimer } from "./timerManager";
-import { generatePlayerSoundSets, startDelayedSoundSelectionTimer, handleAllSubmissionsComplete } from "./gameLogic";
+import {
+  generatePlayerSoundSets,
+  startDelayedSoundSelectionTimer,
+  handleAllSubmissionsComplete,
+} from "./gameLogic";
 
 // List of bot names that sound fun and quirky
 const BOT_NAMES = [
@@ -127,14 +131,20 @@ export async function makeBotSoundSubmissions(
     (p) => p.isBot && p.id !== room.currentJudge
   );
 
-  console.log(`[BOT] makeBotSoundSubmissions called for room ${room.code}, found ${botPlayers.length} non-judge bots`);
-  
+  console.log(
+    `[BOT] makeBotSoundSubmissions called for room ${room.code}, found ${botPlayers.length} non-judge bots`
+  );
+
   if (botPlayers.length === 0) {
     console.log(`[BOT] No non-judge bot players found in room ${room.code}`);
     return;
   }
 
-  console.log(`[BOT] Making sound submissions for ${botPlayers.length} bots: ${botPlayers.map(b => b.name).join(', ')}`);
+  console.log(
+    `[BOT] Making sound submissions for ${botPlayers.length} bots: ${botPlayers
+      .map((b) => b.name)
+      .join(", ")}`
+  );
 
   for (const bot of botPlayers) {
     await makeBotSoundSubmission(context, room, bot);
@@ -406,16 +416,20 @@ export async function makeBotPromptSelection(
   room: Room
 ): Promise<void> {
   const judge = room.players.find((p) => p.id === room.currentJudge);
-  
-  console.log(`[BOT] makeBotPromptSelection called for room ${room.code}, current judge: ${room.currentJudge}`);
-  
+
+  console.log(
+    `[BOT] makeBotPromptSelection called for room ${room.code}, current judge: ${room.currentJudge}`
+  );
+
   if (!judge) {
     console.log(`[BOT] No judge found with ID ${room.currentJudge}`);
     return;
   }
-  
+
   if (!judge.isBot) {
-    console.log(`[BOT] Judge ${judge.name} (${judge.id}) is not a bot, skipping bot prompt selection`);
+    console.log(
+      `[BOT] Judge ${judge.name} (${judge.id}) is not a bot, skipping bot prompt selection`
+    );
     return;
   }
 
@@ -428,25 +442,33 @@ export async function makeBotPromptSelection(
 
   // Add delay to make the bot feel more natural
   const delay = Math.random() * 3000 + 1000; // 1-4 seconds
-  
+
   console.log(`[BOT] Judge bot ${judge.name} will respond in ${delay}ms`);
 
   setTimeout(async () => {
-    console.log(`[BOT] Judge bot ${judge.name} timeout fired, checking game state...`);
-    
+    console.log(
+      `[BOT] Judge bot ${judge.name} timeout fired, checking game state...`
+    );
+
     // Double-check that we're still in the right state and this bot is still the judge
     if (room.gameState !== GameState.PROMPT_SELECTION) {
-      console.log(`[BOT] Game state changed to ${room.gameState}, aborting bot prompt selection`);
+      console.log(
+        `[BOT] Game state changed to ${room.gameState}, aborting bot prompt selection`
+      );
       return;
     }
-    
+
     if (room.currentJudge !== judge.id) {
-      console.log(`[BOT] Judge changed from ${judge.id} to ${room.currentJudge}, aborting bot prompt selection`);
+      console.log(
+        `[BOT] Judge changed from ${judge.id} to ${room.currentJudge}, aborting bot prompt selection`
+      );
       return;
     }
-    
+
     if (!room.availablePrompts || room.availablePrompts.length === 0) {
-      console.log(`[BOT] No available prompts when timeout fired, aborting bot prompt selection`);
+      console.log(
+        `[BOT] No available prompts when timeout fired, aborting bot prompt selection`
+      );
       return;
     }
     // Pick a random prompt
@@ -521,8 +543,9 @@ export function checkAndHandleBotOnlyRoom(
     }
 
     // During GAME_OVER, use a shorter timeout since the game is finished
-    const timeout = room.gameState === GameState.GAME_OVER ? 10000 : BOT_ONLY_ROOM_TIMEOUT; // 10 seconds vs 60 seconds
-    
+    const timeout =
+      room.gameState === GameState.GAME_OVER ? 10000 : BOT_ONLY_ROOM_TIMEOUT; // 10 seconds vs 60 seconds
+
     if (room.gameState === GameState.GAME_OVER) {
       console.log(
         `[BOT-TIMER] Room ${room.code} is in GAME_OVER state - using accelerated cleanup (10 seconds)`
@@ -551,7 +574,9 @@ function startBotOnlyRoomDestructionTimer(
   clearBotOnlyRoomDestructionTimer(context, roomCode);
 
   console.log(
-    `[BOT-TIMER] 🔥 Starting ${timeoutMs / 1000}-second destruction timer for room ${roomCode}`
+    `[BOT-TIMER] 🔥 Starting ${
+      timeoutMs / 1000
+    }-second destruction timer for room ${roomCode}`
   );
 
   const timer = setTimeout(() => {
@@ -578,11 +603,15 @@ function startBotOnlyRoomDestructionTimer(
     if (humanPlayers.length === 0) {
       if (room.players.length === 0) {
         console.log(
-          `[BOT-TIMER] 💥 DESTROYING empty room ${roomCode} after ${timeoutMs / 1000} seconds (0 players)`
+          `[BOT-TIMER] 💥 DESTROYING empty room ${roomCode} after ${
+            timeoutMs / 1000
+          } seconds (0 players)`
         );
       } else {
         console.log(
-          `[BOT-TIMER] 💥 DESTROYING room ${roomCode} after ${timeoutMs / 1000} seconds with only bots (${room.players.length} bots)`
+          `[BOT-TIMER] 💥 DESTROYING room ${roomCode} after ${
+            timeoutMs / 1000
+          } seconds with only bots (${room.players.length} bots)`
         );
       }
 
