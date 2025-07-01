@@ -22,33 +22,40 @@ export default function GameOverDisplay({ room }: GameOverDisplayProps) {
         
         {/* LEFT SIDE: Winner Spotlight */}
         <div className="flex-1">
-          <div className="relative bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl p-6 shadow-2xl transform hover:scale-105 transition-all duration-500">
-            {/* Crown above winner */}
-            <div className="text-6xl mb-3 animate-bounce text-center">👑</div>
+          <div className="relative bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 rounded-3xl p-6 shadow-2xl transform hover:scale-105 transition-all duration-500 overflow-hidden">
+            {/* Subtle shimmer effect */}
+            <div className="absolute inset-0 w-[200%] h-[200%] bg-gradient-to-r from-transparent via-white/35 to-transparent animate-shimmer"></div>
             
-            <h4 className="text-3xl font-black text-yellow-900 mb-4 drop-shadow-lg text-center">
+            {/* 3D depth shadow */}
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-yellow-200/50 to-amber-600/50 transform translate-x-2 translate-y-2 -z-10"></div>
+            
+            <h4 className="text-3xl font-black text-white mb-6 drop-shadow-lg text-center relative z-10">
               CHAMPION!
             </h4>
             
-            {/* Winner Avatar - Large */}
-            <div 
-              className={`w-24 h-24 rounded-full mx-auto mb-4 ${getPlayerColorClass(winner.color)} flex items-center justify-center text-6xl shadow-2xl ring-6 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300`}
-            >
-              {winner.emoji || winner.name[0].toUpperCase()}
+            {/* Winner Avatar with Crown - Large */}
+            <div className="relative w-24 h-24 mx-auto mb-4">
+              <div 
+                className={`w-24 h-24 rounded-full ${getPlayerColorClass(winner.color)} flex items-center justify-center text-6xl shadow-2xl ring-6 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300 relative z-10 animate-wiggle`}
+              >
+                {winner.emoji || winner.name[0].toUpperCase()}
+              </div>
+              {/* Crown overlay on top-left */}
+              <div className="absolute -top-2 -left-2 text-4xl animate-bounce drop-shadow-2xl transform hover:scale-110 transition-transform duration-300 z-20">👑</div>
             </div>
             
-            <p className="text-3xl font-black text-yellow-900 mb-3 drop-shadow-lg text-center">
+            <p className="text-3xl font-black text-white mb-3 drop-shadow-lg text-center relative z-10">
               {winner.name}
             </p>
             
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <span className="text-4xl font-black text-yellow-900 drop-shadow-lg">
+            <div className="flex items-center justify-center space-x-3 mb-4 relative z-10">
+              <span className="text-4xl font-black text-white drop-shadow-lg animate-bounce">
                 {winner.score}
               </span>
-              <span className="text-lg font-bold text-yellow-800">Points</span>
+              <span className="text-lg font-bold text-yellow-100">Points</span>
             </div>
             
-            <p className="text-lg font-bold text-yellow-800 italic text-center">
+            <p className="text-lg font-bold text-yellow-100 italic text-center relative z-10">
               {(() => {
               const funnyTitles = [
                 "Master of the Fartnoises!",
@@ -83,33 +90,40 @@ export default function GameOverDisplay({ room }: GameOverDisplayProps) {
         {/* MIDDLE: Crowd Favorite (only if there are likes) */}
         {hasLikes && (
           <div className="flex-1">
-            <div className="relative bg-gradient-to-br from-pink-300 via-pink-400 to-rose-500 rounded-3xl p-6 shadow-2xl transform hover:scale-105 transition-all duration-500">
-              {/* Heart above like winner */}
-              <div className="text-5xl mb-3 animate-bounce text-center">❤️</div>
+            <div className="relative bg-gradient-to-br from-pink-300 via-pink-400 to-rose-500 rounded-3xl p-6 shadow-2xl transform hover:scale-105 transition-all duration-500 overflow-hidden">
+              {/* Subtle shimmer effect */}
+              <div className="absolute inset-0 w-[200%] h-[200%] bg-gradient-to-r from-transparent via-white/35 to-transparent animate-shimmer"></div>
               
-              <h4 className="text-2xl font-black text-rose-900 mb-4 drop-shadow-lg text-center">
+              {/* 3D depth shadow */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-pink-200/50 to-rose-600/50 transform translate-x-2 translate-y-2 -z-10"></div>
+              
+              <h4 className="text-2xl font-black text-white mb-6 drop-shadow-lg text-center relative z-10">
                 CROWD FAVORITE!
               </h4>
               
-              {/* Like Winner Avatar */}
-              <div 
-                className={`w-20 h-20 rounded-full mx-auto mb-4 ${getPlayerColorClass(likeWinner.color)} flex items-center justify-center text-5xl shadow-2xl ring-6 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300`}
-              >
-                {likeWinner.emoji || likeWinner.name[0].toUpperCase()}
+              {/* Like Winner Avatar with Heart */}
+              <div className="relative w-20 h-20 mx-auto mb-4">
+                <div 
+                  className={`w-20 h-20 rounded-full ${getPlayerColorClass(likeWinner.color)} flex items-center justify-center text-5xl shadow-2xl ring-6 ring-white ring-opacity-50 transform hover:rotate-12 transition-transform duration-300 relative z-10 animate-wiggle`}
+                >
+                  {likeWinner.emoji || likeWinner.name[0].toUpperCase()}
+                </div>
+                {/* Heart overlay on top-left */}
+                <div className="absolute -top-1 -left-1 text-3xl animate-bounce drop-shadow-2xl transform hover:scale-110 transition-transform duration-300 z-20">❤️</div>
               </div>
               
-              <p className="text-2xl font-black text-rose-900 mb-3 drop-shadow-lg text-center">
+              <p className="text-2xl font-black text-white mb-3 drop-shadow-lg text-center relative z-10">
                 {likeWinner.name}
               </p>
               
-              <div className="flex items-center justify-center space-x-3 mb-4">
-                <span className="text-3xl font-black text-rose-900 drop-shadow-lg">
+              <div className="flex items-center justify-center space-x-3 mb-4 relative z-10">
+                <span className="text-3xl font-black text-white drop-shadow-lg animate-bounce">
                   {likeWinner.likeScore || 0}
                 </span>
-                <span className="text-sm font-bold text-rose-800">Likes</span>
+                <span className="text-sm font-bold text-pink-100">Likes</span>
               </div>
               
-              <p className="text-sm font-bold text-rose-800 italic text-center">
+              <p className="text-sm font-bold text-pink-100 italic text-center relative z-10">
                 &quot;Most Loved by the Audience!&quot;
               </p>
             </div>
