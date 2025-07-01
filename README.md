@@ -2,6 +2,12 @@
 
 A hilarious sound-based party game for 3-8 players! Players take turns as judge, selecting weird prompts while others create funny sound combinations to match them.
 
+## Support This Project ☕
+
+If you enjoy playing Fartnoises and want to support continued development, consider buying me a coffee! Your support helps keep the project active and enables new features.
+
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-Support%20development-orange?style=for-the-badge&logo=buy-me-a-coffee)](https://buymeacoffee.com/metheos)
+
 ## Game Overview
 
 **Fartnoises** is a quirky multiplayer party game that combines:
@@ -9,6 +15,46 @@ A hilarious sound-based party game for 3-8 players! Players take turns as judge,
 - **Main Screen Interface** - Displayed on TV/shared display for all players to see
 - **Player Device Controllers** - Phone/tablet/computer interfaces for individual interactions
 - **Real-time Multiplayer** - Synchronized gameplay using Socket.IO
+
+### What Makes Fartnoises Different from Earwax?
+
+While inspired by Jackbox Games' Earwax, **Fartnoises** is a completely reimagined experience with significant enhancements:
+
+#### 🤖 **Smart Bot Support**
+
+- **Intelligent AI players** automatically join when you have fewer than 3 human players
+- Bots provide realistic competition and keep the game fun even with small groups
+- Seamless integration - bots behave like real players and maintain game flow
+
+#### 🎯 **Dynamic Content System**
+
+- **Fresh prompts every round** - no rolling prompt pool within a game session
+- Larger prompt pool ensures variety and replayability
+
+#### 🌐 **Modern Web-Based Architecture**
+
+- **No thick client required** - runs entirely in web browsers
+- Cross-platform compatibility (phones, tablets, computers)
+- Instant access without downloads or installations
+- Real-time synchronization using modern WebSocket technology
+
+#### ⚡ **Game-Changing Power-ups**
+
+- **Strategic gameplay elements** that add depth beyond basic sound matching
+- Power-ups affect scoring, reveal information, or modify gameplay mechanics
+- Adds tactical decision-making to the hilarious chaos
+
+#### 🎲 **Advanced Randomization**
+
+- **Submission order randomization** ensures fair judging
+- Prevents bias based on playback order
+- Enhanced unpredictability keeps every round exciting
+
+#### 🎨 **Rich Player Customization**
+
+- **Personalized avatars** with color themes and visual styles
+- **Custom player names** and persistent identity across sessions
+- Enhanced social experience with memorable player representation
 
 ### How to Play
 
@@ -27,7 +73,7 @@ A hilarious sound-based party game for 3-8 players! Players take turns as judge,
 
 - Node.js 18+ installed
 - Modern web browser
-- Multiple devices for multiplayer testing
+- Multiple devices for multiplayer
 
 ### Installation
 
