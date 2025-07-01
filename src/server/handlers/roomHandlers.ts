@@ -114,13 +114,24 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
 
       // Manage bots when a new human player joins
       const humanPlayers = room.players.filter((p) => !p.isBot);
+      const botPlayers = room.players.filter((p) => p.isBot);
+      
+      console.log(`[BOT-JOIN] Room ${roomCode}: ${humanPlayers.length} humans, ${botPlayers.length} bots before bot management`);
 
       if (humanPlayers.length >= 3) {
         // Remove all bots if we now have 3+ human players
+        console.log(`[BOT-JOIN] Removing all bots (${humanPlayers.length} humans >= 3)`);
         removeAllBots(context, room);
       } else {
-        // Add bots if we have fewer than 3 human players
+        // Add bots if we have fewer than 3 human players (need minimum 3 total for gameplay)
+        console.log(`[BOT-JOIN] Managing bots for ${humanPlayers.length} humans`);
+        // First remove existing bots to recalculate properly
+        removeAllBots(context, room);
         addBotsIfNeeded(context, room);
+        
+        const finalHumans = room.players.filter((p) => !p.isBot);
+        const finalBots = room.players.filter((p) => p.isBot);
+        console.log(`[BOT-JOIN] Room ${roomCode}: ${finalHumans.length} humans, ${finalBots.length} bots after bot management`);
       }
 
       // Check if room no longer only has bots and clear destruction timer if needed
@@ -242,7 +253,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
                   removeAllBots(context, room);
                 }
                 // If we have 1-2 humans, ensure we have enough bots to reach 3 total
-                else if (humanPlayers.length > 0) {
+                else if (humanPlayers.length >= 1) {
                   // First remove all existing bots, then add the right number
                   removeAllBots(context, room);
                   addBotsIfNeeded(context, room);

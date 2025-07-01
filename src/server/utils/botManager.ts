@@ -83,9 +83,9 @@ export async function addBotsIfNeeded(
   const humanPlayers = room.players.filter((p) => !p.isBot);
   const totalPlayers = room.players.length;
 
-  // Only add bots if we have 1 human player and need to reach minimum of 3
-  if (humanPlayers.length >= 2 || humanPlayers.length === 0) {
-    return; // Don't add bots if we have 2+ humans or no humans
+  // Only add bots if we have 1-2 human players and need to reach minimum of 3
+  if (humanPlayers.length >= 3 || humanPlayers.length === 0) {
+    return; // Don't add bots if we have 3+ humans or no humans
   }
 
   const botsNeeded = Math.max(0, 3 - totalPlayers);
