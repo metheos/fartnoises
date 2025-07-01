@@ -435,7 +435,7 @@ export function makeBotJudgingDecision(
               );
               console.log(
                 "Generated prompts:",
-                prompts.map((p: any) => ({ id: p.id, text: p.text }))
+                prompts.map((p: { id: string; text: string }) => ({ id: p.id, text: p.text }))
               );
               room.availablePrompts = prompts;
 

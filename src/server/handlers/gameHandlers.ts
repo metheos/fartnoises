@@ -10,7 +10,6 @@ import { generatePlayerSoundSets } from "../utils/gameLogic";
 import {
   addBotsIfNeeded,
   makeBotSoundSubmissions,
-  makeBotJudgingDecision,
   makeBotPromptSelection,
 } from "../utils/botManager";
 

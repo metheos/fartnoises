@@ -101,11 +101,9 @@ export function WaveformAnimation({
     for (let i = 0; i < barCount; i++) {
       let startFreq: number;
       let endFreq: number;
-      let barType: string;
       
       if (i < bassBarCount) {
         // Bass range: 60Hz - 85Hz (first ~2 bars)
-        barType = "BASS";
         const bassProgress = i / bassBarCount;
         const bassLogProgress = Math.pow(bassProgress, 0.001);
         startFreq = minFreq * Math.pow(vocalMinFreq / minFreq, bassLogProgress);
@@ -119,7 +117,6 @@ export function WaveformAnimation({
         }
       } else if (i < bassBarCount + vocalBarCount) {
         // Vocal range: 85Hz - 8kHz (next ~20 bars)
-        barType = "VOCAL";
         const vocalIndex = i - bassBarCount;
         const vocalProgress = vocalIndex / (vocalBarCount - 1);
         
@@ -136,7 +133,6 @@ export function WaveformAnimation({
         }
       } else {
         // Treble range: 8kHz - 18kHz (last ~2 bars)
-        barType = "TREBLE";
         const trebleIndex = i - bassBarCount - vocalBarCount;
         const trebleProgress = trebleIndex / Math.max(1, trebleBarCount - 1);
         const trebleLogProgress = Math.pow(trebleProgress, 0.4);
@@ -166,7 +162,6 @@ export function WaveformAnimation({
       let peakValue = 0;
       let weightedSum = 0;
       let totalWeight = 0;
-      const binCount = Math.max(1, actualEndBin - startBin);
       
       for (let j = startBin; j < actualEndBin && j < totalBins; j++) {
         const normalizedValue = rawFrequencyData[j] / 255;

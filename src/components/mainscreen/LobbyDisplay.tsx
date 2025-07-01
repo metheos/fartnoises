@@ -72,7 +72,7 @@ export default function LobbyDisplay({ room }: LobbyDisplayProps) {
                 <h4 className="font-bold text-purple-800">Refresh Sounds</h4>
               </div>
               <p className="text-purple-700">
-                Don't like your sound options? Get a completely new set of sounds!
+                Don&apos;t like your sound options? Get a completely new set of sounds!
               </p>
             </div>
 
@@ -94,7 +94,7 @@ export default function LobbyDisplay({ room }: LobbyDisplayProps) {
                 <h4 className="font-bold text-purple-800">Nuclear Option</h4>
               </div>
               <p className="text-purple-700">
-                <strong>Judges only!</strong> Blow everyone's minds with a dramatic explosion effect!
+                <strong>Judges only!</strong> Blow everyone&apos;s minds with a dramatic explosion effect!
               </p>
             </div>
           </div>
@@ -161,7 +161,7 @@ export default function LobbyDisplay({ room }: LobbyDisplayProps) {
               className="flex transition-transform duration-500 ease-in-out"
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
             >
-              {slides.map((slide, index) => (
+              {slides.map((slide) => (
                 <div key={slide.id} className="w-full flex-shrink-0 p-1">
                   {slide.content}
                 </div>

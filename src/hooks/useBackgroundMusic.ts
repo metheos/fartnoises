@@ -264,7 +264,7 @@ export function useBackgroundMusic(): BackgroundMusicHook {
     try {
       // Create a dummy audio context to activate it
       const audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }

@@ -34,7 +34,6 @@ function MainScreenContent() {
   
   // Gameplay sound effects hook
   const {
-    effects: availableEffects,
     isLoading: effectsLoading,
     playEffect,
     playJudgeReveal,
