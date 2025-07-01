@@ -132,14 +132,23 @@ export default function ClientGameLayout({
 
   // Main game layout
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 px-4 py-2">
-      <div className="max-w-4xl mx-auto flex-grow">
-        {/* Header */}
-        <ClientGameHeader room={room} player={player} />
-        
-        {/* Main Content */}
-        {children}
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex flex-col">
+      {/* Header - constrained width */}
+      <div className="pt-2">
+        <div className="max-w-4xl mx-auto">
+          <ClientGameHeader room={room} player={player} />
+        </div>
+      </div>
 
+      {/* Main Content - full width, grows to fill space */}
+      <div className="flex-1 max-w-4xl mx-auto w-full">
+        {children}
+      </div>
+
+      {/* Footer - constrained width */}
+      <Footer/>
+
+      <div className="hidden">
         {/* Reconnection Vote Dialog - Custom Positioned Overlay */}
         {reconnectionVote && reconnectionVote.showVoteDialog && onVoteOnReconnection && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] overflow-y-auto">
@@ -223,9 +232,6 @@ export default function ClientGameLayout({
           <LoadingSpinner size="xl" message="Attempting to reconnect to the game..." />
         </Modal>
       </div>
-      
-      {/* Footer */}
-      <Footer className="mt-auto" />
     </div>
   );
 }

@@ -246,8 +246,8 @@ function MainScreenContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-2">
-      <div className="mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-2 flex flex-col">
+      <div className="mx-auto flex-1 w-full px-2">
 
         {/* Audio Activation Banner - show if either audio system isn't ready */}
         {(!isAudioReady || !isMusicAudioReady) && (
@@ -354,7 +354,7 @@ function MainScreenContent() {
       )} */}
       
       {/* Footer */}
-      <Footer className="mt-auto" />
+      <Footer />
     </div>
   );
 }
