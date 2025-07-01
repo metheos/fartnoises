@@ -323,7 +323,7 @@ export function SubmissionCard({
                       ? isThirdSound 
                         ? '🔊' 
                         : isWinner 
-                          ? '🏆' 
+                          ? '🔊' 
                           : '🔊' 
                       : isWinner 
                         ? '🔊' 

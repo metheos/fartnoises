@@ -51,7 +51,7 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="flex gap-4 justify-center flex-wrap">
         {otherPlayers.map((player) => {
           const hasSubmitted = room.submissions.find(s => s.playerId === player.id);
           const isFirstSubmitter = hasSubmitted && submittedCount === 1 && room.submissions[0].playerId === player.id;
@@ -59,7 +59,7 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
           return (
             <div 
               key={player.id} 
-              className={`text-center p-4 rounded-2xl transition-all duration-300 ${
+              className={`text-center p-4 min-w-[200px] rounded-2xl transition-all duration-300 ${
               hasSubmitted 
                 ? isFirstSubmitter 
                 ? 'bg-gradient-to-br from-green-200 to-blue-200 border-2 border-green-400 scale-105' 
