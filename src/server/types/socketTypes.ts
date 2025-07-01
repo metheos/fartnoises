@@ -25,6 +25,7 @@ export interface SocketContext {
   gracePeriodTimers: Map<string, NodeJS.Timeout>; // roomCode -> initial grace period timer
   disconnectionTimers: Map<string, NodeJS.Timeout>; // roomCode -> disconnection timer
   reconnectionVoteTimers: Map<string, NodeJS.Timeout>; // roomCode -> vote timer
+  botOnlyRoomTimers: Map<string, NodeJS.Timeout>; // roomCode -> bot-only room destruction timer
   mainScreens: Map<string, Set<string>>; // roomCode -> Set of main screen socket IDs
   primaryMainScreens: Map<string, string>; // roomCode -> primary main screen socket ID
 }
@@ -33,3 +34,4 @@ export interface SocketContext {
 export const INITIAL_GRACE_PERIOD = 30000; // 30 seconds before pausing game
 export const RECONNECTION_GRACE_PERIOD = 30000; // 30 seconds
 export const RECONNECTION_VOTE_TIMEOUT = 20000; // 20 seconds to vote
+export const BOT_ONLY_ROOM_TIMEOUT = 60000; // 60 seconds before destroying bot-only rooms

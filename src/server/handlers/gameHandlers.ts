@@ -503,6 +503,9 @@ export async function startNextRound(context: SocketContext, roomCode: string) {
           timeLimit: GAME_CONFIG.PROMPT_SELECTION_TIME,
         });
 
+      // If the judge is a bot, make the prompt selection automatically
+      makeBotPromptSelection(context, room);
+
       // Start countdown timer for prompt selection
       startTimer(
         context,
@@ -538,6 +541,9 @@ export async function startNextRound(context: SocketContext, roomCode: string) {
                 promptAudio: firstPrompt.audioFile, // Include audio file for main screen
                 timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
               });
+
+            // Make bot submissions for sound selection
+            await makeBotSoundSubmissions(context, room);
 
             console.log(
               `[TIMER] Transitioned to sound selection (post-audio), waiting for first submission to start timer`

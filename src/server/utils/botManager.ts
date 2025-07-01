@@ -1,16 +1,17 @@
 // Bot management utilities for the fartnoises game server
 import { Room, Player, GameState, SoundSubmission } from "@/types/game";
-import { SocketContext } from "../types/socketTypes";
+import { SocketContext, BOT_ONLY_ROOM_TIMEOUT } from "../types/socketTypes";
 import {
   getRandomColor,
   getRandomEmoji,
   processAndAssignPrompt,
   selectNextJudge,
+  broadcastRoomListUpdate,
 } from "./roomManager";
 import { getRandomSounds } from "@/utils/soundLoader";
 import { GAME_CONFIG } from "@/data/gameData";
 import { clearTimer } from "./timerManager";
-import { generatePlayerSoundSets } from "./gameLogic";
+import { generatePlayerSoundSets, startDelayedSoundSelectionTimer, handleAllSubmissionsComplete } from "./gameLogic";
 
 // List of bot names that sound fun and quirky
 const BOT_NAMES = [
@@ -78,9 +79,9 @@ export async function addBotsIfNeeded(
   const humanPlayers = room.players.filter((p) => !p.isBot);
   const totalPlayers = room.players.length;
 
-  // Only add bots if we have 1-2 human players and need to reach minimum of 3
-  if (humanPlayers.length >= 3 || humanPlayers.length === 0) {
-    return; // Don't add bots if we have 3+ humans or no humans
+  // Only add bots if we have 1 human player and need to reach minimum of 3
+  if (humanPlayers.length >= 2 || humanPlayers.length === 0) {
+    return; // Don't add bots if we have 2+ humans or no humans
   }
 
   const botsNeeded = Math.max(0, 3 - totalPlayers);
@@ -126,9 +127,14 @@ export async function makeBotSoundSubmissions(
     (p) => p.isBot && p.id !== room.currentJudge
   );
 
-  if (botPlayers.length === 0) return;
+  console.log(`[BOT] makeBotSoundSubmissions called for room ${room.code}, found ${botPlayers.length} non-judge bots`);
+  
+  if (botPlayers.length === 0) {
+    console.log(`[BOT] No non-judge bot players found in room ${room.code}`);
+    return;
+  }
 
-  console.log(`[BOT] Making sound submissions for ${botPlayers.length} bots`);
+  console.log(`[BOT] Making sound submissions for ${botPlayers.length} bots: ${botPlayers.map(b => b.name).join(', ')}`);
 
   for (const bot of botPlayers) {
     await makeBotSoundSubmission(context, room, bot);
@@ -207,11 +213,32 @@ async function makeBotSoundSubmission(
     setTimeout(() => {
       room.submissions.push(submission);
       context.io.to(room.code).emit("soundSubmitted", submission);
-      context.io.to(room.code).emit("roomUpdated", room);
 
       console.log(
         `[BOT] ${bot.name} submitted sounds: [${selectedSounds.join(", ")}]`
       );
+
+      // Check if this is the first submission and start the timer
+      if (room.submissions.length === 1 && !room.soundSelectionTimerStarted) {
+        console.log(
+          `[${new Date().toISOString()}] [BOT SUBMISSION] First submission (bot), starting countdown timer`
+        );
+        startDelayedSoundSelectionTimer(context, room.code, room);
+      }
+
+      // Send updated room state to all clients (including main screen viewers)
+      context.io.to(room.code).emit("roomUpdated", room);
+
+      // Check if all non-judge players have submitted
+      const nonJudgePlayers = room.players.filter(
+        (p) => p.id !== room.currentJudge
+      );
+      if (room.submissions.length === nonJudgePlayers.length) {
+        console.log(
+          `[BOT SUBMISSION] All ${nonJudgePlayers.length} players have submitted, proceeding to game completion logic`
+        );
+        handleAllSubmissionsComplete(context, room.code, room);
+      }
     }, delay);
   }
 }
@@ -379,7 +406,18 @@ export async function makeBotPromptSelection(
   room: Room
 ): Promise<void> {
   const judge = room.players.find((p) => p.id === room.currentJudge);
-  if (!judge || !judge.isBot) return;
+  
+  console.log(`[BOT] makeBotPromptSelection called for room ${room.code}, current judge: ${room.currentJudge}`);
+  
+  if (!judge) {
+    console.log(`[BOT] No judge found with ID ${room.currentJudge}`);
+    return;
+  }
+  
+  if (!judge.isBot) {
+    console.log(`[BOT] Judge ${judge.name} (${judge.id}) is not a bot, skipping bot prompt selection`);
+    return;
+  }
 
   if (!room.availablePrompts || room.availablePrompts.length === 0) {
     console.log(`[BOT] Judge bot ${judge.name} found no prompts to select`);
@@ -390,8 +428,27 @@ export async function makeBotPromptSelection(
 
   // Add delay to make the bot feel more natural
   const delay = Math.random() * 3000 + 1000; // 1-4 seconds
+  
+  console.log(`[BOT] Judge bot ${judge.name} will respond in ${delay}ms`);
 
   setTimeout(async () => {
+    console.log(`[BOT] Judge bot ${judge.name} timeout fired, checking game state...`);
+    
+    // Double-check that we're still in the right state and this bot is still the judge
+    if (room.gameState !== GameState.PROMPT_SELECTION) {
+      console.log(`[BOT] Game state changed to ${room.gameState}, aborting bot prompt selection`);
+      return;
+    }
+    
+    if (room.currentJudge !== judge.id) {
+      console.log(`[BOT] Judge changed from ${judge.id} to ${room.currentJudge}, aborting bot prompt selection`);
+      return;
+    }
+    
+    if (!room.availablePrompts || room.availablePrompts.length === 0) {
+      console.log(`[BOT] No available prompts when timeout fired, aborting bot prompt selection`);
+      return;
+    }
     // Pick a random prompt
     const randomIndex = Math.floor(
       Math.random() * room.availablePrompts!.length
@@ -437,4 +494,171 @@ export async function makeBotPromptSelection(
     // Make bot submissions for sound selection
     await makeBotSoundSubmissions(context, room);
   }, delay);
+}
+
+// Check if room has no human players (empty or bots-only) and start destruction timer if needed
+export function checkAndHandleBotOnlyRoom(
+  context: SocketContext,
+  room: Room
+): void {
+  const humanPlayers = room.players.filter((p) => !p.isBot);
+  const botPlayers = room.players.filter((p) => p.isBot);
+
+  console.log(
+    `[BOT-TIMER] Checking room ${room.code}: ${humanPlayers.length} humans, ${botPlayers.length} bots`
+  );
+
+  if (humanPlayers.length === 0) {
+    // Room is either empty or only has bots - start destruction timer
+    if (room.players.length === 0) {
+      console.log(
+        `[BOT-TIMER] ⚠️  Room ${room.code} is completely empty. Starting 60-second destruction timer.`
+      );
+    } else {
+      console.log(
+        `[BOT-TIMER] ⚠️  Room ${room.code} now only has bots (${botPlayers.length}). Starting 60-second destruction timer.`
+      );
+    }
+
+    startBotOnlyRoomDestructionTimer(context, room.code);
+  } else {
+    // Room has human players - clear any existing bot-only timer
+    if (context.botOnlyRoomTimers.has(room.code)) {
+      console.log(
+        `[BOT-TIMER] ✅ Room ${room.code} has ${humanPlayers.length} human player(s). Clearing bot-only destruction timer.`
+      );
+    }
+    clearBotOnlyRoomDestructionTimer(context, room.code);
+  }
+}
+
+// Start a timer to destroy the room after 60 seconds if it has no human players (empty or bots-only)
+function startBotOnlyRoomDestructionTimer(
+  context: SocketContext,
+  roomCode: string
+): void {
+  // Clear any existing timer first
+  clearBotOnlyRoomDestructionTimer(context, roomCode);
+
+  console.log(
+    `[BOT-TIMER] 🔥 Starting 60-second destruction timer for room ${roomCode}`
+  );
+
+  const timer = setTimeout(() => {
+    console.log(
+      `[BOT-TIMER] ⏰ Timer expired for room ${roomCode}. Checking room status...`
+    );
+
+    const room = context.rooms.get(roomCode);
+    if (!room) {
+      console.log(
+        `[BOT-TIMER] ❌ Room ${roomCode} no longer exists. Timer cleanup complete.`
+      );
+      return;
+    }
+
+    const humanPlayers = room.players.filter((p) => !p.isBot);
+    const botPlayers = room.players.filter((p) => p.isBot);
+
+    console.log(
+      `[BOT-TIMER] Room ${roomCode} status: ${humanPlayers.length} humans, ${botPlayers.length} bots`
+    );
+
+    // Double-check that room still has no human players (empty or bots-only)
+    if (humanPlayers.length === 0) {
+      if (room.players.length === 0) {
+        console.log(
+          `[BOT-TIMER] 💥 DESTROYING empty room ${roomCode} after 60 seconds (0 players)`
+        );
+      } else {
+        console.log(
+          `[BOT-TIMER] 💥 DESTROYING room ${roomCode} after 60 seconds with only bots (${room.players.length} bots)`
+        );
+      }
+
+      // Notify any connected main screens that the room is closing
+      const roomMainScreens = context.mainScreens.get(roomCode);
+      if (roomMainScreens && roomMainScreens.size > 0) {
+        console.log(
+          `[BOT-TIMER] Notifying ${roomMainScreens.size} main screen(s) that room ${roomCode} is closing due to no human players`
+        );
+        roomMainScreens.forEach((mainScreenId) => {
+          context.io.to(mainScreenId).emit("roomClosed", {
+            roomCode,
+          });
+        });
+      }
+
+      // Clean up all room data
+      context.rooms.delete(roomCode);
+
+      // Clean up all timers for this room
+      if (context.roomTimers.has(roomCode)) {
+        clearTimeout(context.roomTimers.get(roomCode)!);
+        context.roomTimers.delete(roomCode);
+        console.log(`[BOT-TIMER] Cleared room timer for ${roomCode}`);
+      }
+      if (context.gracePeriodTimers.has(roomCode)) {
+        clearTimeout(context.gracePeriodTimers.get(roomCode)!);
+        context.gracePeriodTimers.delete(roomCode);
+        console.log(`[BOT-TIMER] Cleared grace period timer for ${roomCode}`);
+      }
+      if (context.disconnectionTimers.has(roomCode)) {
+        clearTimeout(context.disconnectionTimers.get(roomCode)!);
+        context.disconnectionTimers.delete(roomCode);
+        console.log(`[BOT-TIMER] Cleared disconnection timer for ${roomCode}`);
+      }
+      if (context.reconnectionVoteTimers.has(roomCode)) {
+        clearTimeout(context.reconnectionVoteTimers.get(roomCode)!);
+        context.reconnectionVoteTimers.delete(roomCode);
+        console.log(
+          `[BOT-TIMER] Cleared reconnection vote timer for ${roomCode}`
+        );
+      }
+
+      // Clean up main screen tracking
+      context.mainScreens.delete(roomCode);
+      context.primaryMainScreens.delete(roomCode);
+
+      // Remove bot-only timer tracking
+      context.botOnlyRoomTimers.delete(roomCode);
+
+      console.log(
+        `[BOT-TIMER] ✅ Room ${roomCode} successfully destroyed due to no human players. All cleanup complete.`
+      );
+
+      // Update room list for main screens
+      broadcastRoomListUpdate(context);
+    } else {
+      console.log(
+        `[BOT-TIMER] ⚠️  Room ${roomCode} timer expired but room now has ${humanPlayers.length} human(s) - canceling destruction`
+      );
+      context.botOnlyRoomTimers.delete(roomCode);
+    }
+  }, BOT_ONLY_ROOM_TIMEOUT);
+
+  context.botOnlyRoomTimers.set(roomCode, timer);
+  console.log(
+    `[BOT-TIMER] ✅ Timer set for room ${roomCode}. Will check again in ${
+      BOT_ONLY_ROOM_TIMEOUT / 1000
+    } seconds.`
+  );
+}
+
+// Clear the room destruction timer (for empty or bot-only rooms)
+function clearBotOnlyRoomDestructionTimer(
+  context: SocketContext,
+  roomCode: string
+): void {
+  const timer = context.botOnlyRoomTimers.get(roomCode);
+  if (timer) {
+    console.log(
+      `[BOT-TIMER] 🛑 Clearing room destruction timer for room ${roomCode} - human players are present`
+    );
+    clearTimeout(timer);
+    context.botOnlyRoomTimers.delete(roomCode);
+    console.log(
+      `[BOT-TIMER] ✅ Timer cleared for room ${roomCode}. Room destruction canceled.`
+    );
+  }
 }

@@ -51,6 +51,7 @@ export default function SocketHandler(
     gracePeriodTimers: new Map<string, NodeJS.Timeout>(), // roomCode -> initial grace period timer
     disconnectionTimers: new Map<string, NodeJS.Timeout>(), // roomCode -> disconnection timer
     reconnectionVoteTimers: new Map<string, NodeJS.Timeout>(), // roomCode -> vote timer
+    botOnlyRoomTimers: new Map<string, NodeJS.Timeout>(), // roomCode -> bot-only room destruction timer
     mainScreens: new Map<string, Set<string>>(), // roomCode -> Set of main screen socket IDs
     primaryMainScreens: new Map<string, string>(), // roomCode -> primary main screen socket ID
   };

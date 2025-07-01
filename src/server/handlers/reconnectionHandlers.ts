@@ -14,7 +14,11 @@ import {
 } from "../utils/roomManager";
 import { clearTimer, startTimer } from "../utils/timerManager";
 import { startDelayedSoundSelectionTimer } from "../utils/gameLogic";
-import { addBotsIfNeeded, removeAllBots } from "../utils/botManager";
+import {
+  addBotsIfNeeded,
+  removeAllBots,
+  checkAndHandleBotOnlyRoom,
+} from "../utils/botManager";
 
 export function setupReconnectionHandlers(
   socket: Socket,
@@ -606,6 +610,9 @@ function handlePlayerReconnection(
     context.io.to(roomCode).emit("roomUpdated", room);
   }
 
+  // Check if room no longer only has bots and clear destruction timer if needed
+  checkAndHandleBotOnlyRoom(context, room);
+
   return true;
 }
 
@@ -664,6 +671,9 @@ function removePlayerFromRoom(
       else {
         removeAllBots(context, room);
       }
+
+      // Check if room now only has bots and start destruction timer if needed
+      checkAndHandleBotOnlyRoom(context, room);
     }
 
     // Handle VIP or judge changes if necessary
@@ -702,5 +712,9 @@ function clearDisconnectionTimer(context: SocketContext, roomCode: string) {
   if (context.reconnectionVoteTimers.has(roomCode)) {
     clearTimeout(context.reconnectionVoteTimers.get(roomCode)!);
     context.reconnectionVoteTimers.delete(roomCode);
+  }
+  if (context.botOnlyRoomTimers.has(roomCode)) {
+    clearTimeout(context.botOnlyRoomTimers.get(roomCode)!);
+    context.botOnlyRoomTimers.delete(roomCode);
   }
 }

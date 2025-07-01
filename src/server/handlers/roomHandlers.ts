@@ -13,7 +13,11 @@ import {
   removeMainScreen,
 } from "../utils/roomManager";
 import { clearTimer } from "../utils/timerManager";
-import { addBotsIfNeeded, removeAllBots } from "../utils/botManager";
+import {
+  addBotsIfNeeded,
+  removeAllBots,
+  checkAndHandleBotOnlyRoom,
+} from "../utils/botManager";
 
 export function setupRoomHandlers(socket: Socket, context: SocketContext) {
   // Create room handler
@@ -110,6 +114,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
 
       // Manage bots when a new human player joins
       const humanPlayers = room.players.filter((p) => !p.isBot);
+
       if (humanPlayers.length >= 3) {
         // Remove all bots if we now have 3+ human players
         removeAllBots(context, room);
@@ -117,6 +122,9 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
         // Add bots if we have fewer than 3 human players
         addBotsIfNeeded(context, room);
       }
+
+      // Check if room no longer only has bots and clear destruction timer if needed
+      checkAndHandleBotOnlyRoom(context, room);
 
       callback(true);
       socket.emit("roomJoined", { room, player });
@@ -243,6 +251,9 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
                 else {
                   removeAllBots(context, room);
                 }
+
+                // Check if room now only has bots and start destruction timer if needed
+                checkAndHandleBotOnlyRoom(context, room);
               }
 
               // If room still active, select new VIP if old one left, or new judge
