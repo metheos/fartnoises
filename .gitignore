@@ -45,3 +45,6 @@ next-env.d.ts
 
 # github
 .github
+
+private
+uploaded_sound_urls.json
