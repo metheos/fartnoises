@@ -44,29 +44,33 @@ export function PlayerScoreList({
               </div>
               
               {/* Player Avatar - bigger for round winner, special styling for game winner */}
-              {isRoundWinner ? (
-                <div 
-                  className={`w-14 h-14 flex-shrink-0 rounded-full ${getPlayerColorClass(player.color)} flex items-center justify-center text-3xl mr-3`}
-                >
-                  {player.emoji || player.name[0].toUpperCase()}
-                </div>
-              ) : rank === 1 && isGameOver ? (
-                <div 
-                  className={`w-12 h-12 flex-shrink-0 rounded-full ${getPlayerColorClass(player.color)} flex items-center justify-center text-2xl mr-3 ring-4 ring-yellow-400 ring-opacity-75`}
-                >
-                  {player.emoji || player.name[0].toUpperCase()}
-                </div>
-              ) : (
-                <div 
-                  className={`w-10 h-10 flex-shrink-0 rounded-full ${getPlayerColorClass(player.color)} flex items-center justify-center text-2xl mr-3`}
-                >
-                  {player.emoji || player.name[0].toUpperCase()}
-                </div>
-              )}
+              <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center mr-3">
+                {isRoundWinner ? (
+                  <div 
+                    className={`w-14 h-14 rounded-full ${getPlayerColorClass(player.color)} flex items-center justify-center text-3xl`}
+                  >
+                    {player.emoji || player.name[0].toUpperCase()}
+                  </div>
+                ) : rank === 1 && isGameOver ? (
+                  <div 
+                    className={`w-12 h-12 rounded-full ${getPlayerColorClass(player.color)} flex items-center justify-center text-2xl ring-4 ring-yellow-400 ring-opacity-75`}
+                  >
+                    {player.emoji || player.name[0].toUpperCase()}
+                  </div>
+                ) : (
+                  <div 
+                    className={`w-10 h-10 rounded-full ${getPlayerColorClass(player.color)} flex items-center justify-center text-2xl`}
+                  >
+                    {player.emoji || player.name[0].toUpperCase()}
+                  </div>
+                )}
+              </div>
               
               <div className="flex-grow">
                 <p className={`font-bold text-gray-900 ${
                   rank === 1 && isGameOver ? 'text-xl' : 'text-lg'
+                } ${
+                  isRoundWinner ? 'text-2xl' : 'text-lg'
                 }`}>
                   {player.name}
                   {rank === 1 && isGameOver && ' 🏆'}
@@ -79,7 +83,7 @@ export function PlayerScoreList({
                   {/* +1PT Animation */}
                     <div className={`absolute -right-8 -top-2 bg-green-500 text-white text-md font-bold px-2 py-1 rounded-full transition-all duration-700 ${
                     showPointAnimation ? 'animate-bounce scale-110' : 'scale-0 opacity-0'
-                    }`} style={{ right: '6rem' }}>
+                    }`}>
                     +1 PT
                     </div>
                   <div className="text-right">
