@@ -34,10 +34,18 @@ export default function SocketHandler(
   const io = new SocketIOServer(res.socket.server as SocketServer, {
     path: "/api/socket",
     addTrailingSlash: false,
+    // Server environment - we can use all transports!
+    transports: ["websocket", "polling"],
+    allowEIO3: true,
     cors: {
       origin: "*",
       methods: ["GET", "POST"],
     },
+    // Optimized for persistent server
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    upgradeTimeout: 10000,
+    allowUpgrades: true, // Enable WebSocket upgrades
   });
 
   res.socket.server.io = io;
