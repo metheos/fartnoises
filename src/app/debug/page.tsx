@@ -325,7 +325,7 @@ export default function DebugPage() {
       case GameState.PLAYBACK:
         return <PlaybackSubmissionsDisplay room={mockRoom} soundEffects={mockSoundEffects} socket={createMockSocket() as any} />;
       case GameState.JUDGING:
-        return <JudgingDisplay room={mockRoom} soundEffects={mockSoundEffects} currentPlayingSubmission={null} />;
+        return <JudgingDisplay room={mockRoom} soundEffects={mockSoundEffects} currentPlayingSubmission={null} currentPlayingSoundIndex={0} />;
       case GameState.ROUND_RESULTS:
         return <ResultsDisplay room={mockRoom} roundWinner={mockRoundWinner} soundEffects={mockSoundEffects} socket={null} />;
       case GameState.GAME_OVER:
