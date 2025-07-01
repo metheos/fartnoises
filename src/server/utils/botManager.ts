@@ -505,22 +505,31 @@ export function checkAndHandleBotOnlyRoom(
   const botPlayers = room.players.filter((p) => p.isBot);
 
   console.log(
-    `[BOT-TIMER] Checking room ${room.code}: ${humanPlayers.length} humans, ${botPlayers.length} bots`
+    `[BOT-TIMER] Checking room ${room.code} (${room.gameState}): ${humanPlayers.length} humans, ${botPlayers.length} bots`
   );
 
   if (humanPlayers.length === 0) {
     // Room is either empty or only has bots - start destruction timer
     if (room.players.length === 0) {
       console.log(
-        `[BOT-TIMER] ⚠️  Room ${room.code} is completely empty. Starting 60-second destruction timer.`
+        `[BOT-TIMER] ⚠️  Room ${room.code} is completely empty. Starting destruction timer.`
       );
     } else {
       console.log(
-        `[BOT-TIMER] ⚠️  Room ${room.code} now only has bots (${botPlayers.length}). Starting 60-second destruction timer.`
+        `[BOT-TIMER] ⚠️  Room ${room.code} now only has bots (${botPlayers.length}). Starting destruction timer.`
       );
     }
 
-    startBotOnlyRoomDestructionTimer(context, room.code);
+    // During GAME_OVER, use a shorter timeout since the game is finished
+    const timeout = room.gameState === GameState.GAME_OVER ? 10000 : BOT_ONLY_ROOM_TIMEOUT; // 10 seconds vs 60 seconds
+    
+    if (room.gameState === GameState.GAME_OVER) {
+      console.log(
+        `[BOT-TIMER] Room ${room.code} is in GAME_OVER state - using accelerated cleanup (10 seconds)`
+      );
+    }
+
+    startBotOnlyRoomDestructionTimer(context, room.code, timeout);
   } else {
     // Room has human players - clear any existing bot-only timer
     if (context.botOnlyRoomTimers.has(room.code)) {
@@ -532,16 +541,17 @@ export function checkAndHandleBotOnlyRoom(
   }
 }
 
-// Start a timer to destroy the room after 60 seconds if it has no human players (empty or bots-only)
+// Start a timer to destroy the room after specified timeout if it has no human players (empty or bots-only)
 function startBotOnlyRoomDestructionTimer(
   context: SocketContext,
-  roomCode: string
+  roomCode: string,
+  timeoutMs: number = BOT_ONLY_ROOM_TIMEOUT
 ): void {
   // Clear any existing timer first
   clearBotOnlyRoomDestructionTimer(context, roomCode);
 
   console.log(
-    `[BOT-TIMER] 🔥 Starting 60-second destruction timer for room ${roomCode}`
+    `[BOT-TIMER] 🔥 Starting ${timeoutMs / 1000}-second destruction timer for room ${roomCode}`
   );
 
   const timer = setTimeout(() => {
@@ -568,11 +578,11 @@ function startBotOnlyRoomDestructionTimer(
     if (humanPlayers.length === 0) {
       if (room.players.length === 0) {
         console.log(
-          `[BOT-TIMER] 💥 DESTROYING empty room ${roomCode} after 60 seconds (0 players)`
+          `[BOT-TIMER] 💥 DESTROYING empty room ${roomCode} after ${timeoutMs / 1000} seconds (0 players)`
         );
       } else {
         console.log(
-          `[BOT-TIMER] 💥 DESTROYING room ${roomCode} after 60 seconds with only bots (${room.players.length} bots)`
+          `[BOT-TIMER] 💥 DESTROYING room ${roomCode} after ${timeoutMs / 1000} seconds with only bots (${room.players.length} bots)`
         );
       }
 
@@ -635,12 +645,12 @@ function startBotOnlyRoomDestructionTimer(
       );
       context.botOnlyRoomTimers.delete(roomCode);
     }
-  }, BOT_ONLY_ROOM_TIMEOUT);
+  }, timeoutMs);
 
   context.botOnlyRoomTimers.set(roomCode, timer);
   console.log(
     `[BOT-TIMER] ✅ Timer set for room ${roomCode}. Will check again in ${
-      BOT_ONLY_ROOM_TIMEOUT / 1000
+      timeoutMs / 1000
     } seconds.`
   );
 }

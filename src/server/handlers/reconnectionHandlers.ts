@@ -166,6 +166,10 @@ function handlePlayerDisconnection(
       playerName: player.name,
       canReconnect: false, // No reconnection during game over
     });
+    
+    // Check if we should destroy the room (if only bots remain)
+    checkAndHandleBotOnlyRoom(context, room);
+    
     return;
   }
 
