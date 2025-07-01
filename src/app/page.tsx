@@ -182,7 +182,7 @@ export default function Home() {
           {!mode ? (
             <>
               {/* Player Name Input */}
-              {(!playerName.trim() || isEditingProfile) ? (
+              {isEditingProfile ? (
                 <div className="mb-4">
                   <label className="block text-gray-700 text-lg font-bold mb-2">
                     Your Name
@@ -219,7 +219,7 @@ export default function Home() {
               )}
 
               {/* Player Customization - Show only when editing */}
-              {(!playerName.trim() || isEditingProfile) && (
+              {isEditingProfile && (
                 <div className="mb-6">
                   <label className="block text-gray-700 text-lg font-bold mb-3">
                     Your Avatar
@@ -268,8 +268,10 @@ export default function Home() {
                     </div>
                   </div>
 
+                  <div className="flex justify-around items-center gap-4">
+
                   {/* Random Button */}
-                  <div className="text-center mb-4">
+                  <div className="text-center">
                     <button
                       onClick={() => {
                         setPlayerColor(getRandomColor());
@@ -281,17 +283,17 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {/* Done Editing Button - Only show if we're editing existing profile */}
-                  {playerName.trim() && isEditingProfile && (
-                    <div className="text-center">
-                      <button
-                        onClick={() => setIsEditingProfile(false)}
-                        className="bg-green-100 hover:bg-green-200 text-green-700 px-6 py-2 rounded-full font-medium transition-colors"
-                      >
-                        💾 Save
-                      </button>
-                    </div>
-                  )}
+                  {/* Done Editing Button */}
+                  <div className="text-center">
+                    <button
+                      onClick={() => setIsEditingProfile(false)}
+                      disabled={!playerName.trim()}
+                      className="bg-green-100 hover:bg-green-200 text-green-700 px-6 py-2 rounded-full font-medium transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    >
+                      💾 Done
+                    </button>
+                  </div>
+                  </div>
                 </div>
               )}
 
@@ -350,7 +352,8 @@ export default function Home() {
                 </>
               )}
 
-              {/* Main Screen Button - Always available */}
+              {/* Main Screen Button - Hide when editing profile */}
+              {!isEditingProfile && (
               <div className="mt-8 pt-6 border-t border-gray-200">
                 <Button
                   onClick={goToMainScreen}
@@ -363,6 +366,7 @@ export default function Home() {
                   For TV/shared display
                 </p>
               </div>
+              )}
             </>
           ) : mode === 'join' ? (
             <>
