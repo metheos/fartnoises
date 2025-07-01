@@ -5,6 +5,7 @@ interface BackgroundMusicHook {
   isPlaying: boolean;
   isFading: boolean;
   isAudioReady: boolean;
+  volume: number;
   changeMusic: (newTrack: string | null) => void;
   setVolume: (volume: number) => void;
   activateAudio: () => Promise<void>;
@@ -203,20 +204,37 @@ export function useBackgroundMusic(): BackgroundMusicHook {
     ): Promise<void> => {
       return new Promise((resolve) => {
         if (!audio) {
+          console.log(
+            "🎵 useBackgroundMusic: fadeIn called with no audio element"
+          );
           resolve();
           return;
         }
 
+        console.log(
+          "🎵 useBackgroundMusic: fadeIn starting from 0 to",
+          targetVolume
+        );
         audio.volume = 0;
         const fadeStep = targetVolume / (duration / 50); // 50ms intervals
 
         setIsFading(true);
 
         const intervalId = setInterval(() => {
-          if (audio.volume < targetVolume - fadeStep) {
-            audio.volume = Math.min(targetVolume, audio.volume + fadeStep);
+          // Use the current desired volume from volumeRef in case user changed it during fade
+          const currentTargetVolume = volumeRef.current;
+
+          if (audio.volume < currentTargetVolume - fadeStep) {
+            audio.volume = Math.min(
+              currentTargetVolume,
+              audio.volume + fadeStep
+            );
           } else {
-            audio.volume = targetVolume;
+            audio.volume = currentTargetVolume;
+            console.log(
+              "🎵 useBackgroundMusic: fadeIn completed, final volume:",
+              audio.volume
+            );
             clearInterval(intervalId);
             setIsFading(false);
             resolve();
@@ -328,6 +346,12 @@ export function useBackgroundMusic(): BackgroundMusicHook {
       const newAudio = new Audio(newTrack);
       newAudio.loop = true;
       newAudio.preload = "auto";
+      console.log(
+        "🎵 useBackgroundMusic: Created new audio element for:",
+        newTrack,
+        "with volume:",
+        volumeValue
+      );
 
       // Wait for audio to be ready
       await new Promise((resolve, reject) => {
@@ -343,6 +367,10 @@ export function useBackgroundMusic(): BackgroundMusicHook {
 
       await newAudio.play();
       setIsPlaying(true);
+      console.log(
+        "🎵 useBackgroundMusic: Audio started playing, about to fade in to volume:",
+        volumeValue
+      );
 
       await fadeIn(newAudio, volumeValue);
 
@@ -371,10 +399,43 @@ export function useBackgroundMusic(): BackgroundMusicHook {
   // Set volume for current audio
   const setVolume = useCallback((newVolume: number) => {
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
-    setVolumeState(clampedVolume);
+    console.log(
+      "🎵 useBackgroundMusic: setVolume called with",
+      newVolume,
+      "clamped to",
+      clampedVolume
+    );
+    console.log(
+      "🎵 useBackgroundMusic: Current audio ref exists:",
+      !!currentAudioRef.current
+    );
+    console.log(
+      "🎵 useBackgroundMusic: Currently fading:",
+      !!fadeIntervalRef.current
+    );
 
-    if (currentAudioRef.current && !fadeIntervalRef.current) {
+    setVolumeState(clampedVolume);
+    volumeRef.current = clampedVolume; // Always update the stored volume
+
+    if (currentAudioRef.current) {
+      const oldVolume = currentAudioRef.current.volume;
       currentAudioRef.current.volume = clampedVolume;
+      console.log(
+        "🎵 useBackgroundMusic: Audio volume changed from",
+        oldVolume,
+        "to",
+        currentAudioRef.current.volume
+      );
+
+      if (fadeIntervalRef.current) {
+        console.log(
+          "🎵 useBackgroundMusic: Volume set during fade - fade will continue to new target"
+        );
+      }
+    } else {
+      console.log(
+        "🎵 useBackgroundMusic: No current audio to set volume on, but volume stored for future use"
+      );
     }
   }, []);
 
@@ -388,6 +449,7 @@ export function useBackgroundMusic(): BackgroundMusicHook {
     isPlaying,
     isFading,
     isAudioReady,
+    volume,
     changeMusic,
     setVolume,
     activateAudio,

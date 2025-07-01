@@ -39,6 +39,16 @@ interface MainScreenGameDisplayProps {
   currentPlayingSubmission: SoundSubmission | null;
   socket: Socket | null;
   gameplayEffects?: GameplayEffects;
+  backgroundMusic: {
+    currentTrack: string | null;
+    isPlaying: boolean;
+    isFading: boolean;
+    isAudioReady: boolean;
+    volume: number;
+    changeMusic: (newTrack: string | null) => void;
+    setVolume: (volume: number) => void;
+    activateAudio: () => Promise<void>;
+  };
 }
 
 export function MainScreenGameDisplay({ 
@@ -49,7 +59,8 @@ export function MainScreenGameDisplay({
   onActivateAudio,
   currentPlayingSubmission,
   socket,
-  gameplayEffects
+  gameplayEffects,
+  backgroundMusic
 }: MainScreenGameDisplayProps) {
   return (
     <div className="space-y-2">
@@ -62,6 +73,7 @@ export function MainScreenGameDisplay({
       {/* Game Header */}
       <GameHeader 
         room={room}
+        backgroundMusic={backgroundMusic}
       />
 
       {/* Game State Display */}

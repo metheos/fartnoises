@@ -79,6 +79,36 @@ export class AudioSystem {
     }
   }
 
+  // Load sound from any URL (for gameplay effects, not just Earwax sounds)
+  async loadSoundFromUrl(id: string, url: string): Promise<void> {
+    if (this.loadedSounds.has(id) || this.failedSounds.has(id)) return;
+
+    try {
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Failed to load sound from URL: ${url}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+
+      if (!this.audioContext) {
+        await this.initialize();
+      }
+
+      const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
+      this.loadedSounds.set(id, audioBuffer);
+
+      console.log(`✅ Loaded sound from URL: ${url}`);
+    } catch (error) {
+      console.warn(`⚠️ Failed to load sound from ${url}:`, error);
+      this.failedSounds.add(id);
+
+      // Generate a placeholder beep sound for missing files
+      this.generatePlaceholderSound(id);
+    }
+  }
+
   private generatePlaceholderSound(id: string): void {
     if (!this.audioContext) return;
 
@@ -126,6 +156,66 @@ export class AudioSystem {
         this.setAnalysisActive(true);
       } else {
         source.connect(this.audioContext!.destination);
+      }
+
+      // Track this source so we can stop it if needed
+      this.activeSources.add(source);
+
+      // Resolve the promise and clean up when the sound finishes
+      source.onended = () => {
+        this.activeSources.delete(source);
+        // Stop analysis if no more sounds are playing
+        if (this.activeSources.size === 0) {
+          this.setAnalysisActive(false);
+        }
+        resolve();
+      };
+
+      source.start();
+    });
+  }
+
+  // Play sound with specific volume while respecting master volume
+  async playSoundWithVolume(
+    id: string,
+    volumeMultiplier: number = 1.0,
+    speed: number = 1.0
+  ): Promise<void> {
+    if (!this.audioContext) {
+      await this.initialize();
+    }
+
+    // If sound is not loaded, try to load it on-demand
+    if (!this.loadedSounds.has(id) && !this.failedSounds.has(id)) {
+      console.log(`Sound ${id} not loaded, cannot play with volume`);
+      return;
+    }
+
+    const audioBuffer = this.loadedSounds.get(id);
+    if (!audioBuffer) {
+      console.warn(`Sound not loaded: ${id}`);
+      return;
+    }
+
+    return new Promise<void>((resolve) => {
+      const source = this.audioContext!.createBufferSource();
+      source.buffer = audioBuffer;
+
+      // Apply speed/pitch modification
+      source.playbackRate.value = speed;
+
+      // Create a gain node for this specific sound's volume
+      const soundGainNode = this.audioContext!.createGain();
+      soundGainNode.gain.value = volumeMultiplier;
+
+      // Connect: source -> soundGainNode -> masterGainNode -> analyser -> destination
+      source.connect(soundGainNode);
+
+      if (this.gainNode) {
+        soundGainNode.connect(this.gainNode);
+        this.setAnalysisActive(true);
+      } else {
+        soundGainNode.connect(this.audioContext!.destination);
       }
 
       // Track this source so we can stop it if needed
@@ -410,6 +500,21 @@ export class AudioSystem {
       console.log("🔊 AudioContext creation failed, audio not ready:", error);
       return false;
     }
+  }
+
+  // Master volume control methods
+  setMasterVolume(volume: number): void {
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    if (this.gainNode) {
+      this.gainNode.gain.value = clampedVolume;
+      console.log(
+        `🔊 Master volume set to ${(clampedVolume * 100).toFixed(0)}%`
+      );
+    }
+  }
+
+  getMasterVolume(): number {
+    return this.gainNode ? this.gainNode.gain.value : 1.0;
   }
 }
 

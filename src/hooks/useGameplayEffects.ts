@@ -130,57 +130,26 @@ export function useGameplayEffects(isAudioReady: boolean) {
 
         // Load the sound into the existing audio system if not already loaded
         if (!audioSystem.isSoundLoaded(effectId)) {
-          console.log(`🎵 Loading effect sound: ${effectId}`);
-          // For gameplay effects, we need to load them differently since they're not in the Earwax folder
-          // Let's try loading it directly or create a simpler approach
           console.log(
-            `🎵 Note: Game effects use different loading path than Earwax sounds`
+            `🎵 Loading effect sound: ${effectId} from ${selectedFile}`
           );
+          await audioSystem.loadSoundFromUrl(effectId, selectedFile);
         }
 
-        // For now, let's use a simpler approach and try to play directly
-        // We'll implement a custom audio loading for game effects
-        await playGameEffectDirect(selectedFile, options);
+        // Play the effect using AudioSystem with volume control and master volume respect
+        const volume = options.volume ?? 0.7;
+        const speed = options.speed ?? 1.0;
 
-        console.log(`🎵 Successfully played effect: ${effectName}`);
+        await audioSystem.playSoundWithVolume(effectId, volume, speed);
+
+        console.log(
+          `🎵 Successfully played effect: ${effectName} at volume ${volume}`
+        );
       } catch (error) {
         console.error(`🎵 Error playing gameplay effect ${effectName}:`, error);
       }
     },
     [isAudioReady]
-  );
-
-  // Helper function to play game effects directly using Web Audio API
-  const playGameEffectDirect = useCallback(
-    async (
-      filePath: string,
-      options: GameplayEffectOptions = {}
-    ): Promise<void> => {
-      try {
-        // Create a simple audio element approach for now
-        const audio = new Audio(filePath);
-
-        // Apply volume
-        audio.volume = options.volume ?? 0.7;
-
-        // Apply speed (playbackRate)
-        if (options.speed && options.speed !== 1) {
-          audio.playbackRate = options.speed;
-        }
-
-        // Note: reverse playback is complex with Audio elements, skip for now
-        if (options.reverse) {
-          console.log("🔄 Reverse playback not supported with Audio elements");
-        }
-
-        // Play the audio
-        await audio.play();
-      } catch (error) {
-        console.error("Failed to play game effect directly:", error);
-        throw error;
-      }
-    },
-    []
   );
 
   // Convenience methods for specific game events

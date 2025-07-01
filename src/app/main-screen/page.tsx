@@ -26,6 +26,7 @@ function MainScreenContent() {
     isPlaying: isMusicPlaying,
     isFading: isMusicFading,
     isAudioReady: isMusicAudioReady,
+    volume: currentMusicVolume,
     changeMusic,
     setVolume: setMusicVolume,
     activateAudio: activateBackgroundAudio
@@ -119,7 +120,8 @@ function MainScreenContent() {
       }
     }
 
-    console.log('Main screen: Game state changed to', currentRoom?.gameState, ', setting music to:', targetMusic);
+    console.log('🎵 Main screen: Game state changed to', currentRoom?.gameState, ', setting music to:', targetMusic);
+    console.log('🎵 Main screen: Music audio ready?', isMusicAudioReady, 'Current track:', currentMusicTrack, 'Playing:', isMusicPlaying);
 
     // Debounce music changes to prevent rapid switching
     const timeoutId = setTimeout(() => {
@@ -127,8 +129,18 @@ function MainScreenContent() {
     }, 150);
     
     return () => clearTimeout(timeoutId);
-  }, [currentRoom?.gameState, currentRoom?.code]);
+  }, [currentRoom?.gameState, currentRoom?.code, isMusicAudioReady, currentMusicTrack, isMusicPlaying]);
   
+  // Debug logging for background music state changes
+  useEffect(() => {
+    console.log('🎵 Main screen: Background music state update:', {
+      currentMusicTrack,
+      isMusicPlaying,
+      isMusicAudioReady,
+      currentMusicVolume
+    });
+  }, [currentMusicTrack, isMusicPlaying, isMusicAudioReady, currentMusicVolume]);
+
   // Enhanced wrapper function to handle both audio systems
   const handleJoinRoom = async () => {
     // Activate both audio systems on user interaction
@@ -257,6 +269,16 @@ function MainScreenContent() {
               playGameOver,
               playFailSound
             }}
+            backgroundMusic={{
+              currentTrack: currentMusicTrack,
+              isPlaying: isMusicPlaying,
+              isFading: isMusicFading,
+              isAudioReady: isMusicAudioReady,
+              volume: currentMusicVolume,
+              changeMusic,
+              setVolume: setMusicVolume,
+              activateAudio: activateBackgroundAudio
+            }}
           />
         ) : (          
         <WaitingForGameScreen 
@@ -276,6 +298,39 @@ function MainScreenContent() {
         judgeName={nuclearExplosion?.judgeName || ''}
         onExplosionComplete={handleExplosionComplete}
       />
+
+      {/* Debug: Force music activation button (for debugging) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-20 right-2 bg-black bg-opacity-75 text-white p-3 rounded text-xs z-50 space-y-2">
+          <div><strong>Background Music Debug</strong></div>
+          <div>Track: {currentMusicTrack ? currentMusicTrack.split('/').pop() : 'None'}</div>
+          <div>Playing: {isMusicPlaying ? 'Yes' : 'No'}</div>
+          <div>Audio Ready: {isMusicAudioReady ? 'Yes' : 'No'}</div>
+          <div>Volume: {Math.round(currentMusicVolume * 100)}%</div>
+          <button 
+            onClick={async () => {
+              console.log('🎵 Debug: Force activating background music...');
+              await activateBackgroundAudio();
+              setTimeout(() => {
+                console.log('🎵 Debug: Force loading lobby music...');
+                changeMusic(BACKGROUND_MUSIC.LOBBY);
+              }, 500);
+            }}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs"
+          >
+            Force Activate Music
+          </button>
+          <button 
+            onClick={() => {
+              console.log('🎵 Debug: Testing volume change...');
+              setMusicVolume(Math.random() * 0.5 + 0.1); // Random volume 0.1-0.6
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs"
+          >
+            Test Volume Change
+          </button>
+        </div>
+      )}
     </div>
   );
 }
