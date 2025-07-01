@@ -82,18 +82,84 @@ export function SubmissionCard({
           83% { border-color: #8000ff; }
           100% { border-color: #ff0000; }
         }
+        
+        @keyframes golden-shimmer {
+          0% { 
+            background-position: -200% 0;
+            filter: brightness(1) saturate(1);
+          }
+          50% { 
+            filter: brightness(1.3) saturate(1.2);
+          }
+          100% { 
+            background-position: 200% 0;
+            filter: brightness(1) saturate(1);
+          }
+        }
+        
+        @keyframes trophy-bounce {
+          0%, 100% { 
+            transform: translateY(0) scale(1);
+          }
+          25% { 
+            transform: translateY(-4px) scale(1.05);
+          }
+          50% { 
+            transform: translateY(-2px) scale(1.02);
+          }
+          75% { 
+            transform: translateY(-1px) scale(1.01);
+          }
+        }
+        
+        @keyframes winner-glow {
+          0%, 100% { 
+            box-shadow: 
+              0 0 20px rgba(255, 215, 0, 0.5),
+              0 0 40px rgba(255, 193, 7, 0.3),
+              0 0 60px rgba(255, 235, 59, 0.2);
+          }
+          50% { 
+            box-shadow: 
+              0 0 30px rgba(255, 215, 0, 0.8),
+              0 0 60px rgba(255, 193, 7, 0.6),
+              0 0 90px rgba(255, 235, 59, 0.4);
+          }
+        }
+        
+        @keyframes floating-sparkles {
+          0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(-20px) rotate(180deg);
+            opacity: 0;
+          }
+        }
       `}</style>
       
       <div 
         className={`relative rounded-3xl py-2 px-3 transition-all duration-500 min-w-[20rem] max-w-[25rem] ${
-          isCurrentlyPlaying 
+          isCurrentlyPlaying && !isWinner
             ? 'bg-gradient-to-br from-purple-400 to-pink-500 scale-105 shadow-2xl transform -rotate-1' 
             : isWinner
-              ? 'bg-gradient-to-br from-yellow-200 to-yellow-300 py-4'
+              ? 'bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-500 py-4 scale-110 shadow-2xl border-4 border-yellow-400 transform rotate-1'
               : 'bg-gradient-to-br from-slate-100 via-blue-100 to-purple-100 border-2 border-slate-300 shadow-lg hover:shadow-xl hover:border-purple-300 hover:from-purple-100 hover:to-blue-100'
         }`}
         style={{
-          transition: 'all 0.5s ease-in-out, height 0.8s ease-in-out, min-height 0.8s ease-in-out'
+          transition: 'all 0.5s ease-in-out, height 0.8s ease-in-out, min-height 0.8s ease-in-out',
+          ...(isWinner && {
+            background: 'linear-gradient(135deg, #ffd700 0%, #ffb347 25%, #ffd700 50%, #ffb347 75%, #ffd700 100%)',
+            backgroundSize: '200% 200%',
+            animation: 'golden-shimmer 3s ease-in-out infinite, winner-glow 2s ease-in-out infinite'
+          })
         }}
       >
       {/* Progress Indicator for Winner */}
@@ -125,8 +191,18 @@ export function SubmissionCard({
         </div>
       )}
 
+      {/* Floating Sparkles for Winner */}
+      {isWinner && (
+        <>
+          <div className="absolute -top-2 -left-2 text-yellow-400 text-2xl opacity-80 animate-pulse" style={{ animation: 'floating-sparkles 3s ease-in-out infinite' }}>✨</div>
+          <div className="absolute -top-1 -right-3 text-yellow-300 text-xl opacity-70" style={{ animation: 'floating-sparkles 3s ease-in-out infinite 0.5s' }}>⭐</div>
+          <div className="absolute -bottom-2 -left-3 text-amber-400 text-lg opacity-60" style={{ animation: 'floating-sparkles 3s ease-in-out infinite 1s' }}>💫</div>
+          <div className="absolute -bottom-1 -right-2 text-yellow-500 text-xl opacity-75" style={{ animation: 'floating-sparkles 3s ease-in-out infinite 1.5s' }}>🌟</div>
+        </>
+      )}
+
       {/* Pulsing Animation for Playing */}
-      {isCurrentlyPlaying && (
+      {(isCurrentlyPlaying && !isWinner) && (
         <>
           <div className="absolute inset-0 rounded-3xl bg-white opacity-20 animate-pulse"></div>
           <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-purple-400 to-pink-500 opacity-75 blur animate-pulse"></div>
@@ -140,11 +216,18 @@ export function SubmissionCard({
               isCurrentlyPlaying 
                 ? 'text-white   mx-8' 
                 : isWinner 
-                  ? 'text-yellow-800 mx-8'
+                  ? 'text-amber-900 mx-8 drop-shadow-lg'
                   : 'text-gray-800'
             }`}>
               {isWinner 
-                ? '🏆 Winning Sounds' 
+                ? (
+                  <span className="flex items-center gap-2">
+                    <span style={{ animation: 'trophy-bounce 2s ease-in-out infinite' }}>🏆</span>
+                    <span className="bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-600 bg-clip-text text-transparent font-extrabold">
+                      
+                    </span>
+                  </span>
+                )
                 :  ``
               }
             </h5>
@@ -208,12 +291,20 @@ export function SubmissionCard({
                   isCurrentSound 
                     ? isThirdSound
                       ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white shadow-2xl ring-4 ring-yellow-400 scale-110' 
-                      : 'bg-white bg-opacity-100 text-gray-800 shadow-lg ring-2 ring-white scale-105'
+                      : isWinner
+                        ? 'bg-gradient-to-r from-amber-300 via-yellow-300 to-amber-300 text-amber-900 shadow-lg ring-2 ring-yellow-400 scale-105 font-bold'
+                        : 'bg-white bg-opacity-100 text-gray-800 shadow-lg ring-2 ring-white scale-105'
                     : isCurrentlyPlaying 
-                      ? 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
+                      ? isWinner
+                        ? 'bg-gradient-to-r from-yellow-200 via-amber-200 to-yellow-200 text-amber-800 shadow-lg' 
+                        : 'bg-white bg-opacity-90 text-gray-800 shadow-lg' 
                       : hasBeenRevealed || showSoundNames
-                        ? 'bg-white text-gray-800 shadow-md'
-                        : 'bg-white text-gray-800 shadow-md'
+                        ? isWinner
+                          ? 'bg-gradient-to-r from-yellow-100 via-amber-100 to-yellow-100 text-amber-700 shadow-md'
+                          : 'bg-white text-gray-800 shadow-md'
+                        : isWinner
+                          ? 'bg-gradient-to-r from-yellow-100 via-amber-100 to-yellow-100 text-amber-700 shadow-md'
+                          : 'bg-white text-gray-800 shadow-md'
                 }`}
                 style={{
                   animation: isThirdSound && isCurrentSound 
@@ -231,7 +322,9 @@ export function SubmissionCard({
                     {isCurrentSound 
                       ? isThirdSound 
                         ? '🔊' 
-                        : '🔊' 
+                        : isWinner 
+                          ? '🏆' 
+                          : '🔊' 
                       : isWinner 
                         ? '🔊' 
                         : '🔊'
@@ -241,7 +334,9 @@ export function SubmissionCard({
                     isCurrentSound 
                       ? isThirdSound 
                         ? 'text-yellow-200 drop-shadow-lg' 
-                        : 'text-purple-600' 
+                        : isWinner
+                          ? 'text-amber-900 drop-shadow-md animate-pulse'
+                          : 'text-purple-600' 
                       : ''
                   }`}>
                     {/* Show sound name based on mode and reveal state */}

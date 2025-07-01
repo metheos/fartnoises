@@ -29,6 +29,7 @@ export function ResultsDisplay({
   onWinnerAudioComplete
 }: ResultsDisplayProps) {  
   const [isPlayingWinner, setIsPlayingWinner] = useState(false);
+  const [currentPlayingSoundIndex, setCurrentPlayingSoundIndex] = useState(-1);
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const audioCompletionSentRef = useRef(false);
   const playbackStartedRef = useRef(false);
@@ -73,6 +74,7 @@ export function ResultsDisplay({
     if (room.gameState !== GameState.ROUND_RESULTS && isPlayingWinner) {
       console.log('[WINNER AUDIO] Game state changed away from ROUND_RESULTS, stopping audio');
       setIsPlayingWinner(false);
+      setCurrentPlayingSoundIndex(-1);
       setPlaybackProgress(0);
     }
   }, [room.gameState, isPlayingWinner]);
@@ -110,6 +112,7 @@ export function ResultsDisplay({
     
     console.log('[WINNER AUDIO] Starting winner audio playback');
     setIsPlayingWinner(true);
+    setCurrentPlayingSoundIndex(-1);
     setPlaybackProgress(0);
     
     try {
@@ -121,6 +124,7 @@ export function ResultsDisplay({
         if (soundIndex >= sounds.length) {
           console.log(`[WINNER AUDIO] All sounds finished`);
           setIsPlayingWinner(false);
+          setCurrentPlayingSoundIndex(-1);
           setPlaybackProgress(0);
           
           // Trigger point increment sound immediately when audio completes
@@ -203,6 +207,9 @@ export function ResultsDisplay({
 
         console.log(`[WINNER AUDIO] Playing sound ${soundIndex + 1} of ${sounds.length}: ${sound.name}`);
         
+        // Update the current playing sound index for UI animation
+        setCurrentPlayingSoundIndex(soundIndex);
+        
         try {
           // Load and play using audioSystem for real-time waveform analysis
           await audioSystem.loadSound(sound.id, sound.fileName);
@@ -245,6 +252,9 @@ export function ResultsDisplay({
           
           console.log(`[WINNER AUDIO] Sound ${soundIndex + 1} finished playing`);
           
+          // Clear the current playing sound index
+          setCurrentPlayingSoundIndex(-1);
+          
           // Wait a brief moment between sounds, then play the next one
           setTimeout(() => {
             playNextSound(soundIndex + 1);
@@ -252,6 +262,8 @@ export function ResultsDisplay({
           
         } catch (audioError) {
           console.error(`[WINNER AUDIO] AudioSystem failed for ${sound.name}, skipping:`, audioError);
+          // Clear the current playing sound index on error
+          setCurrentPlayingSoundIndex(-1);
           // Move to next sound if this one fails
           setTimeout(() => {
             playNextSound(soundIndex + 1);
@@ -267,6 +279,7 @@ export function ResultsDisplay({
     } catch (error) {
       console.error('Error playing winning combination:', error);
       setIsPlayingWinner(false);
+      setCurrentPlayingSoundIndex(-1);
       setPlaybackProgress(0);
     }
   };
@@ -297,7 +310,7 @@ export function ResultsDisplay({
             size="large"
           />
         </div>
-        <div className="flex justify-center gap-16 mb-8">
+        <div className="flex justify-center items-center gap-16 mb-8">
           {/* Left Column - Winning Sound Combination Card */}
           <div className="text-center">
             {roundWinner.winningSubmission && (
@@ -308,6 +321,7 @@ export function ResultsDisplay({
                   index={0}
                   soundEffects={soundEffects}
                   isCurrentlyPlaying={isPlayingWinner}
+                  currentPlayingSoundIndex={currentPlayingSoundIndex}
                   showSoundNames={true}
                   playingMode="results"
                   isWinner={true}
