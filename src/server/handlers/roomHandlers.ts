@@ -22,7 +22,7 @@ import {
 } from "../utils/botManager";
 
 export function setupRoomHandlers(socket: Socket, context: SocketContext) {
-  // Create room handler
+  // Create room handler (for players)
   socket.on("createRoom", (playerData, callback) => {
     console.log("createRoom event received with playerData:", playerData);
     try {
@@ -78,6 +78,50 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
     }
   });
 
+  // Create room handler specifically for main screens (creates empty room)
+  socket.on("createRoomAsMainScreen", (callback) => {
+    console.log(
+      "createRoomAsMainScreen event received from main screen:",
+      socket.id
+    );
+    try {
+      let roomCode: string;
+      do {
+        roomCode = generateRoomCode();
+      } while (context.rooms.has(roomCode));
+
+      // Create empty room - no players initially
+      const room: Room = {
+        code: roomCode,
+        players: [], // Empty - first joiner becomes VIP
+        currentJudge: null,
+        gameState: GameState.LOBBY,
+        currentPrompt: null,
+        currentRound: 0,
+        maxRounds: GAME_CONFIG.DEFAULT_MAX_ROUNDS,
+        maxScore: GAME_CONFIG.MAX_SCORE,
+        allowExplicitContent: GAME_CONFIG.DEFAULT_ALLOW_EXPLICIT_CONTENT,
+        submissions: [],
+        winner: null,
+        usedPromptIds: [],
+        soundSelectionTimerStarted: false,
+        judgeSelectionTimerStarted: false,
+        promptChoices: [],
+        lastWinner: null,
+        lastWinningSubmission: null,
+      };
+
+      context.rooms.set(roomCode, room);
+      console.log(`Main screen created empty room: ${roomCode}`);
+
+      callback(roomCode);
+      broadcastRoomListUpdate(context);
+    } catch (error) {
+      console.error("Error creating room as main screen:", error);
+      socket.emit("error", { message: "Failed to create room" });
+    }
+  });
+
   // Join room handler
   socket.on("joinRoom", (roomCode, playerData, callback) => {
     try {
@@ -102,6 +146,10 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
       const usedEmojis = room.players
         .map((p) => p.emoji)
         .filter(Boolean) as string[];
+
+      // First human player becomes VIP if room is empty
+      const isFirstPlayer = room.players.length === 0;
+
       const player: Player = {
         id: socket.id,
         name: playerData.name,
@@ -109,7 +157,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
         emoji: playerData.emoji || getRandomEmoji(usedEmojis),
         score: 0,
         likeScore: 0,
-        isVIP: false,
+        isVIP: isFirstPlayer,
       };
       room.players.push(player);
       context.playerRooms.set(socket.id, roomCode);

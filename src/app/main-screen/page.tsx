@@ -18,6 +18,7 @@ function MainScreenContent() {
   const searchParams = useSearchParams();
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const prevGameState = useRef<string | null>(null);
   
   // Use custom hooks for audio, socket, and background music management
@@ -161,6 +162,60 @@ function MainScreenContent() {
       console.error('🎵 Main screen: Error activating audio before joining room:', error);
       // Still try to join room even if audio activation fails
       joinRoom(roomCodeInput);
+    }
+  };
+
+  // Room creation handler
+  const handleCreateRoom = async () => {
+    console.log('🎵 Main screen: Creating new room - activating audio systems...');
+    
+    if (!socket || !isConnected) {
+      console.error('Main screen: Cannot create room - socket not connected');
+      return;
+    }
+
+    setIsCreatingRoom(true);
+    
+    try {
+      // Activate both audio systems sequentially to prevent race conditions
+      await activateAudio();
+      await activateBackgroundAudio();
+      
+      console.log('🎵 Main screen: Audio systems activated, creating empty room');
+      
+      // Create empty room using the main screen specific handler
+      socket.emit("createRoomAsMainScreen", (roomCode: string) => {
+        console.log('🎉 Main screen: Empty room created successfully with code:', roomCode);
+        setIsCreatingRoom(false);
+        
+        // Update URL to reflect the new room
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', roomCode);
+        window.history.replaceState({}, '', url.toString());
+        
+        // Join the created room as a viewer (main screen)
+        socket.emit("joinRoomAsViewer", roomCode);
+      });
+      
+    } catch (error) {
+      console.error('🎵 Main screen: Error creating room:', error);
+      setIsCreatingRoom(false);
+      
+      // Still try to create room even if audio activation fails
+      if (socket && isConnected) {
+        socket.emit("createRoomAsMainScreen", (roomCode: string) => {
+          console.log('🎉 Main screen: Empty room created successfully with code:', roomCode);
+          setIsCreatingRoom(false);
+          
+          // Update URL to reflect the new room
+          const url = new URL(window.location.href);
+          url.searchParams.set('room', roomCode);
+          window.history.replaceState({}, '', url.toString());
+          
+          // Join the created room as a viewer (main screen)
+          socket.emit("joinRoomAsViewer", roomCode);
+        });
+      }
     }
   };
 
@@ -310,10 +365,12 @@ function MainScreenContent() {
         ) : (          
         <WaitingForGameScreen 
             onJoinRoom={handleJoinRoom}
+            onCreateRoom={handleCreateRoom}
             roomCodeInput={roomCodeInput}
             setRoomCodeInput={setRoomCodeInput}
             joinError={joinError}
             roomCodeFromURL={searchParams?.get('room')}
+            isCreatingRoom={isCreatingRoom}
           />
         )}
 

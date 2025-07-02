@@ -212,6 +212,7 @@ export interface ClientToServerEvents {
     playerData: PlayerData,
     callback: (roomCode: string) => void
   ) => void;
+  createRoomAsMainScreen: (callback: (roomCode: string) => void) => void;
   joinRoom: (
     roomCode: string,
     playerData: PlayerData,

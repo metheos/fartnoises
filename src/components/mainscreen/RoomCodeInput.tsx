@@ -33,10 +33,10 @@ export default function RoomCodeInput({
 
   return (
     <div className={`bg-purple-100 rounded-2xl p-6 mb-8 ${className}`}>
-      <div className="text-center mb-6">
+      {/* <div className="text-center mb-6">
         <h3 className="text-3xl font-bold text-gray-900 mb-2">Enter Room Code</h3>
         <p className="text-lg text-gray-600">Join a game as a spectator</p>
-      </div>
+      </div> */}
       
       {/* URL persistence indicator */}
       {roomCodeFromURL && roomCodeFromURL.length === 4 && (
