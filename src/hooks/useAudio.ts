@@ -45,7 +45,7 @@ export function useAudio({
           console.log(
             "🔊 useAudio: Audio can be initialized, checking if already active..."
           );
-          
+
           // Only set ready to true if the audio system is actually initialized and running
           if (audioSystem.isInitialized()) {
             console.log("🔊 useAudio: Audio system already active");
@@ -56,20 +56,28 @@ export function useAudio({
             setIsInitializing(true);
             setHasTriedAutoInit(true);
             // Since canInitialize() returned true, try direct initialization
-            audioSystem.initialize()
+            audioSystem
+              .initialize()
               .then(() => {
                 setIsAudioReady(true);
                 setIsInitializing(false);
-                console.log("✅ useAudio: Audio system auto-initialized successfully");
+                console.log(
+                  "✅ useAudio: Audio system auto-initialized successfully"
+                );
               })
               .catch((error) => {
                 setIsInitializing(false);
-                console.warn("⚠️ useAudio: Auto-initialization failed, will require manual activation:", error);
+                console.warn(
+                  "⚠️ useAudio: Auto-initialization failed, will require manual activation:",
+                  error
+                );
                 // setIsAudioReady remains false, and hasTriedAutoInit is true, so manual activation button will show
               });
           }
         } else {
-          console.log("🔊 useAudio: Audio requires user activation - no interaction detected yet");
+          console.log(
+            "🔊 useAudio: Audio requires user activation - no interaction detected yet"
+          );
           // Don't set hasTriedAutoInit yet - we'll wait for user interaction
         }
       } catch (loadError) {
@@ -85,7 +93,9 @@ export function useAudio({
 
   // Debug effect to log state changes
   useEffect(() => {
-    console.log(`🔊 useAudio: State change - isAudioReady: ${isAudioReady}, hasTriedAutoInit: ${hasTriedAutoInit}, isInitializing: ${isInitializing}, isLoading: ${isLoading}`);
+    console.log(
+      `🔊 useAudio: State change - isAudioReady: ${isAudioReady}, hasTriedAutoInit: ${hasTriedAutoInit}, isInitializing: ${isInitializing}, isLoading: ${isLoading}`
+    );
   }, [isAudioReady, hasTriedAutoInit, isInitializing, isLoading]);
 
   // Immediate check when user interaction becomes available
@@ -95,37 +105,67 @@ export function useAudio({
     const handleInteractionCheck = () => {
       // Small delay to ensure the user interaction flag is set
       setTimeout(() => {
-        console.log(`🔊 useAudio: Interaction check - hasTriedAutoInit: ${hasTriedAutoInit}, isAudioReady: ${isAudioReady}, isInitializing: ${isInitializing}`);
-        if (!hasTriedAutoInit && audioSystem.canInitialize() && !audioSystem.isInitialized()) {
-          console.log("🔊 useAudio: User interaction detected - immediately auto-initializing audio...");
-          console.log(`🔊 useAudio: Setting isInitializing: true, hasTriedAutoInit: true`);
+        console.log(
+          `🔊 useAudio: Interaction check - hasTriedAutoInit: ${hasTriedAutoInit}, isAudioReady: ${isAudioReady}, isInitializing: ${isInitializing}`
+        );
+        if (
+          !hasTriedAutoInit &&
+          audioSystem.canInitialize() &&
+          !audioSystem.isInitialized()
+        ) {
+          console.log(
+            "🔊 useAudio: User interaction detected - immediately auto-initializing audio..."
+          );
+          console.log(
+            `🔊 useAudio: Setting isInitializing: true, hasTriedAutoInit: true`
+          );
           setIsInitializing(true);
           setHasTriedAutoInit(true);
-          audioSystem.initialize()
+          audioSystem
+            .initialize()
             .then(() => {
-              console.log(`🔊 useAudio: Initialization succeeded - setting isAudioReady: true, isInitializing: false`);
+              console.log(
+                `🔊 useAudio: Initialization succeeded - setting isAudioReady: true, isInitializing: false`
+              );
               setIsAudioReady(true);
               setIsInitializing(false);
-              console.log("✅ useAudio: Audio system auto-initialized after user interaction");
+              console.log(
+                "✅ useAudio: Audio system auto-initialized after user interaction"
+              );
             })
             .catch((error) => {
-              console.log(`🔊 useAudio: Initialization failed - setting isInitializing: false`);
+              console.log(
+                `🔊 useAudio: Initialization failed - setting isInitializing: false`
+              );
               setIsInitializing(false);
-              console.log("⚠️ useAudio: Auto-initialization failed after user interaction:", error);
+              console.log(
+                "⚠️ useAudio: Auto-initialization failed after user interaction:",
+                error
+              );
             });
         } else {
-          console.log(`🔊 useAudio: Skipping interaction init - hasTriedAutoInit: ${hasTriedAutoInit}, canInit: ${audioSystem.canInitialize()}, isInit: ${audioSystem.isInitialized()}`);
+          console.log(
+            `🔊 useAudio: Skipping interaction init - hasTriedAutoInit: ${hasTriedAutoInit}, canInit: ${audioSystem.canInitialize()}, isInit: ${audioSystem.isInitialized()}`
+          );
         }
       }, 150);
     };
 
     // Listen for the same interaction events to trigger immediate check
-    const events = ["click", "touchstart", "touchend", "keydown", "keyup", "pointerdown", "mousedown"];
-    
+    const events = [
+      "click",
+      "touchstart",
+      "touchend",
+      "keydown",
+      "keyup",
+      "pointerdown",
+      "mousedown",
+    ];
+
     events.forEach((event) => {
-      document.addEventListener(event, handleInteractionCheck, { 
-        passive: true, 
-        once: true // Only need to check once per useAudio instance
+      document.addEventListener(event, handleInteractionCheck, {
+        passive: true,
+        once: true, // Only need to check once per useAudio instance
       });
     });
 
@@ -141,28 +181,48 @@ export function useAudio({
     if (isAudioReady || hasTriedAutoInit) return; // Already ready or already tried, no need to check
 
     const checkAndAutoInit = () => {
-      console.log(`🔊 useAudio: Periodic check - hasTriedAutoInit: ${hasTriedAutoInit}, isAudioReady: ${isAudioReady}, isInitializing: ${isInitializing}`);
+      console.log(
+        `🔊 useAudio: Periodic check - hasTriedAutoInit: ${hasTriedAutoInit}, isAudioReady: ${isAudioReady}, isInitializing: ${isInitializing}`
+      );
       // Only proceed if we haven't tried auto-init yet and audio can actually initialize
-      if (!hasTriedAutoInit && audioSystem.canInitialize() && !audioSystem.isInitialized()) {
+      if (
+        !hasTriedAutoInit &&
+        audioSystem.canInitialize() &&
+        !audioSystem.isInitialized()
+      ) {
         console.log("🔊 useAudio: Periodic check - auto-initializing audio...");
-        console.log(`🔊 useAudio: Periodic - setting isInitializing: true, hasTriedAutoInit: true`);
+        console.log(
+          `🔊 useAudio: Periodic - setting isInitializing: true, hasTriedAutoInit: true`
+        );
         setIsInitializing(true);
         setHasTriedAutoInit(true);
-        audioSystem.initialize()
+        audioSystem
+          .initialize()
           .then(() => {
-            console.log(`🔊 useAudio: Periodic initialization succeeded - setting isAudioReady: true, isInitializing: false`);
+            console.log(
+              `🔊 useAudio: Periodic initialization succeeded - setting isAudioReady: true, isInitializing: false`
+            );
             setIsAudioReady(true);
             setIsInitializing(false);
-            console.log("✅ useAudio: Audio system auto-initialized via periodic check");
+            console.log(
+              "✅ useAudio: Audio system auto-initialized via periodic check"
+            );
           })
           .catch((error) => {
-            console.log(`🔊 useAudio: Periodic initialization failed - setting isInitializing: false`);
+            console.log(
+              `🔊 useAudio: Periodic initialization failed - setting isInitializing: false`
+            );
             setIsInitializing(false);
-            console.log("⚠️ useAudio: Periodic auto-initialization failed:", error);
+            console.log(
+              "⚠️ useAudio: Periodic auto-initialization failed:",
+              error
+            );
             // hasTriedAutoInit is true and isAudioReady is false, so manual button will show
           });
       } else {
-        console.log(`🔊 useAudio: Skipping periodic init - hasTriedAutoInit: ${hasTriedAutoInit}, canInit: ${audioSystem.canInitialize()}, isInit: ${audioSystem.isInitialized()}`);
+        console.log(
+          `🔊 useAudio: Skipping periodic init - hasTriedAutoInit: ${hasTriedAutoInit}, canInit: ${audioSystem.canInitialize()}, isInit: ${audioSystem.isInitialized()}`
+        );
       }
     };
 

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { audioSystem } from '../utils/audioSystem';
+import { useEffect, useState } from "react";
+import { audioSystem } from "../utils/audioSystem";
 
 /**
  * Hook to track user interactions and mark them for audio system initialization
@@ -13,8 +13,10 @@ export function useUserInteractionTracking() {
       if (!hasInteracted) {
         hasInteracted = true;
         audioSystem.markUserInteraction();
-        console.log('🔊 First user interaction detected - audio system ready for auto-initialization');
-        
+        console.log(
+          "🔊 First user interaction detected - audio system ready for auto-initialization"
+        );
+
         // Give a small delay to ensure the user interaction flag is properly set
         // before any periodic checks run in other hooks
         setTimeout(() => {

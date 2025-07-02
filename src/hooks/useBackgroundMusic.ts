@@ -124,26 +124,34 @@ export function useBackgroundMusic(): BackgroundMusicHook {
     const tryAutoInit = () => {
       if (!audioContextActivated.current && !isAudioReady) {
         // Use the main audio system to check if initialization is possible
-        import('@/utils/audioSystem').then(({ audioSystem }) => {
+        import("@/utils/audioSystem").then(({ audioSystem }) => {
           if (audioSystem.canInitialize()) {
-            console.log("🔊 Background music: Auto-initializing audio context...");
+            console.log(
+              "🔊 Background music: Auto-initializing audio context..."
+            );
             // Create a dummy audio context to activate it
             const audioContext = new (window.AudioContext ||
               (window as unknown as { webkitAudioContext: typeof AudioContext })
                 .webkitAudioContext)();
-            
-            const initPromise = audioContext.state === "suspended" 
-              ? audioContext.resume() 
-              : Promise.resolve();
-              
+
+            const initPromise =
+              audioContext.state === "suspended"
+                ? audioContext.resume()
+                : Promise.resolve();
+
             initPromise
               .then(() => {
                 audioContextActivated.current = true;
                 setIsAudioReady(true);
-                console.log("✅ Background music: Audio context auto-activated");
+                console.log(
+                  "✅ Background music: Audio context auto-activated"
+                );
               })
               .catch((error) => {
-                console.warn("⚠️ Background music: Auto-activation failed:", error);
+                console.warn(
+                  "⚠️ Background music: Auto-activation failed:",
+                  error
+                );
               });
           }
         });

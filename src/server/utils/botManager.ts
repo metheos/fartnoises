@@ -576,20 +576,22 @@ export function checkAndHandleBotOnlyRoom(
 ): void {
   const humanPlayers = room.players.filter((p) => !p.isBot);
   const botPlayers = room.players.filter((p) => p.isBot);
+  const roomMainScreens = context.mainScreens.get(room.code);
+  const mainScreenCount = roomMainScreens?.size || 0;
 
   console.log(
-    `[BOT-TIMER] Checking room ${room.code} (${room.gameState}): ${humanPlayers.length} humans, ${botPlayers.length} bots`
+    `[BOT-TIMER] Checking room ${room.code} (${room.gameState}): ${humanPlayers.length} humans, ${botPlayers.length} bots, ${mainScreenCount} main screens`
   );
 
-  if (humanPlayers.length === 0) {
-    // Room is either empty or only has bots - start destruction timer
+  if (humanPlayers.length === 0 && mainScreenCount === 0) {
+    // Room is either empty or only has bots, AND has no main screens - start destruction timer
     if (room.players.length === 0) {
       console.log(
-        `[BOT-TIMER] ⚠️  Room ${room.code} is completely empty. Starting destruction timer.`
+        `[BOT-TIMER] ⚠️  Room ${room.code} is completely empty (no players, no main screens). Starting destruction timer.`
       );
     } else {
       console.log(
-        `[BOT-TIMER] ⚠️  Room ${room.code} now only has bots (${botPlayers.length}). Starting destruction timer.`
+        `[BOT-TIMER] ⚠️  Room ${room.code} now only has bots (${botPlayers.length}) and no main screens. Starting destruction timer.`
       );
     }
 
@@ -605,11 +607,21 @@ export function checkAndHandleBotOnlyRoom(
 
     startBotOnlyRoomDestructionTimer(context, room.code, timeout);
   } else {
-    // Room has human players - clear any existing bot-only timer
+    // Room has human players or main screens - clear any existing bot-only timer
     if (context.botOnlyRoomTimers.has(room.code)) {
-      console.log(
-        `[BOT-TIMER] ✅ Room ${room.code} has ${humanPlayers.length} human player(s). Clearing bot-only destruction timer.`
-      );
+      if (humanPlayers.length > 0 && mainScreenCount > 0) {
+        console.log(
+          `[BOT-TIMER] ✅ Room ${room.code} has ${humanPlayers.length} human player(s) and ${mainScreenCount} main screen(s). Clearing bot-only destruction timer.`
+        );
+      } else if (humanPlayers.length > 0) {
+        console.log(
+          `[BOT-TIMER] ✅ Room ${room.code} has ${humanPlayers.length} human player(s). Clearing bot-only destruction timer.`
+        );
+      } else if (mainScreenCount > 0) {
+        console.log(
+          `[BOT-TIMER] ✅ Room ${room.code} has ${mainScreenCount} main screen(s) connected. Clearing bot-only destruction timer.`
+        );
+      }
     }
     clearBotOnlyRoomDestructionTimer(context, room.code);
   }
@@ -645,24 +657,28 @@ function startBotOnlyRoomDestructionTimer(
 
     const humanPlayers = room.players.filter((p) => !p.isBot);
     const botPlayers = room.players.filter((p) => p.isBot);
+    const roomMainScreens = context.mainScreens.get(roomCode);
+    const mainScreenCount = roomMainScreens?.size || 0;
 
     console.log(
-      `[BOT-TIMER] Room ${roomCode} status: ${humanPlayers.length} humans, ${botPlayers.length} bots`
+      `[BOT-TIMER] Room ${roomCode} status: ${humanPlayers.length} humans, ${botPlayers.length} bots, ${mainScreenCount} main screens`
     );
 
-    // Double-check that room still has no human players (empty or bots-only)
-    if (humanPlayers.length === 0) {
+    // Double-check that room still has no human players AND no main screens (empty or bots-only)
+    if (humanPlayers.length === 0 && mainScreenCount === 0) {
       if (room.players.length === 0) {
         console.log(
           `[BOT-TIMER] 💥 DESTROYING empty room ${roomCode} after ${
             timeoutMs / 1000
-          } seconds (0 players)`
+          } seconds (0 players, 0 main screens)`
         );
       } else {
         console.log(
           `[BOT-TIMER] 💥 DESTROYING room ${roomCode} after ${
             timeoutMs / 1000
-          } seconds with only bots (${room.players.length} bots)`
+          } seconds with only bots (${
+            room.players.length
+          } bots, 0 main screens)`
         );
       }
 
@@ -720,9 +736,19 @@ function startBotOnlyRoomDestructionTimer(
       // Update room list for main screens
       broadcastRoomListUpdate(context);
     } else {
-      console.log(
-        `[BOT-TIMER] ⚠️  Room ${roomCode} timer expired but room now has ${humanPlayers.length} human(s) - canceling destruction`
-      );
+      if (humanPlayers.length > 0 && mainScreenCount > 0) {
+        console.log(
+          `[BOT-TIMER] ⚠️  Room ${roomCode} timer expired but room now has ${humanPlayers.length} human(s) and ${mainScreenCount} main screen(s) - canceling destruction`
+        );
+      } else if (humanPlayers.length > 0) {
+        console.log(
+          `[BOT-TIMER] ⚠️  Room ${roomCode} timer expired but room now has ${humanPlayers.length} human(s) - canceling destruction`
+        );
+      } else if (mainScreenCount > 0) {
+        console.log(
+          `[BOT-TIMER] ⚠️  Room ${roomCode} timer expired but room now has ${mainScreenCount} main screen(s) connected - canceling destruction`
+        );
+      }
       context.botOnlyRoomTimers.delete(roomCode);
     }
   }, timeoutMs);
@@ -743,7 +769,7 @@ function clearBotOnlyRoomDestructionTimer(
   const timer = context.botOnlyRoomTimers.get(roomCode);
   if (timer) {
     console.log(
-      `[BOT-TIMER] 🛑 Clearing room destruction timer for room ${roomCode} - human players are present`
+      `[BOT-TIMER] 🛑 Clearing room destruction timer for room ${roomCode} - room has active connections`
     );
     clearTimeout(timer);
     context.botOnlyRoomTimers.delete(roomCode);

@@ -55,10 +55,10 @@ export default function Home() {
 
   // Save player data to localStorage whenever it changes (client-side only)
   useEffect(() => {
-    if (!isClient || !playerColor || !playerEmoji) return;
+    if (!isClient || !playerColor || !playerEmoji || !playerName.trim()) return;
     
     const playerData = {
-      name: playerName,
+      name: playerName.trim(),
       color: playerColor,
       emoji: playerEmoji
     };
