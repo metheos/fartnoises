@@ -558,7 +558,7 @@ export class AudioSystem {
           const isRunningAfterResume = testContext.state === "running";
           testContext.close();
           return isRunningAfterResume;
-        } catch (error) {
+        } catch {
           console.log(
             "🔊 AudioContext resume test failed - user interaction required"
           );

@@ -12,7 +12,6 @@ import {
   broadcastRoomListUpdate,
   removeMainScreen,
   enrichRoomWithMainScreenCount,
-  emitRoomUpdated,
 } from "../utils/roomManager";
 import { clearTimer, startTimer } from "../utils/timerManager";
 import { startDelayedSoundSelectionTimer } from "../utils/gameLogic";

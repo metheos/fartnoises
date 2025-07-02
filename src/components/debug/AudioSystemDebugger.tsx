@@ -1,16 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AudioSystem } from '../../utils/audioSystem';
+
+interface AudioDebugInfo {
+  canInitialize: boolean;
+  isInitialized: boolean;
+  hasAudioContext: boolean;
+  audioContextState?: string;
+  userInteractionDetected: boolean;
+  documentState: {
+    hasFocus: boolean;
+    visibility: string;
+    readyState: string;
+  };
+  browserSupport: boolean;
+}
 
 export const AudioSystemDebugger: React.FC = () => {
   const [audioSystem] = useState(() => AudioSystem.getInstance());
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<AudioDebugInfo | null>(null);
   const [testResults, setTestResults] = useState<string[]>([]);
 
-  const refreshDebugInfo = () => {
+  const refreshDebugInfo = useCallback(() => {
     const info = audioSystem.getAudioReadinessInfo();
     setDebugInfo(info);
     console.log('🔊 Audio System Debug Info:', info);
-  };
+  }, [audioSystem]);
 
   const testCanInitialize = () => {
     const canInit = audioSystem.canInitialize();
@@ -50,7 +64,7 @@ export const AudioSystemDebugger: React.FC = () => {
     const interval = setInterval(refreshDebugInfo, 2000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshDebugInfo]);
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
@@ -143,8 +157,8 @@ export const AudioSystemDebugger: React.FC = () => {
         <h3 className="font-semibold text-yellow-800 mb-2">Testing Instructions:</h3>
         <ol className="list-decimal list-inside space-y-1 text-yellow-700">
           <li>The page should auto-initialize audio after user interaction</li>
-          <li>Check "Can Initialize" and "Is Initialized" - both should show YES automatically</li>
-          <li>If auto-init fails, you can manually click "Initialize Audio"</li>
+          <li>Check &quot;Can Initialize&quot; and &quot;Is Initialized&quot; - both should show YES automatically</li>
+          <li>If auto-init fails, you can manually click &quot;Initialize Audio&quot;</li>
           <li>Test playing sounds to verify audio is working</li>
           <li>Open browser dev tools to see detailed console logs</li>
         </ol>
