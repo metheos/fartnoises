@@ -133,7 +133,7 @@ export default function LobbyDisplay({ room }: LobbyDisplayProps) {
         <div className="text-center">
           <p className="text-2xl text-gray-800 font-bold">
             {room.players.length < 3
-              ? `Only ${room.players.length} joined...`
+              ? `${room.players.length} joined...`
               : (
                 <span className="inline-block text-4xl font-black bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 bg-clip-text text-transparent transform rotate-3 drop-shadow-lg animate-pulse">
                   {`${room.players.length} players ready!`}
