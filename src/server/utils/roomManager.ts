@@ -58,11 +58,33 @@ export function processAndAssignPrompt(room: Room, prompt: GamePrompt): void {
   };
 }
 
+// Helper function to enrich room data with main screen count
+export function enrichRoomWithMainScreenCount(
+  room: import("@/types/game").Room,
+  context: SocketContext
+): import("@/types/game").Room {
+  const mainScreenCount = context.mainScreens.get(room.code)?.size || 0;
+  return {
+    ...room,
+    mainScreenCount,
+  };
+}
+
+// Helper function to emit roomUpdated with main screen count
+export function emitRoomUpdated(
+  context: SocketContext,
+  roomCode: string,
+  room: import("@/types/game").Room
+): void {
+  const enrichedRoom = enrichRoomWithMainScreenCount(room, context);
+  context.io.to(roomCode).emit("roomUpdated", enrichedRoom);
+}
+
 // Helper function to broadcast the list of rooms
 export function broadcastRoomListUpdate(context: SocketContext) {
-  const roomsArray = Array.from(context.rooms.values()).filter(
-    (room) => room.players.length > 0
-  ); // Only show rooms with players
+  const roomsArray = Array.from(context.rooms.values())
+    .filter((room) => room.players.length > 0) // Only show rooms with players
+    .map((room) => enrichRoomWithMainScreenCount(room, context)); // Enrich with main screen count
   context.io.emit("mainScreenUpdate", { rooms: roomsArray });
 }
 
@@ -91,6 +113,12 @@ export function addMainScreen(
         roomCode
       )}`
     );
+  }
+
+  // Emit room update to notify players of main screen connection
+  const room = context.rooms.get(roomCode);
+  if (room) {
+    emitRoomUpdated(context, roomCode, room);
   }
 }
 
@@ -124,12 +152,17 @@ export function removeMainScreen(
     );
   }
 
+  // Emit room update to notify players of main screen disconnection
+  const room = context.rooms.get(roomCode);
+  if (room) {
+    emitRoomUpdated(context, roomCode, room);
+  }
+
   // Clean up if no main screens left
   if (roomMainScreens.size === 0) {
     context.mainScreens.delete(roomCode);
 
     // Check if we should destroy the room (if only bots remain or room is empty)
-    const room = context.rooms.get(roomCode);
     if (room) {
       // Use dynamic import to avoid circular dependency
       import("./botManager").then(({ checkAndHandleBotOnlyRoom }) => {

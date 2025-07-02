@@ -119,6 +119,46 @@ export function useBackgroundMusic(): BackgroundMusicHook {
     currentFolderRef.current = currentFolder;
   }, [currentFolder]);
 
+  // Auto-initialize audio when user interaction is available
+  useEffect(() => {
+    const tryAutoInit = () => {
+      if (!audioContextActivated.current && !isAudioReady) {
+        // Use the main audio system to check if initialization is possible
+        import('@/utils/audioSystem').then(({ audioSystem }) => {
+          if (audioSystem.canInitialize()) {
+            console.log("🔊 Background music: Auto-initializing audio context...");
+            // Create a dummy audio context to activate it
+            const audioContext = new (window.AudioContext ||
+              (window as unknown as { webkitAudioContext: typeof AudioContext })
+                .webkitAudioContext)();
+            
+            const initPromise = audioContext.state === "suspended" 
+              ? audioContext.resume() 
+              : Promise.resolve();
+              
+            initPromise
+              .then(() => {
+                audioContextActivated.current = true;
+                setIsAudioReady(true);
+                console.log("✅ Background music: Audio context auto-activated");
+              })
+              .catch((error) => {
+                console.warn("⚠️ Background music: Auto-activation failed:", error);
+              });
+          }
+        });
+      }
+    };
+
+    tryAutoInit();
+
+    // Also set up periodic checking
+    if (!isAudioReady) {
+      const interval = setInterval(tryAutoInit, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [isAudioReady]);
+
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);

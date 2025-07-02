@@ -69,6 +69,7 @@ export interface Room {
   previousGameState?: GameState;
   disconnectionTimestamp?: number;
   reconnectionVote?: ReconnectionVote | null;
+  mainScreenCount?: number; // Number of connected main screens for this room
 }
 
 export interface SoundSubmission {

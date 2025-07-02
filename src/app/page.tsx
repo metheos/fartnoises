@@ -220,22 +220,22 @@ export default function Home() {
 
               {/* Player Customization - Show only when editing */}
               {isEditingProfile && (
-                <div className="mb-6">
-                  <label className="block text-gray-700 text-lg font-bold mb-3">
+                <div className="mb-2">
+                  {/* <label className="block text-gray-700 text-lg font-bold mb-3">
                     Your Avatar
-                  </label>
+                  </label> */}
                   
                   {/* Current Selection Preview */}
-                  <div className="flex items-center justify-center mb-4">
+                  <div className="flex items-center justify-center">
                     <div className={`w-20 h-20 rounded-full ${getPlayerColorClass(playerColor)} flex items-center justify-center text-3xl shadow-lg`}>
                       {playerEmoji}
                     </div>
                   </div>
 
                   {/* Color Selection */}
-                  <div className="mb-4">
-                    <p className="text-sm font-semibold text-gray-600 mb-2">Choose your color:</p>
-                    <div className="flex flex-wrap gap-2 justify-center">
+                  <div className="mb-2 mt-2">
+                    {/* <p className="text-sm font-semibold text-gray-600 mb-2">Color:</p> */}
+                    <div className="flex gap-2 justify-center">
                       {PLAYER_COLORS.map((color) => (
                         <button
                           key={color}
@@ -251,8 +251,8 @@ export default function Home() {
 
                   {/* Emoji Selection */}
                   <div className="mb-4">
-                    <p className="text-sm font-semibold text-gray-600 mb-2">Choose your emoji:</p>
-                    <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                    {/* <p className="text-sm font-semibold text-gray-600 mb-2">Emoji:</p> */}
+                    <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-1">
                       {PLAYER_EMOJIS.map((emoji) => (
                         <button
                           key={emoji}
@@ -301,7 +301,7 @@ export default function Home() {
               {!isEditingProfile && (
                 <>
                   {/* Room Code Input */}
-                  <div className="mb-8">
+                  <div className="mb-4">
                     <label className="block text-gray-700 text-lg font-bold mb-2">
                       Room Code <span className="font-normal text-gray-500">(to join)</span>
                     </label>
@@ -321,40 +321,35 @@ export default function Home() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="space-y-4">
+                  <div className="flex gap-2">
                     <Button
                       onClick={() => handleSubmit('join')}
                       disabled={!playerName.trim() || roomCode.trim().length !== 4}
                       variant="primary"
                       size="lg"
-                      className="w-full"
+                      className="flex-1 text-sm"
+                      style={{ padding: 10 }}
                     >
                       🚀 Join Game
                     </Button>
-                    
-                    <div className="relative flex py-2 items-center">
-                      <div className="flex-grow border-t border-gray-300"></div>
-                      <span className="flex-shrink mx-4 text-gray-500 font-semibold">OR</span>
-                      <div className="flex-grow border-t border-gray-300"></div>
-                    </div>
 
                     <Button
                       onClick={() => handleSubmit('create')}
                       disabled={!playerName.trim()}
                       variant="success"
                       size="lg"
-                      className="w-full"
+                      className="flex-1 text-sm"
+                      style={{ padding: 10 }}
                     >
-                      🎮 Create New Room
+                      🎮 Create Room
                     </Button>
                   </div>
 
                 </>
               )}
 
-              {/* Main Screen Button - Hide when editing profile */}
-              {!isEditingProfile && (
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              {/* Main Screen Button - Always Show */}              
+              <div className="mt-4">
                 <Button
                   onClick={goToMainScreen}
                   variant="purple"
@@ -366,7 +361,6 @@ export default function Home() {
                   For TV/shared display
                 </p>
               </div>
-              )}
             </>
           ) : mode === 'join' ? (
             <>

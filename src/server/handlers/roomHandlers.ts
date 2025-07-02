@@ -11,6 +11,8 @@ import {
   broadcastRoomListUpdate,
   addMainScreen,
   removeMainScreen,
+  enrichRoomWithMainScreenCount,
+  emitRoomUpdated,
 } from "../utils/roomManager";
 import { clearTimer } from "../utils/timerManager";
 import {
@@ -67,7 +69,8 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
       console.log("Calling callback with roomCode:", roomCode);
       callback(roomCode);
       console.log("Emitting roomCreated event with room and player");
-      socket.emit("roomCreated", { room, player });
+      const enrichedRoom = enrichRoomWithMainScreenCount(room, context);
+      socket.emit("roomCreated", { room: enrichedRoom, player });
       broadcastRoomListUpdate(context);
     } catch (error) {
       console.error("Error creating room:", error);
@@ -146,9 +149,10 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
       checkAndHandleBotOnlyRoom(context, room);
 
       callback(true);
-      socket.emit("roomJoined", { room, player });
-      context.io.to(roomCode).emit("roomUpdated", room);
-      context.io.to(roomCode).emit("playerJoined", { room });
+      const enrichedRoom = enrichRoomWithMainScreenCount(room, context);
+      socket.emit("roomJoined", { room: enrichedRoom, player });
+      emitRoomUpdated(context, roomCode, room);
+      context.io.to(roomCode).emit("playerJoined", { room: enrichedRoom });
       broadcastRoomListUpdate(context);
     } catch (error) {
       console.error("Error joining room:", error);
@@ -213,7 +217,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
         maxScore,
         allowExplicitContent,
       });
-      context.io.to(roomCode).emit("roomUpdated", room);
+      emitRoomUpdated(context, roomCode, room);
     } catch (error) {
       console.error("Error updating game settings:", error);
       socket.emit("error", { message: "Failed to update game settings" });
@@ -288,7 +292,7 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
                   .to(roomCode)
                   .emit("judgeSelected", room.currentJudge as string);
               }
-              context.io.to(roomCode).emit("roomUpdated", room);
+              emitRoomUpdated(context, roomCode, room);
             }
           }
 
@@ -339,7 +343,8 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
         (socket as any).isPrimaryMainScreen =
           context.primaryMainScreens.get(normalizedRoomCode) === socket.id; // Mark if primary
 
-        socket.emit("roomJoined", room);
+        const enrichedRoom = enrichRoomWithMainScreenCount(room, context);
+        socket.emit("roomJoined", enrichedRoom);
       } else {
         console.log(
           `[VIEWER] Room ${normalizedRoomCode} not found for main screen`

@@ -35,6 +35,8 @@ interface MainScreenGameDisplayProps {
   } | null;
   soundEffects: SoundEffect[];
   isAudioReady: boolean;
+  hasTriedAutoInit: boolean;
+  isInitializing: boolean;
   onActivateAudio: () => Promise<void>;
   currentPlayingSubmission: SoundSubmission | null;
   currentPlayingSoundIndex: number;
@@ -57,6 +59,8 @@ export function MainScreenGameDisplay({
   roundWinner,
   soundEffects,
   isAudioReady,
+  hasTriedAutoInit,
+  isInitializing,
   onActivateAudio,
   currentPlayingSubmission,
   currentPlayingSoundIndex,
@@ -66,11 +70,13 @@ export function MainScreenGameDisplay({
 }: MainScreenGameDisplayProps) {
   return (
     <div className="space-y-2">
-      {/* Audio Activation Banner */}
-      <AudioActivationBanner 
-        isAudioReady={isAudioReady}
-        onActivateAudio={onActivateAudio}
-      />
+      {/* Audio Activation Banner - only show if we've tried auto-init, main audio failed, and not currently initializing */}
+      {hasTriedAutoInit && !isInitializing && !isAudioReady && (
+        <AudioActivationBanner 
+          isAudioReady={isAudioReady && backgroundMusic.isAudioReady}
+          onActivateAudio={onActivateAudio}
+        />
+      )}
 
       {/* Game Header */}
       <GameHeader 

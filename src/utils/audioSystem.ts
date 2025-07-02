@@ -481,29 +481,176 @@ export class AudioSystem {
         return this.audioContext.state !== "suspended";
       }
 
-      // Check if we're in a browser environment and user has interacted
+      // Check if we're in a browser environment
       if (typeof window === "undefined") return false;
 
-      // Modern browsers: check if audio can be played without user gesture
-      // AudioContext state starts as 'suspended' until user interaction
-      // We can detect this by seeing if we can create one in a 'running' state
-      const tempContext = new (window.AudioContext ||
-        // Legacy Safari WebKit prefix support - any cast needed for window extension
+      // Check if AudioContext is available
+      const AudioContextClass =
+        window.AudioContext ||
+        // Legacy Safari WebKit prefix support
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).webkitAudioContext ||
-        AudioContext)();
+        (window as any).webkitAudioContext;
 
-      const canInit = tempContext.state === "running";
+      if (!AudioContextClass) {
+        console.log("🔊 AudioContext not available in this browser");
+        return false;
+      }
 
-      // Clean up the temporary context
-      tempContext.close();
+      // Check for our custom user interaction flag first
+      const hasMarkedInteraction = document.body.dataset.userInteracted === "true";
+      
+      if (hasMarkedInteraction) {
+        console.log("🔊 User interaction flag detected");
+        return true;
+      }
 
-      return canInit;
+      // Fallback: Test with actual AudioContext creation
+      try {
+        const testContext = new AudioContextClass();
+        const isRunning = testContext.state === 'running';
+        
+        // Clean up the test context
+        testContext.close();
+        
+        if (!isRunning) {
+          console.log("🔊 AudioContext test shows 'suspended' state - user interaction required");
+        } else {
+          console.log("🔊 AudioContext test shows 'running' state - ready to initialize");
+        }
+        
+        return isRunning;
+      } catch (error) {
+        console.log("🔊 AudioContext creation test failed:", error);
+        return false;
+      }
     } catch (error) {
-      // If we can't even create an AudioContext, audio is not ready
-      console.log("🔊 AudioContext creation failed, audio not ready:", error);
+      // If we can't perform the checks, audio is not ready
+      console.log("🔊 Audio initialization check failed:", error);
       return false;
     }
+  }
+
+  // Test if AudioContext can actually be created and resumed without user gesture errors
+  async canActuallyInitialize(): Promise<boolean> {
+    try {
+      if (typeof window === "undefined") return false;
+
+      const AudioContextClass = window.AudioContext ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).webkitAudioContext;
+
+      if (!AudioContextClass) return false;
+
+      // Create a test AudioContext
+      const testContext = new AudioContextClass();
+      const currentState = testContext.state;
+      
+      // If it starts suspended, try to resume it
+      if (currentState === 'suspended') {
+        try {
+          await testContext.resume();
+          const isRunningAfterResume = testContext.state === 'running';
+          testContext.close();
+          return isRunningAfterResume;
+        } catch (error) {
+          console.log("🔊 AudioContext resume test failed - user interaction required");
+          testContext.close();
+          return false;
+        }
+      } else if (currentState === 'running') {
+        // If it starts in running state, we're good
+        testContext.close();
+        return true;
+      } else {
+        // Any other state (like 'closed') means we can't use it
+        testContext.close();
+        return false;
+      }
+    } catch (error) {
+      console.log("🔊 AudioContext creation test failed:", error);
+      return false;
+    }
+  }
+
+  // Check if audio system is actually initialized and ready to play sounds
+  isInitialized(): boolean {
+    return this.audioContext !== null && this.audioContext.state === 'running';
+  }
+
+  // Mark that user has interacted with the page (call this on first click/touch)
+  markUserInteraction(): void {
+    if (typeof document !== "undefined") {
+      document.body.dataset.userInteracted = "true";
+      document.body.classList.add("user-has-interacted");
+      console.log(
+        "🔊 User interaction marked - audio ready for initialization"
+      );
+    }
+  }
+
+  // Get detailed audio readiness information for debugging
+  getAudioReadinessInfo(): {
+    canInitialize: boolean;
+    isInitialized: boolean;
+    hasAudioContext: boolean;
+    audioContextState?: string;
+    userInteractionDetected: boolean;
+    documentState: {
+      hasFocus: boolean;
+      visibility: string;
+      readyState: string;
+    };
+    browserSupport: boolean;
+  } {
+    const hasAudioContext = this.audioContext !== null;
+    const audioContextState = this.audioContext?.state;
+
+    // Check browser support
+    const AudioContextClass =
+      typeof window !== "undefined"
+        ? window.AudioContext ||
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).webkitAudioContext
+        : null;
+
+    const browserSupport = AudioContextClass !== null;
+
+    // Check user interaction
+    const userInteractionChecks =
+      typeof document !== "undefined"
+        ? [
+            document.hasFocus() && document.visibilityState === "visible",
+            document.body.dataset.userInteracted === "true",
+            document.fullscreenElement !== null,
+            document.body.classList.contains("user-has-interacted"),
+            document.readyState === "complete" && document.hasFocus(),
+          ]
+        : [false];
+
+    const userInteractionDetected = userInteractionChecks.some(Boolean);
+
+    const documentState =
+      typeof document !== "undefined"
+        ? {
+            hasFocus: document.hasFocus(),
+            visibility: document.visibilityState,
+            readyState: document.readyState,
+          }
+        : {
+            hasFocus: false,
+            visibility: "hidden",
+            readyState: "loading",
+          };
+
+    return {
+      canInitialize: this.canInitialize(),
+      isInitialized: this.isInitialized(),
+      hasAudioContext,
+      audioContextState,
+      userInteractionDetected,
+      documentState,
+      browserSupport,
+    };
   }
 
   // Master volume control methods

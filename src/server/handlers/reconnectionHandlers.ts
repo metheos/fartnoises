@@ -11,6 +11,8 @@ import {
   selectNextJudge,
   broadcastRoomListUpdate,
   removeMainScreen,
+  enrichRoomWithMainScreenCount,
+  emitRoomUpdated,
 } from "../utils/roomManager";
 import { clearTimer, startTimer } from "../utils/timerManager";
 import { startDelayedSoundSelectionTimer } from "../utils/gameLogic";
@@ -74,8 +76,9 @@ export function setupReconnectionHandlers(
           const room = context.rooms.get(roomCode);
           const player = room?.players.find((p) => p.id === socket.id);
           if (room && player) {
-            socket.emit("roomJoined", { room, player });
-            callback(true, room);
+            const enrichedRoom = enrichRoomWithMainScreenCount(room, context);
+            socket.emit("roomJoined", { room: enrichedRoom, player });
+            callback(true, enrichedRoom);
           } else {
             callback(false);
           }

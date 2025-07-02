@@ -17,8 +17,47 @@ export default function ClientLobby({
   onStartGame, 
   onUpdateGameSetting 
 }: ClientLobbyProps) {
+  const mainScreenCount = room.mainScreenCount || 0;
+  
   return (
     <Card className="text-center">
+      {/* Main Screen Status */}
+      <div className={`mb-4 p-3 rounded-xl ${
+        mainScreenCount > 0 
+          ? 'bg-green-100 border-2 border-green-300' 
+          : 'bg-orange-100 border-2 border-orange-300'
+      }`}>
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-3xl">
+            {mainScreenCount > 0 ? '📺' : '📱'}
+          </span>
+          <div className="text-left flex-grow">
+            {mainScreenCount > 0 ? (
+              <>
+                <p className="text-green-800 font-bold text-sm">
+                  {mainScreenCount} Main Screen{mainScreenCount > 1 ? 's' : ''} Connected
+                </p>
+                <p className="text-green-700 text-xs">
+                  Enhanced game experience active! Sound playback, judging displays, and results will show on the main screen.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-orange-800 font-bold text-sm">
+                  No Main Screen Connected
+                </p>
+                <p className="text-orange-700 text-xs">
+                  Connect a shared main screen (TV/projector) for the best experience! Players can still play without it.
+                </p>
+                {/* <p className="text-orange-600 text-xs mt-1 italic">
+                  💡 Tip: Open the main screen page on a TV or shared device
+                </p> */}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Game Settings Display/Controls */}
       <GameSettingsPanel
         room={room}
@@ -28,12 +67,12 @@ export default function ClientLobby({
       />
       
       {/* Player List */}
-      <ul className="mb-8 text-left max-w-xs mx-auto space-y-3">
+      <ul className="mb-4 text-left max-w-xs mx-auto space-y-3">
         {room.players.map((p) => (
           <li
             key={p.id}
             className={`
-              flex items-center gap-3 p-3 rounded-2xl shadow-md transition-all duration-200
+              flex items-center gap-3 p-2 rounded-2xl shadow-md transition-all duration-200
               ${getPlayerColorClass(p.color)}
               ${p.id === player.id ? 'ring-4 ring-purple-400 scale-105' : ''}
               ${p.isVIP ? 'border-2 border-yellow-300' : ''}
@@ -72,13 +111,13 @@ export default function ClientLobby({
                   </span>
                 )}
               </span>
-              <span className="text-xs opacity-80">
+              {/* <span className="text-xs opacity-80">
                 {p.isVIP ? 'Host' : 'Player'}
-              </span>
+              </span> */}
             </div>
-            <span className="ml-auto font-black text-lg drop-shadow">
+            {/* <span className="ml-auto font-black text-lg drop-shadow">
               {p.score}
-            </span>
+            </span> */}
           </li>
         ))}
       </ul>

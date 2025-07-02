@@ -21,7 +21,7 @@ function MainScreenContent() {
   const prevGameState = useRef<string | null>(null);
   
   // Use custom hooks for audio, socket, and background music management
-  const { soundEffects, isAudioReady, setIsAudioReady, activateAudio } = useAudio();
+  const { soundEffects, isAudioReady, setIsAudioReady, activateAudio, hasTriedAutoInit, isInitializing } = useAudio();
   const { 
     currentTrack: currentMusicTrack,
     isPlaying: isMusicPlaying,
@@ -249,15 +249,19 @@ function MainScreenContent() {
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 p-2 flex flex-col">
       <div className="mx-auto flex-1 w-full px-2">
 
-        {/* Audio Activation Banner - show if either audio system isn't ready */}
-        {(!isAudioReady || !isMusicAudioReady) && (
-          <div className="mb-4">
-            <AudioActivationBanner 
-              isAudioReady={isAudioReady && isMusicAudioReady}
-              onActivateAudio={handleActivateAudio}
-            />
-          </div>
-        )}
+        {/* Audio Activation Banner - only show if we've tried auto-init, main audio failed, and we're not currently initializing */}
+        {(() => {
+          const shouldShow = !currentRoom && hasTriedAutoInit && !isInitializing && !isAudioReady;
+          console.log(`🔊 Main screen: Banner decision - currentRoom: ${!!currentRoom}, hasTriedAutoInit: ${hasTriedAutoInit}, isInitializing: ${isInitializing}, isAudioReady: ${isAudioReady}, isMusicAudioReady: ${isMusicAudioReady}, shouldShow: ${shouldShow}`);
+          return shouldShow ? (
+            <div className="mb-4">
+              <AudioActivationBanner 
+                isAudioReady={isAudioReady && isMusicAudioReady}
+                onActivateAudio={handleActivateAudio}
+              />
+            </div>
+          ) : null;
+        })()}
 
         {/* Music Status Indicator (for debugging) */}
         {/* {process.env.NODE_ENV === 'development' && (
@@ -275,6 +279,8 @@ function MainScreenContent() {
             roundWinner={roundWinner} 
             soundEffects={soundEffects}
             isAudioReady={isAudioReady}
+            hasTriedAutoInit={hasTriedAutoInit}
+            isInitializing={isInitializing}
             onActivateAudio={activateAudio}
             currentPlayingSubmission={currentPlayingSubmission}
             currentPlayingSoundIndex={currentPlayingSoundIndex}
