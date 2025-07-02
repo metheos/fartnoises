@@ -17,7 +17,7 @@ interface SubmissionCardProps {
 export function SubmissionCard({
   submission,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  index: _,
+  index: _index,
   soundEffects,
   isCurrentlyPlaying = false,
   currentPlayingSoundIndex = -1,
@@ -25,7 +25,7 @@ export function SubmissionCard({
   showSoundNames = true,
   playingMode = 'judging',
   isWinner = false,
-  playbackProgress = 0
+  playbackProgress: _playbackProgress = 0 // eslint-disable-line @typescript-eslint/no-unused-vars
 }: SubmissionCardProps) {
   const isTripleSound = submission.sounds.length === 3;
   
@@ -163,7 +163,7 @@ export function SubmissionCard({
         }}
       >
       {/* Progress Indicator for Winner */}
-      {isWinner && isCurrentlyPlaying && (
+      {/* {isWinner && isCurrentlyPlaying && (
         <div className="absolute -bottom-2 -right-2 w-16 h-16">
           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
             <path
@@ -189,15 +189,15 @@ export function SubmissionCard({
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Floating Sparkles for Winner */}
       {isWinner && (
         <>
-          <div className="absolute -top-2 -left-2 text-yellow-400 text-2xl opacity-80 animate-pulse" style={{ animation: 'floating-sparkles 3s ease-in-out infinite' }}>✨</div>
+          {/* <div className="absolute -top-2 -left-2 text-yellow-400 text-2xl opacity-80 animate-pulse" style={{ animation: 'floating-sparkles 3s ease-in-out infinite' }}>✨</div>
           <div className="absolute -top-1 -right-3 text-yellow-300 text-xl opacity-70" style={{ animation: 'floating-sparkles 3s ease-in-out infinite 0.5s' }}>⭐</div>
           <div className="absolute -bottom-2 -left-3 text-amber-400 text-lg opacity-60" style={{ animation: 'floating-sparkles 3s ease-in-out infinite 1s' }}>💫</div>
-          <div className="absolute -bottom-1 -right-2 text-yellow-500 text-xl opacity-75" style={{ animation: 'floating-sparkles 3s ease-in-out infinite 1.5s' }}>🌟</div>
+          <div className="absolute -bottom-1 -right-2 text-yellow-500 text-xl opacity-75" style={{ animation: 'floating-sparkles 3s ease-in-out infinite 1.5s' }}>🌟</div> */}
         </>
       )}
 
@@ -222,7 +222,7 @@ export function SubmissionCard({
               {isWinner 
                 ? (
                   <span className="flex items-center gap-2">
-                    <span style={{ animation: 'trophy-bounce 2s ease-in-out infinite' }}>🏆</span>
+                    {/* <span style={{ animation: 'trophy-bounce 2s ease-in-out infinite' }}>🏆</span> */}
                     <span className="bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-600 bg-clip-text text-transparent font-extrabold">
                       
                     </span>

@@ -201,6 +201,8 @@ export function useBackgroundMusic(): BackgroundMusicHook {
       }, 200); // Increased delay to 200ms
       return () => clearTimeout(timeoutId);
     }
+    // Intentionally limiting dependencies to prevent excessive music restarts
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAudioReady]);
 
   // Cleanup function
@@ -450,6 +452,8 @@ export function useBackgroundMusic(): BackgroundMusicHook {
       setCurrentTrack(null);
       setCurrentFolder(currentFolderValue); // Revert to previous folder on error
     }
+    // Intentionally excluding fadeIn/fadeOut to prevent unnecessary re-creation of changeMusic function
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Set volume for current audio

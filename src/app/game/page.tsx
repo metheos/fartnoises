@@ -131,6 +131,8 @@ function GamePageContent() {
         logGameEvent(`Failed to load sound effects: ${error.message}`);
       }
     );
+    // Intentionally excluding function dependencies to prevent re-initialization on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.code]); // Only depend on room code change, not the functions
 
   // Handle redirection in a separate effect to avoid dependency issues

@@ -174,6 +174,8 @@ export function useAudio({
         document.removeEventListener(event, handleInteractionCheck);
       });
     };
+    // Intentionally excluding isInitializing to prevent infinite re-render loops during state transitions
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAudioReady, hasTriedAutoInit]);
 
   // Periodic check for auto-initialization when user interaction becomes available
@@ -230,6 +232,8 @@ export function useAudio({
     const interval = setInterval(checkAndAutoInit, 2000);
 
     return () => clearInterval(interval);
+    // Intentionally excluding isInitializing to prevent infinite re-render loops during state transitions
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAudioReady, hasTriedAutoInit]);
 
   const activateAudio = async () => {

@@ -135,6 +135,8 @@ function MainScreenContent() {
     }, 150);
     
     return () => clearTimeout(timeoutId);
+    // Intentionally limiting dependencies to prevent excessive music changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRoom?.gameState, currentRoom?.code, isMusicAudioReady, changeMusic]);
   
   // Debug logging for background music state changes
@@ -143,9 +145,10 @@ function MainScreenContent() {
       currentMusicTrack,
       isMusicPlaying,
       isMusicAudioReady,
-      currentMusicVolume
+      currentMusicVolume,
+      currentRoom: currentRoom?.code
     });
-  }, [currentMusicTrack, isMusicPlaying, isMusicAudioReady, currentMusicVolume]);
+  }, [currentMusicTrack, isMusicPlaying, isMusicAudioReady, currentMusicVolume, currentRoom]);
 
   // Enhanced wrapper function to handle both audio systems
   const handleJoinRoom = async () => {
@@ -277,6 +280,8 @@ function MainScreenContent() {
       
       prevGameState.current = currentRoom.gameState;
     }
+    // Intentionally excluding currentRoom to prevent infinite re-renders when game state changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRoom?.gameState, isAudioReady, effectsLoading, playJudgeReveal, playPromptReveal, playEffect, playSubmissionActivate, playRoundResult, playGameOver]);
 
   // Handle round winner announcement effects - now handled by winnerAudioComplete event
@@ -285,7 +290,7 @@ function MainScreenContent() {
     if (roundWinner && isAudioReady && !effectsLoading) {
       console.log('🎵 Round winner announced, point increment sound will play after winner audio completes');
     }
-  }, [roundWinner, isAudioReady, effectsLoading]);
+  }, [roundWinner, isAudioReady, effectsLoading, currentRoom]);
 
   // Handle nuclear explosion effect
   useEffect(() => {
