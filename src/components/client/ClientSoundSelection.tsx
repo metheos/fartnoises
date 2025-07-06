@@ -42,6 +42,7 @@ export default function ClientSoundSelection({
     selectedSoundsLocal,
     playerSoundSet,
     handleSoundSelect,
+    clearLocalSelections,
     hasSubmitted,
     submission
   } = useSoundSelection({
@@ -197,8 +198,9 @@ export default function ClientSoundSelection({
               <div className="flex-1 max-w-[120px]">
                 <Button
                   onClick={() => {
-                    // Clear current selections before refreshing sounds
+                    // Clear both parent and local selections before refreshing sounds
                     onSelectSounds([]);
+                    clearLocalSelections();
                     onRefreshSounds();
                   }}
                   variant="secondary"

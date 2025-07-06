@@ -14,6 +14,7 @@ interface UseSoundSelectionReturn {
   selectedSoundsLocal: string[];
   playerSoundSet: SoundEffect[];
   handleSoundSelect: (soundId: string) => void;
+  clearLocalSelections: () => void;
   hasSubmitted: boolean;
   submission: { sounds: string[]; playerId: string; playerName: string } | null;
 }
@@ -204,11 +205,22 @@ export function useSoundSelection({
       selectedSounds.length === 0 &&
       selectedSoundsLocal.length > 0
     ) {
-      // Handle when parent selectedSounds becomes empty (e.g., debug reset)
+      // Handle when parent selectedSounds becomes empty (e.g., debug reset, New Sounds button)
       console.log(
         `🎵 Parent selectedSounds was cleared, clearing local selections: [${selectedSoundsLocal.join(
           ", "
         )}] -> []`
+      );
+      setSelectedSoundsLocal([]);
+    } else if (
+      selectedSounds &&
+      selectedSounds.length === 0 &&
+      selectedSoundsLocal.length === 0
+    ) {
+      // Handle immediate clearing when parent sends empty array (e.g., New Sounds button)
+      // This ensures we're in sync even if both are already empty
+      console.log(
+        `🎵 Parent selectedSounds is empty, ensuring local is also empty`
       );
       setSelectedSoundsLocal([]);
     } else if (selectedSounds && justClearedThisRound) {
@@ -278,6 +290,16 @@ export function useSoundSelection({
     ]
   );
 
+  // Function to immediately clear local selections (for "New Sounds" button)
+  const clearLocalSelections = useCallback(() => {
+    console.log(
+      `🎵 Clearing local selections via clearLocalSelections: [${selectedSoundsLocal.join(
+        ", "
+      )}] -> []`
+    );
+    setSelectedSoundsLocal([]);
+  }, [selectedSoundsLocal]);
+
   // Check submission status
   const hasSubmitted = room.submissions.some((s) => s.playerId === player.id);
   const submission = hasSubmitted
@@ -288,6 +310,7 @@ export function useSoundSelection({
     selectedSoundsLocal,
     playerSoundSet,
     handleSoundSelect,
+    clearLocalSelections,
     hasSubmitted,
     submission: submission || null,
   };
