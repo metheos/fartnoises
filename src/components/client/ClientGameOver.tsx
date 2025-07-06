@@ -50,12 +50,12 @@ export default function ClientGameOver({ room, player, onRestartGame }: ClientGa
           </div>
           
           {/* <p className="text-sm font-bold text-yellow-800 italic text-center">
-            "Master of the Fartnoises!"
+            "Master of the fartnoises!"
           </p> */}
             <p className="text-lg font-bold text-yellow-800 italic text-center">
               {(() => {
               const funnyTitles = [
-                "Master of the Fartnoises!",
+                "Master of the fartnoises!",
                 "Supreme Sound Selector!",
                 "Captain of Comedy!",
                 "The Noise Whisperer!",
@@ -188,7 +188,7 @@ export default function ClientGameOver({ room, player, onRestartGame }: ClientGa
       {/* Celebration Message */}
       <div className="mb-6 text-center">
         <p className="text-lg text-gray-700 font-semibold mb-3">
-          Thanks for playing Fartnoises!
+          Thanks for playing fartnoises!
         </p>
       </div>
 

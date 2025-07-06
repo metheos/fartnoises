@@ -4,7 +4,11 @@ import { GameState, GamePrompt } from "@/types/game";
 import { GAME_CONFIG, getGamePrompts } from "@/data/gameData";
 import { getRandomPrompts } from "@/utils/soundLoader";
 import { SocketContext } from "../types/socketTypes";
-import { selectNextJudge, processAndAssignPrompt } from "../utils/roomManager";
+import {
+  selectNextJudge,
+  processAndAssignPrompt,
+  emitRoomUpdated,
+} from "../utils/roomManager";
 import { startTimer, clearTimer } from "../utils/timerManager";
 import { generatePlayerSoundSets } from "../utils/gameLogic";
 import {
@@ -231,8 +235,8 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
       // Clear any active timers
       clearTimer(context, roomCode);
 
-      // Emit updated room state to all players
-      context.io.to(roomCode).emit("roomUpdated", room);
+      // Emit updated room state to all players with main screen count
+      emitRoomUpdated(context, roomCode, room);
       context.io.to(roomCode).emit("gameStateChanged", GameState.LOBBY);
 
       console.log(

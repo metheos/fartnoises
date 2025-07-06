@@ -196,7 +196,11 @@ export default function ClientSoundSelection({
             {!player.hasUsedRefresh && (
               <div className="flex-1 max-w-[120px]">
                 <Button
-                  onClick={onRefreshSounds}
+                  onClick={() => {
+                    // Clear current selections before refreshing sounds
+                    onSelectSounds([]);
+                    onRefreshSounds();
+                  }}
                   variant="secondary"
                   size="sm"
                   className="w-full bg-gradient-to-r from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 text-white text-xs px-1 py-2 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 border-2 border-purple-500/30"

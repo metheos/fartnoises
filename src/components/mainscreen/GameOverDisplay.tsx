@@ -58,7 +58,7 @@ export default function GameOverDisplay({ room }: GameOverDisplayProps) {
             <p className="text-lg font-bold text-yellow-100 italic text-center relative z-10">
               {(() => {
               const funnyTitles = [
-                "Master of the Fartnoises!",
+                "Master of the fartnoises!",
                 "Supreme Sound Selector!",
                 "Captain of Comedy!",
                 "The Noise Whisperer!",
@@ -151,7 +151,7 @@ export default function GameOverDisplay({ room }: GameOverDisplayProps) {
       {/* Celebration Message */}
       <div className="mt-8 text-center">
         <p className="text-xl text-gray-700 font-semibold mb-4">
-          Thanks for playing Fartnoises!
+          Thanks for playing fartnoises!
         </p>
       </div>
     </div>

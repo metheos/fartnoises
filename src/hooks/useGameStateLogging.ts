@@ -61,7 +61,7 @@ export function useGameStateLogging(
         player ? player.name : "null"
       }`
     );
-    // Intentionally excluding addDebugLog and player to prevent infinite re-renders  
+    // Intentionally excluding addDebugLog and player to prevent infinite re-renders
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player?.id, player?.name, logPlayerChanges, componentName]);
 
