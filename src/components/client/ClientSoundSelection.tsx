@@ -56,7 +56,8 @@ export default function ClientSoundSelection({
   const {
     isPlaying,
     playSoundWithFeedback,
-    playSoundCombinationWithFeedback
+    playSoundCombinationWithFeedback,
+    stopSound
   } = useAudioPlaybackEnhanced();
 
   // Trigger slap animation when third sound is selected
@@ -133,12 +134,17 @@ export default function ClientSoundSelection({
                   
                   {/* Preview button */}
                   <CircularButton
-                    icon={isPlaying(soundId, `submission-preview-${index}`) ? '🔇' : '🔊'}
-                    onClick={() => playSoundWithFeedback(soundId, `submission-preview-${index}`)}
-                    disabled={isPlaying(soundId, `submission-preview-${index}`)}
+                    icon={isPlaying(soundId, `submission-preview-${index}`) ? '⏹️' : '🔊'}
+                    onClick={() => {
+                      if (isPlaying(soundId, `submission-preview-${index}`)) {
+                        stopSound(soundId, `submission-preview-${index}`);
+                      } else {
+                        playSoundWithFeedback(soundId, `submission-preview-${index}`);
+                      }
+                    }}
                     variant="blue"
                     className="absolute -top-2 -right-2 border-2 border-gray-200 shadow-md"
-                    title={isPlaying(soundId, `submission-preview-${index}`) ? 'Playing...' : 'Preview sound'}
+                    title={isPlaying(soundId, `submission-preview-${index}`) ? 'Stop sound' : 'Preview sound'}
                   />
                 </div>
               ))}
@@ -165,12 +171,17 @@ export default function ClientSoundSelection({
                   
                   {/* Preview button */}
                   <CircularButton
-                    icon={isPlaying(submission.sounds[2], `submission-preview-2`) ? '🔇' : '🔊'}
-                    onClick={() => playSoundWithFeedback(submission.sounds[2], `submission-preview-2`)}
-                    disabled={isPlaying(submission.sounds[2], `submission-preview-2`)}
+                    icon={isPlaying(submission.sounds[2], `submission-preview-2`) ? '⏹️' : '🔊'}
+                    onClick={() => {
+                      if (isPlaying(submission.sounds[2], `submission-preview-2`)) {
+                        stopSound(submission.sounds[2], `submission-preview-2`);
+                      } else {
+                        playSoundWithFeedback(submission.sounds[2], `submission-preview-2`);
+                      }
+                    }}
                     variant="red"
                     className="absolute -top-2 -right-2 border-2 border-pink-200 shadow-md bg-gradient-to-r from-pink-500 to-red-500"
-                    title={isPlaying(submission.sounds[2], `submission-preview-2`) ? 'Playing...' : 'Preview sound'}
+                    title={isPlaying(submission.sounds[2], `submission-preview-2`) ? 'Stop sound' : 'Preview sound'}
                   />
                 </div>
               )}
@@ -245,8 +256,9 @@ export default function ClientSoundSelection({
                 selectionIndex={selectedSoundsLocal.includes(sound.id) ? selectedSoundsLocal.indexOf(sound.id) + 1 : undefined}
                 onSelect={handleSoundSelect}
                 onPreview={(soundId) => playSoundWithFeedback(soundId, `grid-preview-${soundId}`)}
+                onStopPreview={(soundId) => stopSound(soundId, `grid-preview-${soundId}`)}
                 isPlaying={isPlaying(sound.id, `grid-preview-${sound.id}`)}
-                previewDisabled={isPlaying(sound.id, `grid-preview-${sound.id}`)}
+                previewDisabled={false}
                 className=""
               />
             ))}
@@ -298,12 +310,17 @@ export default function ClientSoundSelection({
                 )}
                 {selectedSoundsLocal.length > 0 && (
                   <CircularButton
-                    icon={isPlaying(selectedSoundsLocal[0], 'selected-sound-1') ? '🔇' : '🔊'}
-                    onClick={() => playSoundWithFeedback(selectedSoundsLocal[0], 'selected-sound-1')}
-                    disabled={isPlaying(selectedSoundsLocal[0], 'selected-sound-1')}
+                    icon={isPlaying(selectedSoundsLocal[0], 'selected-sound-1') ? '⏹️' : '🔊'}
+                    onClick={() => {
+                      if (isPlaying(selectedSoundsLocal[0], 'selected-sound-1')) {
+                        stopSound(selectedSoundsLocal[0], 'selected-sound-1');
+                      } else {
+                        playSoundWithFeedback(selectedSoundsLocal[0], 'selected-sound-1');
+                      }
+                    }}
                     variant="purple"
                     className="absolute -top-2 -right-2 border-2 border-purple-200 shadow-md"
-                    title={isPlaying(selectedSoundsLocal[0], 'selected-sound-1') ? 'Playing...' : 'Preview sound'}
+                    title={isPlaying(selectedSoundsLocal[0], 'selected-sound-1') ? 'Stop sound' : 'Preview sound'}
                   />
                 )}
               </div>
@@ -335,12 +352,17 @@ export default function ClientSoundSelection({
                 )}
                 {selectedSoundsLocal.length > 1 && (
                   <CircularButton
-                    icon={isPlaying(selectedSoundsLocal[1], 'selected-sound-2') ? '🔇' : '🔊'}
-                    onClick={() => playSoundWithFeedback(selectedSoundsLocal[1], 'selected-sound-2')}
-                    disabled={isPlaying(selectedSoundsLocal[1], 'selected-sound-2')}
+                    icon={isPlaying(selectedSoundsLocal[1], 'selected-sound-2') ? '⏹️' : '🔊'}
+                    onClick={() => {
+                      if (isPlaying(selectedSoundsLocal[1], 'selected-sound-2')) {
+                        stopSound(selectedSoundsLocal[1], 'selected-sound-2');
+                      } else {
+                        playSoundWithFeedback(selectedSoundsLocal[1], 'selected-sound-2');
+                      }
+                    }}
                     variant="purple"
                     className="absolute -top-2 -right-2 border-2 border-purple-200 shadow-md"
-                    title={isPlaying(selectedSoundsLocal[1], 'selected-sound-2') ? 'Playing...' : 'Preview sound'}
+                    title={isPlaying(selectedSoundsLocal[1], 'selected-sound-2') ? 'Stop sound' : 'Preview sound'}
                   />
                 )}
               </div>
@@ -377,12 +399,17 @@ export default function ClientSoundSelection({
                   )}
                   {selectedSoundsLocal.length > 2 && (
                     <CircularButton
-                      icon={isPlaying(selectedSoundsLocal[2], 'selected-sound-3') ? '🔇' : '🔊'}
-                      onClick={() => playSoundWithFeedback(selectedSoundsLocal[2], 'selected-sound-3')}
-                      disabled={isPlaying(selectedSoundsLocal[2], 'selected-sound-3')}
+                      icon={isPlaying(selectedSoundsLocal[2], 'selected-sound-3') ? '⏹️' : '🔊'}
+                      onClick={() => {
+                        if (isPlaying(selectedSoundsLocal[2], 'selected-sound-3')) {
+                          stopSound(selectedSoundsLocal[2], 'selected-sound-3');
+                        } else {
+                          playSoundWithFeedback(selectedSoundsLocal[2], 'selected-sound-3');
+                        }
+                      }}
                       variant="red"
                       className="absolute -top-2 -right-2 border-2 border-pink-200 shadow-md bg-gradient-to-r from-pink-500 to-red-500"
-                      title={isPlaying(selectedSoundsLocal[2], 'selected-sound-3') ? 'Playing...' : 'Preview sound'}
+                      title={isPlaying(selectedSoundsLocal[2], 'selected-sound-3') ? 'Stop sound' : 'Preview sound'}
                     />
                   )}
                 </div>

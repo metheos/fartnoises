@@ -11,6 +11,7 @@ interface UseAudioPlaybackReturn {
     sounds: string[],
     buttonId: string
   ) => Promise<void>;
+  stopSound: (soundId: string, buttonId?: string) => void;
   clearAllPlaying: () => void;
 }
 
@@ -42,12 +43,14 @@ export function useAudioPlaybackEnhanced(): UseAudioPlaybackReturn {
         return;
       }
 
+      const key = buttonId || soundId;
+
       try {
         // Mark sound and button as playing
         setPlaying(soundId, buttonId, true);
 
-        // Play the sound and wait for it to finish
-        await audioSystem.playSound(soundId);
+        // Play the sound with key tracking and wait for it to finish
+        await audioSystem.playSoundWithKey(soundId, key);
       } catch (error) {
         console.error(`Error playing sound ${soundId}:`, error);
       } finally {
@@ -85,12 +88,27 @@ export function useAudioPlaybackEnhanced(): UseAudioPlaybackReturn {
     [playingButtons, setPlaying]
   );
 
+  // Helper function to stop a sound with state management
+  const stopSound = useCallback(
+    (soundId: string, buttonId?: string) => {
+      const key = buttonId || soundId;
+
+      // Stop the sound in the audio system
+      audioSystem.stopSoundByKey(key);
+
+      // Update playing state
+      setPlaying(soundId, buttonId, false);
+    },
+    [setPlaying]
+  );
+
   return {
     playingSounds,
     playingButtons,
     isPlaying,
     playSoundWithFeedback,
     playSoundCombinationWithFeedback,
+    stopSound,
     clearAllPlaying,
   };
 }

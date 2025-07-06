@@ -15,6 +15,8 @@ interface SoundCardProps {
   onSelect?: (soundId: string) => void;
   /** Click handler for preview */
   onPreview?: (soundId: string) => void;
+  /** Click handler for stopping preview */
+  onStopPreview?: (soundId: string) => void;
   /** Whether preview is disabled */
   previewDisabled?: boolean;
   /** Additional CSS classes */
@@ -32,6 +34,7 @@ export default function SoundCard({
   selectionIndex,
   onSelect,
   onPreview,
+  onStopPreview,
   previewDisabled = false,
   className = ''
 }: SoundCardProps) {
@@ -44,7 +47,9 @@ export default function SoundCard({
 
   const handlePreview = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent selection when previewing
-    if (onPreview && !previewDisabled) {
+    if (isPlaying && onStopPreview) {
+      onStopPreview(sound.id);
+    } else if (onPreview && !previewDisabled) {
       onPreview(sound.id);
     }
   };
@@ -62,7 +67,7 @@ export default function SoundCard({
   const getPreviewButtonClasses = () => {
     const baseClasses = 'absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all duration-200';
     
-    if (previewDisabled || isPlaying) {
+    if (previewDisabled && !isPlaying) {
       return `${baseClasses} bg-gray-300 text-gray-500 cursor-not-allowed`;
     } else {
       return `${baseClasses} bg-white bg-opacity-80 hover:bg-opacity-100 shadow-md hover:shadow-lg hover:scale-110`;
@@ -85,11 +90,11 @@ export default function SoundCard({
       {onPreview && (
         <button
           onClick={handlePreview}
-          disabled={previewDisabled}
+          disabled={previewDisabled && !isPlaying}
           className={getPreviewButtonClasses()}
-          title={isPlaying ? 'Playing...' : 'Preview sound'}
+          title={isPlaying ? 'Stop sound' : 'Preview sound'}
         >
-          {isPlaying ? '🔇' : '🔊'}
+          {isPlaying ? '⏹️' : '🔊'}
         </button>
       )}
 

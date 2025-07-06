@@ -9,6 +9,7 @@ export class AudioSystem {
   private loadedSounds: Map<string, AudioBuffer> = new Map();
   private failedSounds: Set<string> = new Set();
   private activeSources: Set<AudioBufferSourceNode> = new Set();
+  private activeSourcesByKey: Map<string, AudioBufferSourceNode> = new Map();
   // Real-time audio analysis properties
   private analyser: AnalyserNode | null = null;
   private gainNode: GainNode | null = null;
@@ -262,6 +263,76 @@ export class AudioSystem {
       }
     });
     this.activeSources.clear();
+    this.activeSourcesByKey.clear();
+  }
+
+  stopSoundByKey(key: string): void {
+    const source = this.activeSourcesByKey.get(key);
+    if (source) {
+      try {
+        source.stop();
+      } catch {
+        // Ignore errors if the source is already stopped
+      }
+      this.activeSources.delete(source);
+      this.activeSourcesByKey.delete(key);
+
+      // Stop analysis if no more sounds are playing
+      if (this.activeSources.size === 0) {
+        this.setAnalysisActive(false);
+      }
+    }
+  }
+
+  async playSoundWithKey(id: string, key: string): Promise<void> {
+    if (!this.audioContext) {
+      await this.initialize();
+    }
+
+    // If there's already a sound playing with this key, stop it first
+    this.stopSoundByKey(key);
+
+    // If sound is not loaded, try to load it on-demand
+    if (!this.loadedSounds.has(id) && !this.failedSounds.has(id)) {
+      console.log(`Loading sound on-demand: ${id}`);
+      await this.loadSound(id, `${id}.ogg`);
+    }
+
+    const audioBuffer = this.loadedSounds.get(id);
+    if (!audioBuffer) {
+      console.warn(`Sound not loaded: ${id}`);
+      return;
+    }
+
+    return new Promise<void>((resolve) => {
+      const source = this.audioContext!.createBufferSource();
+      source.buffer = audioBuffer;
+
+      // Connect through analysis chain if available, otherwise direct to destination
+      if (this.gainNode) {
+        source.connect(this.gainNode);
+        this.setAnalysisActive(true);
+      } else {
+        source.connect(this.audioContext!.destination);
+      }
+
+      // Track this source so we can stop it if needed
+      this.activeSources.add(source);
+      this.activeSourcesByKey.set(key, source);
+
+      // Resolve the promise and clean up when the sound finishes
+      source.onended = () => {
+        this.activeSources.delete(source);
+        this.activeSourcesByKey.delete(key);
+        // Stop analysis if no more sounds are playing
+        if (this.activeSources.size === 0) {
+          this.setAnalysisActive(false);
+        }
+        resolve();
+      };
+
+      source.start();
+    });
   }
 
   async playSoundSequence(
