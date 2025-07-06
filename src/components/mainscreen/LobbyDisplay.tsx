@@ -91,10 +91,10 @@ export default function LobbyDisplay({ room }: LobbyDisplayProps) {
             <div className="bg-white/60 rounded-xl p-3 border border-purple-200">
               <div className="flex items-center mb-2">
                 <span className="text-xl mr-2">💥</span>
-                <h4 className="font-bold text-purple-800">Nuclear Option</h4>
+                <h4 className="font-bold text-purple-800">Indecision</h4>
               </div>
               <p className="text-purple-700">
-                <strong>Judges only!</strong> Blow everyone&apos;s minds with a dramatic explosion effect!
+                <strong>Judges only!</strong> Blow everyone&apos;s minds with a dramatic effect!
               </p>
             </div>
           </div>
