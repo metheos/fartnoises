@@ -44,7 +44,7 @@ export default function PlayerAvatarGrid({
   const getCardStyle = () => {
     switch (variant) {
       case 'lobby':
-        return 'flex flex-col items-center p-4 rounded-2xl shadow-md border-2 flex-grow max-w-50 bg-opacity-80';
+        return 'flex flex-col items-center p-4 rounded-2xl shadow-md border-2 flex-grow max-w-50 bg-opacity-80 min-w-[150px]';
       case 'compact':
         return 'flex flex-col items-center p-2 rounded-xl shadow-sm border flex-grow bg-opacity-70';
       case 'status':
