@@ -569,9 +569,55 @@ function handlePlayerReconnection(
     context.io.to(roomCode).emit("judgeSelected", socket.id);
   }
 
+  // Update all existing likes from this player to use the new socket ID
+  room.submissions.forEach((submission) => {
+    if (submission.likes) {
+      submission.likes.forEach((like) => {
+        if (like.playerId === disconnectedPlayer.socketId) {
+          console.log(
+            `[RECONNECTION] Updating like from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+          );
+          like.playerId = socket.id;
+        }
+      });
+    }
+  });
+
+  // Also update randomized submissions if they exist
+  if (room.randomizedSubmissions) {
+    room.randomizedSubmissions.forEach((submission) => {
+      if (submission.likes) {
+        submission.likes.forEach((like) => {
+          if (like.playerId === disconnectedPlayer.socketId) {
+            console.log(
+              `[RECONNECTION] Updating like in randomized submissions from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+            );
+            like.playerId = socket.id;
+          }
+        });
+      }
+    });
+  }
+
   // Update mappings
   context.playerRooms.set(socket.id, roomCode);
   socket.join(roomCode);
+
+  // Send powerup and like state synchronization to the reconnected player
+  const powerupState = {
+    hasUsedRefresh: reconnectedPlayer.hasUsedRefresh || false,
+    hasUsedTripleSound: reconnectedPlayer.hasUsedTripleSound || false,
+    hasActivatedTripleSound: reconnectedPlayer.hasActivatedTripleSound || false,
+    hasUsedNuclearOption: reconnectedPlayer.hasUsedNuclearOption || false,
+    likeScore: reconnectedPlayer.likeScore || 0,
+  };
+
+  console.log(
+    `[RECONNECTION] Syncing powerup state for ${playerName}:`,
+    powerupState
+  );
+
+  socket.emit("powerupStateSync", powerupState);
 
   console.log(
     `Player ${playerName} successfully reconnected to room ${roomCode}`

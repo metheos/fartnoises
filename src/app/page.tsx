@@ -1,12 +1,43 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getSoundEffects } from '@/data/gameData';
 import { getPlayerColorClass } from '@/utils/gameUtils';
 import { useAudioSystem } from '@/utils/audioSystem';
 import { Button } from '@/components/ui';
 import Footer from '@/components/shared/Footer';
+
+// Component that handles URL search params (needs to be wrapped in Suspense)
+function RoomCodeHandler({ 
+  setRoomCode, 
+  isClient 
+}: { 
+  setRoomCode: (code: string) => void;
+  isClient: boolean;
+}) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Check for room parameter in URL and auto-populate room code
+  useEffect(() => {
+    if (!isClient || !searchParams) return;
+    
+    const roomParam = searchParams.get('room');
+    if (roomParam && roomParam.length === 4) {
+      setRoomCode(roomParam.toUpperCase());
+      console.log('Auto-populated room code from URL:', roomParam.toUpperCase());
+      
+      // Clean up the URL by removing the room parameter
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('room');
+      const cleanUrl = newUrl.pathname + (newUrl.searchParams.toString() ? '?' + newUrl.searchParams.toString() : '');
+      router.replace(cleanUrl);
+    }
+  }, [isClient, searchParams, router, setRoomCode]);
+
+  return null; // This component only handles side effects
+}
 
 export default function Home() {
   const [playerName, setPlayerName] = useState('');
@@ -18,7 +49,6 @@ export default function Home() {
   const [isPlayingSound, setIsPlayingSound] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { audioSystem } = useAudioSystem();
 
   // Set client flag after hydration to prevent SSR/client mismatch
@@ -74,23 +104,6 @@ export default function Home() {
     // localStorage.removeItem('lastKnownRoomCode');
     // console.log('Home page loaded: Cleared game persistence data for fresh start');
   }, []);
-
-  // Check for room parameter in URL and auto-populate room code
-  useEffect(() => {
-    if (!isClient || !searchParams) return;
-    
-    const roomParam = searchParams.get('room');
-    if (roomParam && roomParam.length === 4) {
-      setRoomCode(roomParam.toUpperCase());
-      console.log('Auto-populated room code from URL:', roomParam.toUpperCase());
-      
-      // Clean up the URL by removing the room parameter
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('room');
-      const cleanUrl = newUrl.pathname + (newUrl.searchParams.toString() ? '?' + newUrl.searchParams.toString() : '');
-      router.replace(cleanUrl);
-    }
-  }, [isClient, searchParams, router]);
 
   // Function to play a random fart sound
   // Note: Chrome requires AudioContext to be initialized after a user gesture
@@ -173,6 +186,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 px-4 py-1">
+      {/* Handle URL search params */}
+      <Suspense fallback={null}>
+        <RoomCodeHandler setRoomCode={setRoomCode} isClient={isClient} />
+      </Suspense>
+      
       <div className="max-w-md mx-auto pt-8 flex-grow">
         {/* Logo/Title */}
         <div className="text-center mb-6">

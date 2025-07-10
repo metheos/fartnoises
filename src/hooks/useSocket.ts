@@ -427,6 +427,40 @@ export function useSocket({
       console.log("useSocket: Disconnected from server");
     });
 
+    // Handle powerup state synchronization on reconnection
+    socketInstance.on(
+      "powerupStateSync",
+      (state: {
+        hasUsedRefresh: boolean;
+        hasUsedTripleSound: boolean;
+        hasActivatedTripleSound: boolean;
+        hasUsedNuclearOption: boolean;
+        likeScore: number;
+      }) => {
+        console.log("useSocket: Powerup state synchronized:", state);
+
+        // Update the current room's player data to reflect server state
+        setCurrentRoom((prevRoom) => {
+          if (prevRoom && socketInstance.id) {
+            const updatedPlayers = prevRoom.players.map((player) =>
+              player.id === socketInstance.id
+                ? {
+                    ...player,
+                    hasUsedRefresh: state.hasUsedRefresh,
+                    hasUsedTripleSound: state.hasUsedTripleSound,
+                    hasActivatedTripleSound: state.hasActivatedTripleSound,
+                    hasUsedNuclearOption: state.hasUsedNuclearOption,
+                    likeScore: state.likeScore,
+                  }
+                : player
+            );
+            return { ...prevRoom, players: updatedPlayers };
+          }
+          return prevRoom;
+        });
+      }
+    );
+
     // Handler for judging phase playback
     socketInstance.on(
       "playJudgingSubmission",

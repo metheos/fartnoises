@@ -134,7 +134,7 @@ export default function GameOverDisplay({ room }: GameOverDisplayProps) {
         <div className="flex-1">
           {runnerUps.length > 0 ? (
             <div>
-              <h4 className="text-2xl font-bold text-gray-800 mb-4 text-center">🥈 Final Standings 🥉</h4>
+              {/* <h4 className="text-2xl font-bold text-gray-800 mb-4 text-center">🥈 Final Standings 🥉</h4> */}
               <PlayerScoreList
                 players={room.players}
                 isGameOver={true}

@@ -156,6 +156,12 @@ export interface ServerToClientEvents {
   promptSelected: (prompt: GamePrompt) => void;
   soundsRefreshed: (data: { playerId: string; newSounds: string[] }) => void; // Notify when player gets new sounds
   tripleSoundActivated: (data: { playerId: string }) => void; // Notify when player activates triple sound ability
+  likeSubmitted: (data: {
+    judgeName: string;
+    submissionPlayerName: string;
+    submissionIndex: number;
+    newLikeScore: number;
+  }) => void; // Notify when judge likes a submission
   roundComplete: (data: {
     winnerId: string;
     winnerName: string;
@@ -198,6 +204,13 @@ export interface ServerToClientEvents {
     judgeName: string;
     roomCode: string;
   }) => void;
+  powerupStateSync: (state: {
+    hasUsedRefresh: boolean;
+    hasUsedTripleSound: boolean;
+    hasActivatedTripleSound: boolean;
+    hasUsedNuclearOption: boolean;
+    likeScore: number;
+  }) => void; // Sync powerup and like state on reconnection
 }
 
 // Player data for socket events

@@ -125,7 +125,7 @@ export default function ClientGameOver({ room, player, onRestartGame }: ClientGa
 
       {/* Final Scores - Extra Compact Mobile Layout */}
       <div className="bg-gray-50 rounded-2xl p-3 mb-6">
-        <h3 className="text-base font-bold text-gray-800 mb-2 text-center">Final Standings</h3>
+        {/* <h3 className="text-base font-bold text-gray-800 mb-2 text-center">Final Standings</h3> */}
         <div className="space-y-1">
           {sortedPlayers.map((p, index) => {
             const rank = index + 1;

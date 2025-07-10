@@ -120,8 +120,11 @@ export function setupSubmissionHandlers(
       // Check if player has already used their refresh
       if (player.hasUsedRefresh) {
         console.log(
-          `[REFRESH] Player ${player.name} has already used their refresh this game`
+          `[REFRESH] Player ${player.name} has already used their refresh this game - server-side validation failed`
         );
+        socket.emit("error", {
+          message: "You have already used your sound refresh for this game",
+        });
         return;
       }
 
@@ -184,8 +187,23 @@ export function setupSubmissionHandlers(
       // Check if player has already used their triple sound ability (submitted 3 sounds)
       if (player.hasUsedTripleSound) {
         console.log(
-          `[TRIPLE_SOUND] Player ${player.name} has already used their triple sound ability this game`
+          `[TRIPLE_SOUND] Player ${player.name} has already used their triple sound ability this game - server-side validation failed`
         );
+        socket.emit("error", {
+          message:
+            "You have already used your triple sound ability for this game",
+        });
+        return;
+      }
+
+      // Check if player has already activated triple sound for this round
+      if (player.hasActivatedTripleSound) {
+        console.log(
+          `[TRIPLE_SOUND] Player ${player.name} has already activated triple sound for this round - server-side validation failed`
+        );
+        socket.emit("error", {
+          message: "You have already activated triple sound for this round",
+        });
         return;
       }
 
@@ -573,8 +591,11 @@ export function setupSubmissionHandlers(
       // Check if judge has already used their nuclear option
       if (player.hasUsedNuclearOption) {
         console.warn(
-          `[NUCLEAR] Judge ${player.name} has already used nuclear option`
+          `[NUCLEAR] Judge ${player.name} has already used nuclear option - server-side validation failed`
         );
+        socket.emit("error", {
+          message: "You have already used your nuclear option for this game",
+        });
         return;
       }
 

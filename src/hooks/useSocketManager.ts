@@ -798,7 +798,6 @@ export function useSocketManager(
     );
     currentSocket.on("roundComplete", handlers.handleRoundComplete);
     currentSocket.on("error", handlers.handleErrorEvent);
-    currentSocket.on("timeUpdate", handlers.handleTimeUpdate);
 
     // Cleanup function
     return () => {
@@ -825,37 +824,7 @@ export function useSocketManager(
       );
       currentSocket.off("roundComplete", handlers.handleRoundComplete);
       currentSocket.off("error", handlers.handleErrorEvent);
-      currentSocket.off("timeUpdate", handlers.handleTimeUpdate);
-      currentSocket.off(
-        "playerDisconnected",
-        handlers.handlePlayerDisconnected
-      );
-      currentSocket.off("playerReconnected", handlers.handlePlayerReconnected);
-      currentSocket.off(
-        "reconnectionVoteRequest",
-        handlers.handleReconnectionVoteRequest
-      );
-      currentSocket.off(
-        "reconnectionVoteUpdate",
-        handlers.handleReconnectionVoteUpdate
-      );
-      currentSocket.off(
-        "reconnectionVoteResult",
-        handlers.handleReconnectionVoteResult
-      );
-      currentSocket.off(
-        "gamePausedForDisconnection",
-        handlers.handleGamePausedForDisconnection
-      );
-      currentSocket.off(
-        "reconnectionTimeUpdate",
-        handlers.handleReconnectionTimeUpdate
-      );
-      currentSocket.off("gameResumed", handlers.handleGameResumed);
-      currentSocket.off(
-        "gameSettingsUpdated",
-        handlers.handleGameSettingsUpdated
-      );
+      currentSocket.off("playerDisconnected");
     };
   }, [
     mode,
