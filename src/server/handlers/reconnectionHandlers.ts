@@ -578,7 +578,7 @@ function handlePlayerReconnection(
       );
       submission.playerId = socket.id;
     }
-    
+
     if (submission.likes) {
       submission.likes.forEach((like) => {
         if (like.playerId === disconnectedPlayer.socketId) {
@@ -601,7 +601,7 @@ function handlePlayerReconnection(
         );
         submission.playerId = socket.id;
       }
-      
+
       if (submission.likes) {
         submission.likes.forEach((like) => {
           if (like.playerId === disconnectedPlayer.socketId) {
@@ -624,7 +624,10 @@ function handlePlayerReconnection(
   }
 
   // Update lastWinningSubmission playerId if it belongs to the reconnected player
-  if (room.lastWinningSubmission && room.lastWinningSubmission.playerId === disconnectedPlayer.socketId) {
+  if (
+    room.lastWinningSubmission &&
+    room.lastWinningSubmission.playerId === disconnectedPlayer.socketId
+  ) {
     console.log(
       `[RECONNECTION] Updating lastWinningSubmission playerId from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id}`
     );
