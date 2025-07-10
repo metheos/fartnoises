@@ -571,6 +571,14 @@ function handlePlayerReconnection(
 
   // Update all existing likes from this player to use the new socket ID
   room.submissions.forEach((submission) => {
+    // Update the submission's playerId if it belongs to the reconnected player
+    if (submission.playerId === disconnectedPlayer.socketId) {
+      console.log(
+        `[RECONNECTION] Updating submission playerId from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+      );
+      submission.playerId = socket.id;
+    }
+    
     if (submission.likes) {
       submission.likes.forEach((like) => {
         if (like.playerId === disconnectedPlayer.socketId) {
@@ -586,6 +594,14 @@ function handlePlayerReconnection(
   // Also update randomized submissions if they exist
   if (room.randomizedSubmissions) {
     room.randomizedSubmissions.forEach((submission) => {
+      // Update the submission's playerId if it belongs to the reconnected player
+      if (submission.playerId === disconnectedPlayer.socketId) {
+        console.log(
+          `[RECONNECTION] Updating randomized submission playerId from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+        );
+        submission.playerId = socket.id;
+      }
+      
       if (submission.likes) {
         submission.likes.forEach((like) => {
           if (like.playerId === disconnectedPlayer.socketId) {
@@ -597,6 +613,22 @@ function handlePlayerReconnection(
         });
       }
     });
+  }
+
+  // Update lastWinner if it points to the old socket ID
+  if (room.lastWinner === disconnectedPlayer.socketId) {
+    console.log(
+      `[RECONNECTION] Updating lastWinner from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id}`
+    );
+    room.lastWinner = socket.id;
+  }
+
+  // Update lastWinningSubmission playerId if it belongs to the reconnected player
+  if (room.lastWinningSubmission && room.lastWinningSubmission.playerId === disconnectedPlayer.socketId) {
+    console.log(
+      `[RECONNECTION] Updating lastWinningSubmission playerId from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id}`
+    );
+    room.lastWinningSubmission.playerId = socket.id;
   }
 
   // Update mappings
