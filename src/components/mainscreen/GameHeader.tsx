@@ -112,7 +112,7 @@ export default function GameHeader({
   return (
     <div className={`${className}`}>
         {/* Room code positioned fixed in bottom left of viewport */}
-        <div className="fixed bottom-2 left-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl px-6 py-2 shadow-xl z-10 transform transition-transform duration-300 border-4 border-white ">
+        <div className="fixed bottom-2 left-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl px-6 py-2 shadow-xl z-50 transform transition-transform duration-300 border-4 border-white ">
           <div className="flex flex-col items-center">
             <span className="text-sm font-medium text-purple-100 opacity-80 tracking-wide">ROOM</span>
             <h2 className="text-2xl font-black text-white tracking-wider drop-shadow-lg -mt-1">
@@ -122,10 +122,10 @@ export default function GameHeader({
               </div>
 
         {/* Settings button positioned vertically centered with room code */}
-        <div className="fixed bottom-2 left-40 z-10 flex items-center h-16">
+        <div className="fixed bottom-2 left-40 z-50 flex items-center h-16">
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="settings-button bg-white/20 hover:bg-white/30 rounded-xl p-3 transition-all duration-200 border border-white/30 hover:border-white/50 hover:scale-105"
+            className="settings-button bg-purple-600 hover:bg-purple-700 rounded-xl p-3 transition-all duration-200 border-2 border-white shadow-lg hover:scale-105"
             title="Settings"
             aria-label="Open settings menu"
           >
@@ -147,7 +147,7 @@ export default function GameHeader({
 
           {/* Settings Menu */}
           {showSettings && (
-            <div className="settings-menu absolute bottom-14 left-0 bg-white rounded-xl p-4 shadow-2xl border-2 border-purple-200 min-w-64">
+            <div className="settings-menu absolute bottom-14 left-0 bg-white rounded-xl p-4 shadow-2xl border-2 border-purple-200 min-w-64 z-50">
               <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">Settings</h3>
               
               {/* Fullscreen Toggle */}
@@ -228,11 +228,8 @@ export default function GameHeader({
         <div className="fixed bottom-2 right-2 bg-gradient-to-r from-green-400 to-blue-500 rounded-2xl px-4 py-2 shadow-xl z-10 transform transition-transform duration-300 border-4 border-white">
           <div className="flex flex-col items-center">
             <h1 className="text-2xl font-black text-white tracking-wide drop-shadow-lg">
-              🎵💨 fartnoises
+              🎵💨 fartnoises.org
             </h1>
-            <span className="text-xs font-medium text-green-100 opacity-80 tracking-wide -mt-1">
-              THE GAME
-            </span>
           </div>
         </div>
         
