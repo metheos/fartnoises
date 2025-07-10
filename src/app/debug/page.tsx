@@ -27,6 +27,7 @@ import ClientLobbyComponent from '@/components/client/ClientLobby';
 import ClientJudgeSelectionComponent from '@/components/client/ClientJudgeSelection';
 import ClientPromptSelectionComponent from '@/components/client/ClientPromptSelection';
 import ClientSoundSelectionComponent from '@/components/client/ClientSoundSelection';
+import ClientWaitingForPlaybackComponent from '@/components/client/ClientWaitingForPlayback';
 import ClientJudgingComponent from '@/components/client/ClientJudging';
 import ClientResultsComponent from '@/components/client/ClientResults';
 import ClientGameOverComponent from '@/components/client/ClientGameOver';
@@ -386,23 +387,12 @@ export default function DebugPage() {
           />
         );
       case GameState.PLAYBACK:
+        // For player devices, show the waiting screen during playback
         return (
-          <div className="bg-white rounded-3xl p-8 shadow-lg text-center">
-            <h2 className="text-3xl font-bold text-purple-600 mb-6">Playback in Progress</h2>
-            
-            <div className="bg-purple-50 p-6 rounded-xl mb-6">
-              <h3 className="text-xl font-bold text-purple-800 mb-2">Prompt:</h3>
-              <p className="text-purple-700 text-lg">{mockRoom.currentPrompt?.text}</p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="animate-pulse w-20 h-20 bg-blue-200 rounded-full mx-auto"></div>
-              <p className="text-gray-600">Listen to all submissions on the main screen</p>
-              <p className="text-sm text-gray-500">
-                Playing submission {(mockRoom.currentSubmissionIndex || 0) + 1} of {mockRoom.submissions.length}
-              </p>
-            </div>
-          </div>
+          <ClientWaitingForPlaybackComponent 
+            room={mockRoom} 
+            player={currentPlayer} 
+          />
         );
       case GameState.JUDGING:
         return (

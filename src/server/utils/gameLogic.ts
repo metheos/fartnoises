@@ -241,7 +241,7 @@ export function handleAllSubmissionsComplete(
       )}`
     );
 
-    // Notify clients to start the playback sequence with randomized submissions
+    // Notify all clients to start the playback sequence with randomized submissions
     context.io.to(roomCode).emit("gameStateChanged", GameState.PLAYBACK, {
       submissions: room.randomizedSubmissions, // Use randomized submissions
     });

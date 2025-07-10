@@ -16,6 +16,7 @@ import {
   ClientJudgeSelection,
   ClientPromptSelection,
   ClientSoundSelection,
+  ClientWaitingForPlayback,
   ClientJudging,
   ClientResults,
   ClientGameOver,
@@ -134,6 +135,18 @@ function GamePageContent() {
     // Intentionally excluding function dependencies to prevent re-initialization on every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.code]); // Only depend on room code change, not the functions
+
+  // Debug logging for room state changes
+  useEffect(() => {
+    if (room) {
+      console.log('🎯 ROOM STATE CHANGED:', {
+        gameState: room.gameState,
+        roomCode: room.code,
+        currentRound: room.currentRound,
+        submissionsCount: room.submissions?.length || 0
+      });
+    }
+  }, [room?.gameState, room?.code, room?.currentRound, room?.submissions?.length]);
 
   // Handle redirection in a separate effect to avoid dependency issues
   useEffect(() => {
@@ -256,6 +269,17 @@ function GamePageContent() {
           socket={socket}
         />
       )}        
+
+      {room?.gameState === GameState.PLAYBACK && (
+        // Game page is only for player devices, so show waiting screen during playback
+        <>
+          {console.log('🎵 RENDERING WAITING_FOR_PLAYBACK COMPONENT', { gameState: room.gameState, roomCode: room.code })}
+          <ClientWaitingForPlayback 
+            room={room} 
+            player={player!} 
+          />
+        </>
+      )}
 
       {room?.gameState === GameState.JUDGING && (
         <ClientJudging 

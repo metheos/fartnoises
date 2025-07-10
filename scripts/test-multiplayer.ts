@@ -223,6 +223,16 @@ function createPlayer(index: number) {
           );
         }
         break;
+      case GameState.WAITING_FOR_PLAYBACK:
+        console.log(
+          `⏳ [${playerName}] Waiting for playback to complete on main screens...`
+        );
+        if (data?.submissions && Array.isArray(data.submissions)) {
+          console.log(
+            `📻 [${playerName}] ${data.submissions.length} submissions are being played on the main screen`
+          );
+        }
+        break;
       case GameState.PLAYBACK:
         console.log(`🎵 [${playerName}] Playing back all sound submissions...`);
         if (data?.submissions && Array.isArray(data.submissions)) {
