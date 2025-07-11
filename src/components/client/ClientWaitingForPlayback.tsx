@@ -1,7 +1,6 @@
 'use client';
 
 import { Room, Player } from '@/types/game';
-import ClientGameHeader from './ClientGameHeader';
 
 interface ClientWaitingForPlaybackProps {
   room: Room;
@@ -12,7 +11,10 @@ export default function ClientWaitingForPlayback({
   room, 
   player 
 }: ClientWaitingForPlaybackProps) {
-  const judge = room.players.find(p => p.id === room.currentJudge);
+  // Suppress unused parameter warnings - these props are required by the interface
+  // but not currently used in the implementation
+  void room;
+  void player;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 text-white p-4">

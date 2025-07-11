@@ -146,7 +146,7 @@ function GamePageContent() {
         submissionsCount: room.submissions?.length || 0
       });
     }
-  }, [room?.gameState, room?.code, room?.currentRound, room?.submissions?.length]);
+  }, [room?.gameState, room?.code, room?.currentRound, room?.submissions?.length, room]);
 
   // Handle redirection in a separate effect to avoid dependency issues
   useEffect(() => {
