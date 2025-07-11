@@ -322,7 +322,7 @@ export default function DebugPage() {
       case GameState.PROMPT_SELECTION:
         return <PromptSelectionDisplay room={mockRoom} socket={null} />;
       case GameState.SOUND_SELECTION:
-        return <SoundSelectionDisplay room={mockRoom} socket={null} />;
+        return <SoundSelectionDisplay room={mockRoom} socket={null} isPromptRevealing={false} hasPromptBeenRevealed={true} />;
       case GameState.PLAYBACK:
         return <PlaybackSubmissionsDisplay room={mockRoom} soundEffects={mockSoundEffects} socket={createMockSocket() as any} />;
       case GameState.JUDGING:
