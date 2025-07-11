@@ -18,6 +18,7 @@ interface UseSocketOptions {
   setCurrentPlayingSubmission: (submission: SoundSubmission | null) => void;
   gameplayEffects?: {
     playLikeIncrement: () => Promise<void>;
+    playPromptReveal: () => Promise<void>;
   };
 }
 
@@ -61,6 +62,8 @@ interface UseSocketReturn {
   joinError: string;
   setJoinError: React.Dispatch<React.SetStateAction<string>>;
   currentPlayingSoundIndex: number;
+  isPromptRevealing: boolean;
+  hasPromptBeenRevealed: boolean;
   updateURLWithRoom: (roomCode: string | null) => void;
   joinRoom: (roomCode: string) => void;
   leaveRoom: () => void;
@@ -89,6 +92,8 @@ export function useSocket({
   } | null>(null);
   const [joinError, setJoinError] = useState("");
   const [currentPlayingSoundIndex, setCurrentPlayingSoundIndex] = useState(-1);
+  const [isPromptRevealing, setIsPromptRevealing] = useState(false);
+  const [hasPromptBeenRevealed, setHasPromptBeenRevealed] = useState(false);
 
   // Helper function to update URL with room code
   const updateURLWithRoom = (roomCode: string | null) => {
@@ -269,32 +274,64 @@ export function useSocket({
 
           const newRoom = { ...prevRoom, ...updatedData };
 
-          // Play prompt audio when transitioning to sound selection (with 2-second delay)
+          // Play prompt audio when transitioning to sound selection with coordinated reveal
           if (
             newState === GameState.SOUND_SELECTION &&
             newRoom.currentPrompt &&
             newRoom.currentPrompt.audioFile
           ) {
             console.log(
-              "useSocket: Scheduling prompt audio playback in 2 seconds:",
+              "useSocket: Coordinating prompt reveal with audio playback:",
               newRoom.currentPrompt.audioFile
             );
             const audioFile = newRoom.currentPrompt.audioFile;
 
-            // Add 2-second delay before playing prompt audio
-            setTimeout(() => {
-              audioSystem
-                .initialize()
-                .then(() => {
-                  audioSystem.loadAndPlayPromptAudio(audioFile);
-                })
-                .catch((error) => {
-                  console.error(
-                    "useSocket: Failed to initialize audio system for prompt playback:",
-                    error
-                  );
-                });
-            }, 2000); // 2 second delay
+            // Coordinate reveal animation and sound, then play prompt audio
+            setTimeout(async () => {
+              // Start the reveal animation
+              setIsPromptRevealing(true);
+              setHasPromptBeenRevealed(true);
+
+              try {
+                // Play reveal sound effect first
+                if (gameplayEffects?.playPromptReveal) {
+                  await gameplayEffects.playPromptReveal();
+                }
+
+                // Wait 50ms then play the actual prompt audio and end reveal animation
+                setTimeout(async () => {
+                  setIsPromptRevealing(false); // End the reveal animation
+                  try {
+                    await audioSystem.initialize();
+                    await audioSystem.loadAndPlayPromptAudio(audioFile);
+                  } catch (error) {
+                    console.error(
+                      "useSocket: Failed to play prompt audio:",
+                      error
+                    );
+                  }
+                }, 50); // 50ms delay after reveal sound
+              } catch (error) {
+                console.error(
+                  "useSocket: Failed to play prompt reveal sound:",
+                  error
+                );
+
+                // Still try to play prompt audio even if reveal sound fails
+                setTimeout(async () => {
+                  setIsPromptRevealing(false); // End the reveal animation
+                  try {
+                    await audioSystem.initialize();
+                    await audioSystem.loadAndPlayPromptAudio(audioFile);
+                  } catch (promptError) {
+                    console.error(
+                      "useSocket: Failed to play prompt audio after reveal sound failure:",
+                      promptError
+                    );
+                  }
+                }, 500);
+              }
+            }, 100); // Small delay to let UI update first
           }
 
           return newRoom;
@@ -308,6 +345,12 @@ export function useSocket({
         newState === GameState.LOBBY
       ) {
         setRoundWinner(null);
+      }
+
+      // Reset prompt reveal state when leaving sound selection
+      if (newState !== GameState.SOUND_SELECTION) {
+        setIsPromptRevealing(false);
+        setHasPromptBeenRevealed(false);
       }
     });
 
@@ -674,6 +717,8 @@ export function useSocket({
     joinError,
     setJoinError,
     currentPlayingSoundIndex,
+    isPromptRevealing,
+    hasPromptBeenRevealed,
     updateURLWithRoom,
     joinRoom,
     leaveRoom,

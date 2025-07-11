@@ -9,9 +9,11 @@ import GameTimer from './GameTimer';
 interface SoundSelectionDisplayProps {
   room: Room;
   socket: Socket | null;
+  isPromptRevealing: boolean;
+  hasPromptBeenRevealed: boolean;
 }
 
-export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDisplayProps) {
+export default function SoundSelectionDisplay({ room, socket, isPromptRevealing, hasPromptBeenRevealed }: SoundSelectionDisplayProps) {
   const otherPlayers = room.players.filter(p => p.id !== room.currentJudge);
   const submittedCount = room.submissions.length;
   const totalNeeded = otherPlayers.length;
@@ -35,6 +37,8 @@ export default function SoundSelectionDisplay({ room, socket }: SoundSelectionDi
           judge={judge} 
           prompt={room.currentPrompt} 
           showPrompt={true}
+          isRevealing={isPromptRevealing}
+          startHidden={!hasPromptBeenRevealed}
         />
       )}
 

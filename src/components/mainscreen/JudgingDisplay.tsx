@@ -45,7 +45,7 @@ export function JudgingDisplay({
         </div>
       </div>
 
-      <div className="flex justify-center gap-8">
+      <div className="flex justify-center gap-8" style={{ height: '20rem', alignItems: 'flex-start' }}>
         {(room.randomizedSubmissions || room.submissions).map((submission, index) => {
           const isCurrentlyPlaying = currentPlayingSubmission?.playerId === submission.playerId;
           

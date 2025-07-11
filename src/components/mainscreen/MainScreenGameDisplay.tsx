@@ -40,6 +40,8 @@ interface MainScreenGameDisplayProps {
   onActivateAudio: () => Promise<void>;
   currentPlayingSubmission: SoundSubmission | null;
   currentPlayingSoundIndex: number;
+  isPromptRevealing: boolean;
+  hasPromptBeenRevealed: boolean;
   socket: Socket | null;
   gameplayEffects?: GameplayEffects;
   backgroundMusic: {
@@ -64,6 +66,8 @@ export function MainScreenGameDisplay({
   onActivateAudio,
   currentPlayingSubmission,
   currentPlayingSoundIndex,
+  isPromptRevealing,
+  hasPromptBeenRevealed,
   socket,
   gameplayEffects,
   backgroundMusic
@@ -98,7 +102,7 @@ export function MainScreenGameDisplay({
       )}
 
       {room.gameState === GameState.SOUND_SELECTION && (
-        <SoundSelectionDisplay room={room} socket={socket} />
+        <SoundSelectionDisplay room={room} socket={socket} isPromptRevealing={isPromptRevealing} hasPromptBeenRevealed={hasPromptBeenRevealed} />
       )}
 
       {room.gameState === GameState.PLAYBACK && socket && (

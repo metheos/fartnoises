@@ -7,6 +7,8 @@ interface JudgePromptDisplayProps {
   showPrompt?: boolean;
   showJudge?: boolean;
   size?: 'small' | 'large';
+  isRevealing?: boolean;
+  startHidden?: boolean;
 }
 
 export function JudgePromptDisplay({ 
@@ -14,7 +16,9 @@ export function JudgePromptDisplay({
   prompt, 
   showPrompt = true,
   showJudge = true,
-  size = 'large'
+  size = 'large',
+  isRevealing = false,
+  startHidden = false
 }: JudgePromptDisplayProps) {
   const isSmall = size === 'small';
   
@@ -59,21 +63,40 @@ export function JudgePromptDisplay({
       {/* Prompt Display - Right Side */}
       {showPrompt && prompt && (
         <div className={`flex-1 min-w-0 ${showPrompt ? 'w-full' : 'max-w-4xl'}`}>
-          <div className={`relative bg-gradient-to-br from-purple-200 via-pink-100 to-orange-100 rounded-3xl ${isSmall ? 'p-3' : 'p-8'} shadow-2xl ${isSmall ? 'border-2' : 'border-4'} border-purple-300 overflow-hidden`}>
+          <div className={`relative bg-gradient-to-br rounded-3xl ${isSmall ? 'p-3' : 'p-8'} shadow-2xl ${isSmall ? 'border-2' : 'border-4'} transition-all duration-300 ${
+            isRevealing 
+              ? 'animate-prompt-slide-in border-purple-500 shadow-3xl from-purple-300 via-pink-200 to-orange-200' 
+              : 'border-purple-300 from-purple-200 via-pink-100 to-orange-100'
+          }`} style={{
+            transform: (startHidden && !isRevealing) ? 'translateX(-100%)' : undefined,
+            opacity: (startHidden && !isRevealing) ? 0 : undefined
+          }}>
             
             {/* Main prompt text */}
             <div className="relative z-10">
-              <div className={`bg-white bg-opacity-90 rounded-2xl ${isSmall ? 'p-3' : 'p-6'} shadow-lg ${isSmall ? 'border-1' : 'border-2'} border-purple-200`}>
+              <div className={`bg-white rounded-2xl ${isSmall ? 'p-3' : 'p-6'} shadow-lg ${isSmall ? 'border-1' : 'border-2'} transition-all duration-300 ${
+                isRevealing 
+                  ? 'bg-opacity-100 shadow-2xl border-purple-300' 
+                  : 'bg-opacity-90 border-purple-200'
+              }`}>
                 <div className="flex items-center justify-center mb-2">
                 </div>
-                <p className={`${isSmall ? 'text-base sm:text-lg' : 'text-2xl sm:text-3xl'} text-center text-gray-800 font-bold leading-relaxed drop-shadow-sm break-words word-wrap overflow-wrap-anywhere`} dangerouslySetInnerHTML={{ __html: prompt.text }}></p>
+                <p className={`${isSmall ? 'text-base sm:text-lg' : 'text-2xl sm:text-3xl'} text-center font-bold leading-relaxed drop-shadow-sm break-words word-wrap overflow-wrap-anywhere transition-all duration-300 ${
+                  isRevealing 
+                    ? 'text-purple-900 drop-shadow-lg' 
+                    : 'text-gray-800'
+                }`} dangerouslySetInnerHTML={{ __html: prompt.text }}></p>
                 <div className="flex items-center justify-center mt-2">
                 </div>
               </div>
             </div>
             
-            {/* Animated border glow effect */}
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 opacity-20 animate-pulse"></div>
+            {/* Animated border glow effect - enhanced during reveal */}
+            <div className={`absolute inset-0 rounded-3xl transition-all duration-300 ${
+              isRevealing 
+                ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 opacity-30' 
+                : 'bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 opacity-20'
+            } animate-pulse`}></div>
           </div>
         </div>
       )}

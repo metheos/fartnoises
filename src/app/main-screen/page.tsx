@@ -57,14 +57,17 @@ function MainScreenContent() {
     setNuclearExplosion,
     joinError, 
     joinRoom,
-    currentPlayingSoundIndex
+    currentPlayingSoundIndex,
+    isPromptRevealing,
+    hasPromptBeenRevealed
   } = useSocket({ 
     soundEffects, 
     isAudioReady, 
     setIsAudioReady, 
     setCurrentPlayingSubmission,
     gameplayEffects: {
-      playLikeIncrement
+      playLikeIncrement,
+      playPromptReveal
     }
   });
 
@@ -259,9 +262,7 @@ function MainScreenContent() {
         case 'prompt_selection':
           break;
         case 'sound_selection':
-          // Sound selection phase starts
-          // Prompt reveal
-          playPromptReveal();
+          // Sound selection phase starts - prompt reveal now handled in useSocket
           break;
         case 'playback':
           break;
@@ -344,6 +345,8 @@ function MainScreenContent() {
             onActivateAudio={activateAudio}
             currentPlayingSubmission={currentPlayingSubmission}
             currentPlayingSoundIndex={currentPlayingSoundIndex}
+            isPromptRevealing={isPromptRevealing}
+            hasPromptBeenRevealed={hasPromptBeenRevealed}
             socket={socket}
             gameplayEffects={{
               playEffect,

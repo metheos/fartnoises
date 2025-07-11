@@ -55,15 +55,15 @@ export default function Button({
   const getSizeClasses = () => {
     switch (size) {
       case 'sm':
-        return 'px-3 py-2 text-sm rounded-lg';
+        return 'px-2 py-2 text-sm rounded-lg';
       case 'md':
-        return 'px-4 py-3 text-base rounded-xl';
+        return 'px-4 py-2 text-base rounded-xl';
       case 'lg':
         return 'px-6 py-4 text-lg rounded-xl';
       case 'xl':
         return 'px-8 py-4 text-xl rounded-2xl';
       default:
-        return 'px-4 py-3 text-base rounded-xl';
+        return 'px-4 py-2 text-base rounded-xl';
     }
   };
 
