@@ -292,25 +292,47 @@ export function useSocket({
               setIsPromptRevealing(true);
               setHasPromptBeenRevealed(true);
 
+              // Initialize audio system and preload prompt audio during reveal
+              let audioPreloaded = false;
+              const preloadPromise = (async () => {
+                try {
+                  await audioSystem.initialize();
+                  await audioSystem.loadPromptAudio(audioFile); // Preload without playing
+                  audioPreloaded = true;
+                  console.log("useSocket: Prompt audio preloaded successfully");
+                } catch (error) {
+                  console.error(
+                    "useSocket: Failed to preload prompt audio:",
+                    error
+                  );
+                }
+              })();
+
               try {
                 // Play reveal sound effect first
                 if (gameplayEffects?.playPromptReveal) {
                   await gameplayEffects.playPromptReveal();
                 }
 
-                // Wait 50ms then play the actual prompt audio and end reveal animation
-                setTimeout(async () => {
-                  setIsPromptRevealing(false); // End the reveal animation
+                // Wait for preload to complete, then play immediately
+                await preloadPromise;
+                setIsPromptRevealing(false); // End the reveal animation
+
+                if (audioPreloaded) {
                   try {
-                    await audioSystem.initialize();
-                    await audioSystem.loadAndPlayPromptAudio(audioFile);
+                    await audioSystem.playPromptAudio(audioFile); // Play already loaded audio
                   } catch (error) {
                     console.error(
-                      "useSocket: Failed to play prompt audio:",
+                      "useSocket: Failed to play preloaded prompt audio:",
                       error
                     );
+                    // Fallback to load and play if direct play fails
+                    await audioSystem.loadAndPlayPromptAudio(audioFile);
                   }
-                }, 50); // 50ms delay after reveal sound
+                } else {
+                  // Fallback to original method if preload failed
+                  await audioSystem.loadAndPlayPromptAudio(audioFile);
+                }
               } catch (error) {
                 console.error(
                   "useSocket: Failed to play prompt reveal sound:",
@@ -320,14 +342,29 @@ export function useSocket({
                 // Still try to play prompt audio even if reveal sound fails
                 setTimeout(async () => {
                   setIsPromptRevealing(false); // End the reveal animation
-                  try {
-                    await audioSystem.initialize();
-                    await audioSystem.loadAndPlayPromptAudio(audioFile);
-                  } catch (promptError) {
-                    console.error(
-                      "useSocket: Failed to play prompt audio after reveal sound failure:",
-                      promptError
-                    );
+                  await preloadPromise; // Wait for preload to complete
+
+                  if (audioPreloaded) {
+                    try {
+                      await audioSystem.playPromptAudio(audioFile);
+                    } catch (promptError) {
+                      console.error(
+                        "useSocket: Failed to play preloaded prompt audio after reveal failure:",
+                        promptError
+                      );
+                      // Final fallback
+                      await audioSystem.loadAndPlayPromptAudio(audioFile);
+                    }
+                  } else {
+                    try {
+                      await audioSystem.initialize();
+                      await audioSystem.loadAndPlayPromptAudio(audioFile);
+                    } catch (promptError) {
+                      console.error(
+                        "useSocket: Failed to play prompt audio after reveal sound failure:",
+                        promptError
+                      );
+                    }
                   }
                 }, 500);
               }

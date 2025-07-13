@@ -21,6 +21,9 @@ export function PlaybackSubmissionsDisplay({
   const [currentPlayingSubmission, setCurrentPlayingSubmission] = useState<SoundSubmission | null>(null);
   const [currentPlayingSoundIndex, setCurrentPlayingSoundIndex] = useState(-1);
   const [revealedSounds, setRevealedSounds] = useState<Set<string>>(new Set());
+  // Track which sounds have been revealed for each specific player's submission
+  // Key format: "playerId:soundIndex" -> ensures only that player's sound is revealed
+  const [revealedPlayerSounds, setRevealedPlayerSounds] = useState<Set<string>>(new Set());
   
   const promptAudioPlayingRef = useRef(false);
   const playbackStartedRef = useRef<string | false>(false);
@@ -45,6 +48,7 @@ export function PlaybackSubmissionsDisplay({
     setCurrentPlayingSubmission(null);
     setCurrentPlayingSoundIndex(-1);
     setRevealedSounds(new Set());
+    setRevealedPlayerSounds(new Set()); // Reset player-specific revelations for new round
 
     const startSequence = async () => {
       // 1. Play the prompt audio first (if there is one)
@@ -115,8 +119,12 @@ export function PlaybackSubmissionsDisplay({
           try {
             await audioSystem.playSound(soundId);
             console.log(`Sound ${i + 1} finished playing`);
-            // Add this sound to the revealed set so it stays visible
+            // Add this sound to the revealed set so it stays visible (legacy for backward compatibility)
             setRevealedSounds(prev => new Set(prev).add(sounds[i]));
+            // Add this specific player's sound to the revealed player sounds (new robust tracking)
+            const playerSoundKey = `${submission.playerId}:${i}`;
+            setRevealedPlayerSounds(prev => new Set(prev).add(playerSoundKey));
+            console.log(`[REVEAL] Revealed sound for player ${submission.playerName} at index ${i}: ${playerSoundKey}`);
           } catch (error) {
             console.error(`Error playing sound ${soundId}:`, error);
           }
@@ -203,6 +211,7 @@ export function PlaybackSubmissionsDisplay({
               isCurrentlyPlaying={isCurrentlyPlaying}
               currentPlayingSoundIndex={currentPlayingSoundIndex}
               revealedSounds={revealedSounds}
+              revealedPlayerSounds={revealedPlayerSounds}
               showSoundNames={false}
               playingMode="playback"
             />

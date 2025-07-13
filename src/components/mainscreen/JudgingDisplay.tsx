@@ -57,6 +57,7 @@ export function JudgingDisplay({
               soundEffects={soundEffects}
               isCurrentlyPlaying={isCurrentlyPlaying}
               currentPlayingSoundIndex={isCurrentlyPlaying ? currentPlayingSoundIndex : -1}
+              revealedPlayerSounds={new Set()} // Not needed for judging - all sounds visible
               showSoundNames={true}
               playingMode="judging"
             />

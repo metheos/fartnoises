@@ -137,38 +137,142 @@ export async function generatePlayerSoundSets(room: Room): Promise<void> {
     (p) => p.id !== room.currentJudge
   );
 
-  // Generate sounds for each non-judge player
-  for (const player of nonJudgePlayers) {
-    try {
-      // Generate 10 random sounds for this player
-      console.log(
-        `[SOUND_GEN] Generating sounds for player ${player.name}, requesting 10 sounds`
+  // Generate unique sounds for all non-judge players (no overlapping sounds between players)
+  try {
+    console.log(
+      `[SOUND_GEN] Generating unique sound sets for ${nonJudgePlayers.length} players (10 sounds each)`
+    );
+
+    // Load all available sounds
+    const { loadEarwaxSounds } = await import("@/utils/soundLoader");
+    const allSounds = await loadEarwaxSounds(room.allowExplicitContent);
+
+    if (allSounds.length === 0) {
+      console.error("[SOUND_GEN] ❌ No sounds available!");
+      for (const player of nonJudgePlayers) {
+        player.soundSet = [];
+      }
+      return;
+    }
+
+    const totalSoundsNeeded = nonJudgePlayers.length * 10;
+    console.log(
+      `[SOUND_GEN] Need ${totalSoundsNeeded} unique sounds, have ${allSounds.length} available`
+    );
+
+    if (allSounds.length < totalSoundsNeeded) {
+      console.warn(
+        `[SOUND_GEN] ⚠️  Not enough unique sounds! Need ${totalSoundsNeeded}, have ${allSounds.length}`
       );
-      const playerSounds = await getRandomSounds(
-        10,
-        undefined,
-        room.allowExplicitContent
-      );
-      player.soundSet = playerSounds.map((sound) => sound.id);
+    }
+
+    // Create a shuffled copy of all sounds to ensure randomness
+    const shuffledSounds = [...allSounds].sort(() => Math.random() - 0.5);
+
+    // Assign sounds to players in chunks of 10, ensuring no overlaps
+    let soundIndex = 0;
+    for (const player of nonJudgePlayers) {
+      const playerSounds: string[] = [];
+
+      // Get up to 10 unique sounds for this player
+      for (let i = 0; i < 10 && soundIndex < shuffledSounds.length; i++) {
+        playerSounds.push(shuffledSounds[soundIndex].id);
+        soundIndex++;
+      }
+
+      // If we ran out of unique sounds, fill remaining slots by reshuffling unused sounds
+      if (playerSounds.length < 10) {
+        console.warn(
+          `[SOUND_GEN] ⚠️  Ran out of unique sounds for ${
+            player.name
+          }, filling remaining ${
+            10 - playerSounds.length
+          } slots with reshuffled sounds`
+        );
+
+        // Get sounds not already assigned to this player or previous players
+        const usedSoundsThisRound = new Set<string>();
+        for (const p of nonJudgePlayers) {
+          if (p.soundSet) {
+            p.soundSet.forEach((soundId) => usedSoundsThisRound.add(soundId));
+          }
+        }
+        playerSounds.forEach((soundId) => usedSoundsThisRound.add(soundId));
+
+        const remainingSounds = allSounds.filter(
+          (sound) => !usedSoundsThisRound.has(sound.id)
+        );
+        const shuffledRemaining = remainingSounds.sort(
+          () => Math.random() - 0.5
+        );
+
+        let remainingIndex = 0;
+        while (
+          playerSounds.length < 10 &&
+          remainingIndex < shuffledRemaining.length
+        ) {
+          playerSounds.push(shuffledRemaining[remainingIndex].id);
+          remainingIndex++;
+        }
+      }
+
+      player.soundSet = playerSounds;
       console.log(
-        `[SOUND_GEN] Generated ${playerSounds.length} sounds for player ${
-          player.name
-        }: [${player.soundSet.join(", ")}]`
+        `[SOUND_GEN] ✅ Generated ${
+          playerSounds.length
+        } unique sounds for player ${player.name}: [${playerSounds.join(", ")}]`
       );
 
-      // Debug: Check if we got less than 10 sounds
       if (playerSounds.length !== 10) {
         console.warn(
           `[SOUND_GEN] ⚠️  Expected 10 sounds, got ${playerSounds.length} for ${player.name}`
         );
-        console.warn(`[SOUND_GEN] Sound IDs: [${player.soundSet.join(", ")}]`);
       }
-    } catch (error) {
-      console.error(
-        `Error generating sounds for player ${player.name}:`,
-        error
+    }
+
+    // Verify no overlaps between players
+    const allAssignedSounds = new Set<string>();
+    let hasOverlaps = false;
+    for (const player of nonJudgePlayers) {
+      if (player.soundSet) {
+        for (const soundId of player.soundSet) {
+          if (allAssignedSounds.has(soundId)) {
+            console.error(
+              `[SOUND_GEN] ❌ OVERLAP DETECTED: Sound ${soundId} assigned to multiple players!`
+            );
+            hasOverlaps = true;
+          }
+          allAssignedSounds.add(soundId);
+        }
+      }
+    }
+
+    if (!hasOverlaps) {
+      console.log(
+        `[SOUND_GEN] ✅ Successfully assigned ${allAssignedSounds.size} unique sounds across all players - no overlaps detected!`
       );
-      player.soundSet = []; // Fallback to empty array
+    }
+  } catch (error) {
+    console.error("[SOUND_GEN] Error generating unique player sounds:", error);
+    // Fallback to old method if the new approach fails
+    for (const player of nonJudgePlayers) {
+      try {
+        const playerSounds = await getRandomSounds(
+          10,
+          undefined,
+          room.allowExplicitContent
+        );
+        player.soundSet = playerSounds.map((sound) => sound.id);
+        console.log(
+          `[SOUND_GEN] [FALLBACK] Generated ${playerSounds.length} sounds for ${player.name}`
+        );
+      } catch (fallbackError) {
+        console.error(
+          `[SOUND_GEN] [FALLBACK] Error for ${player.name}:`,
+          fallbackError
+        );
+        player.soundSet = [];
+      }
     }
   }
 }

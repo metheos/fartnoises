@@ -456,6 +456,67 @@ export class AudioSystem {
     }
   }
 
+  // Load prompt audio without playing (for preloading during reveal)
+  async loadPromptAudio(audioFileName: string): Promise<void> {
+    const promptId = `prompt_${audioFileName}`;
+
+    try {
+      // Check if already loaded
+      if (this.loadedSounds.has(promptId)) {
+        console.log(`✅ Prompt audio already loaded: ${audioFileName}`);
+        return;
+      }
+
+      // Load prompt audio from the EarwaxPrompts folder
+      const response = await fetch(
+        `/sounds/Earwax/EarwaxPrompts/${audioFileName}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to load prompt audio: ${audioFileName}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+
+      if (!this.audioContext) {
+        await this.initialize();
+      }
+
+      const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
+      this.loadedSounds.set(promptId, audioBuffer);
+
+      console.log(`✅ Preloaded prompt audio: ${audioFileName}`);
+    } catch (error) {
+      console.error(
+        `❌ Failed to preload prompt audio ${audioFileName}:`,
+        error
+      );
+      this.failedSounds.add(promptId);
+      throw error;
+    }
+  }
+
+  // Play already loaded prompt audio
+  async playPromptAudio(audioFileName: string): Promise<void> {
+    const promptId = `prompt_${audioFileName}`;
+
+    try {
+      // Check if loaded
+      if (!this.loadedSounds.has(promptId)) {
+        console.warn(
+          `⚠️ Prompt audio not preloaded, loading now: ${audioFileName}`
+        );
+        await this.loadPromptAudio(audioFileName);
+      }
+
+      await this.playSound(promptId);
+      console.log(`✅ Played preloaded prompt audio: ${audioFileName}`);
+    } catch (error) {
+      console.error(`❌ Failed to play prompt audio ${audioFileName}:`, error);
+      throw error;
+    }
+  }
+
   private setupAudioAnalysis(): void {
     if (!this.audioContext) return;
 

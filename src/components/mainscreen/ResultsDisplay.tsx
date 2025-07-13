@@ -322,6 +322,7 @@ export function ResultsDisplay({
                   soundEffects={soundEffects}
                   isCurrentlyPlaying={isPlayingWinner}
                   currentPlayingSoundIndex={currentPlayingSoundIndex}
+                  revealedPlayerSounds={new Set()} // Not needed for results - all sounds visible
                   showSoundNames={true}
                   playingMode="results"
                   isWinner={true}

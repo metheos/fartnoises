@@ -8,6 +8,7 @@ interface SubmissionCardProps {
   isCurrentlyPlaying?: boolean;
   currentPlayingSoundIndex?: number;
   revealedSounds?: Set<string>;
+  revealedPlayerSounds?: Set<string>; // Track which sounds have been revealed for each specific player
   showSoundNames?: boolean;
   playingMode?: 'judging' | 'playback' | 'results';
   isWinner?: boolean;
@@ -22,6 +23,7 @@ export function SubmissionCard({
   isCurrentlyPlaying = false,
   currentPlayingSoundIndex = -1,
   revealedSounds = new Set(),
+  revealedPlayerSounds = new Set(),
   showSoundNames = true,
   playingMode = 'judging',
   isWinner = false,
@@ -267,12 +269,18 @@ export function SubmissionCard({
           {submission.sounds.map((soundId, soundIndex) => {
             const sound = soundEffects.find(s => s.id === soundId);
             const isCurrentSound = isCurrentlyPlaying && currentPlayingSoundIndex === soundIndex;
-            const hasBeenRevealed = revealedSounds.has(soundId);
+            // Use new player-specific revelation tracking to prevent cross-player reveals
+            const playerSoundKey = `${submission.playerId}:${soundIndex}`;
+            const hasBeenRevealedForThisPlayer = revealedPlayerSounds.has(playerSoundKey);
+            // Keep legacy revelation check as fallback for compatibility
+            const hasBeenRevealedLegacy = revealedSounds.has(soundId);
+            // A sound is revealed if either the new player-specific tracking says so, OR it's currently playing
+            const hasBeenRevealed = hasBeenRevealedForThisPlayer || hasBeenRevealedLegacy || isCurrentSound;
             const isThirdSound = soundIndex === 2 && isTripleSound;
             
-            // Debug logging for sound playback
-            if (isCurrentlyPlaying) {
-              console.log(`[SUBMISSION CARD] Sound ${soundIndex}: currentPlayingSoundIndex=${currentPlayingSoundIndex}, isCurrentSound=${isCurrentSound}, soundId=${soundId}`);
+            // Debug logging for sound playback and revelation
+            if (isCurrentlyPlaying || hasBeenRevealedForThisPlayer) {
+              console.log(`[SUBMISSION CARD] Player ${submission.playerName} Sound ${soundIndex}: currentPlayingSoundIndex=${currentPlayingSoundIndex}, isCurrentSound=${isCurrentSound}, soundId=${soundId}, playerSoundKey=${playerSoundKey}, hasBeenRevealedForThisPlayer=${hasBeenRevealedForThisPlayer}`);
             }
             
             // Hide third sound slot until it's revealed or currently playing
