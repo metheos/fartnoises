@@ -140,9 +140,10 @@ export default function LobbyDisplay({ room }: LobbyDisplayProps) {
                 fgColor="#7c3aed"
                 level="M"
               />
-              {/* <div className="mt-2 text-xs text-purple-600">
-                Or enter: <span className="font-mono font-bold text-purple-800 bg-purple-100 px-1 py-0.5 rounded text-xs">{room.code}</span>
-              </div> */}
+                <div className="mt-2 text-xs text-purple-600 text-center leading-tight">
+                 <span className="text-lg block">Room Code</span>
+                 <span className="text-purple-800 text-2xl font-black tracking-wider block">{room.code}</span>
+                </div>
             </div>
           </div>
 
