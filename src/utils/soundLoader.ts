@@ -448,8 +448,11 @@ export async function loadEarwaxSounds(
 
     // Check if we're in a browser or server environment
     if (typeof window !== "undefined") {
-      // Browser environment - use fetch
-      const response = await fetch(`${SOUND_BASE_URL}/Earwax/EarwaxAudio.jet`);
+      // Browser environment - use fetch with cache busting
+      const cacheBuster = Date.now();
+      const response = await fetch(
+        `${SOUND_BASE_URL}/Earwax/EarwaxAudio.jet?v=${cacheBuster}`
+      );
       if (!response.ok) {
         throw new Error(
           `Failed to load EarwaxAudio.jet: ${response.statusText}`
@@ -652,6 +655,14 @@ export async function getRandomSounds(
 export function clearSoundCache(): void {
   soundCache = null;
   cacheTimestamp = 0;
+  console.log("🗑️ Sound cache cleared");
+}
+
+// Clear all caches (sounds and prompts)
+export function clearAllCaches(): void {
+  clearSoundCache();
+  clearPromptCache();
+  console.log("🗑️ All caches cleared");
 }
 
 // Get all available categories
@@ -686,9 +697,10 @@ export async function loadEarwaxPrompts(
 
     // Check if we're in a browser or server environment
     if (typeof window !== "undefined") {
-      // Browser environment - use fetch
+      // Browser environment - use fetch with cache busting
+      const cacheBuster = Date.now();
       const response = await fetch(
-        `${SOUND_BASE_URL}/Earwax/EarwaxPrompts.jet`
+        `${SOUND_BASE_URL}/Earwax/EarwaxPrompts.jet?v=${cacheBuster}`
       );
       if (!response.ok) {
         throw new Error(
@@ -799,4 +811,5 @@ export async function getRandomPrompts(
 export function clearPromptCache(): void {
   promptCache = null;
   promptCacheTimestamp = 0;
+  console.log("🗑️ Prompt cache cleared");
 }

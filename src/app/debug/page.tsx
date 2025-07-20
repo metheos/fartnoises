@@ -32,6 +32,9 @@ import ClientJudgingComponent from '@/components/client/ClientJudging';
 import ClientResultsComponent from '@/components/client/ClientResults';
 import ClientGameOverComponent from '@/components/client/ClientGameOver';
 
+// Debug tools
+import { CacheControlDebugger } from '@/components/debug/CacheControlDebugger';
+
 
 // Mock Data
 const mockPlayers: Player[] = [
@@ -540,6 +543,9 @@ export default function DebugPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
       <h1 className="text-3xl font-bold mb-4">🎵 fartnoises Debug Page</h1>
+      
+      {/* Cache Control Debugger */}
+      <CacheControlDebugger className="mb-4" />
       
       {/* View Type Selection */}
       <div className="bg-gray-800 p-4 rounded-lg mb-4">

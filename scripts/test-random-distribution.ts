@@ -60,6 +60,36 @@ async function testRandomDistribution() {
     (a, b) => b.count - a.count
   );
 
+  // Check for specific sound: "We aint found shit"
+  const weAintFoundShitSound = results.find(
+    (sound) =>
+      sound.name.toLowerCase().includes("we aint found shit") ||
+      sound.name.toLowerCase().includes("we ain't found shit") ||
+      sound.id.toLowerCase().includes("we aint found shit") ||
+      sound.id.toLowerCase().includes("we ain't found shit")
+  );
+
+  if (weAintFoundShitSound) {
+    console.log(`🎯 SPECIFIC SOUND CHECK: "${weAintFoundShitSound.name}"`);
+    console.log(`   ID: ${weAintFoundShitSound.id}`);
+    console.log(`   Category: ${weAintFoundShitSound.category}`);
+    console.log(
+      `   Selected ${weAintFoundShitSound.count} times out of ${iterations} iterations`
+    );
+    console.log(
+      `   Selection rate: ${(
+        (weAintFoundShitSound.count / iterations) *
+        100
+      ).toFixed(2)}%`
+    );
+    console.log();
+  } else {
+    console.log(
+      `❌ SPECIFIC SOUND CHECK: "We aint found shit" was not found in the sound library`
+    );
+    console.log();
+  }
+
   // Calculate statistics
   const totalSelections = results.reduce((sum, item) => sum + item.count, 0);
   const expectedSelections = iterations * soundsPerIteration;
