@@ -12,6 +12,7 @@ import {
   broadcastRoomListUpdate,
   removeMainScreen,
   enrichRoomWithMainScreenCount,
+  emitRoomUpdated,
 } from "../utils/roomManager";
 import { clearTimer, startTimer } from "../utils/timerManager";
 import { startDelayedSoundSelectionTimer } from "../utils/gameLogic";
@@ -495,7 +496,7 @@ function resumeGame(
   // Notify players that game is resuming
   context.io.to(roomCode).emit("gameResumed");
   context.io.to(roomCode).emit("gameStateChanged", previousGameState);
-  context.io.to(roomCode).emit("roomUpdated", room);
+  emitRoomUpdated(context, roomCode, room);
 
   // Restart game timers if needed
   if (previousGameState === GameState.SOUND_SELECTION) {
@@ -668,7 +669,7 @@ function handlePlayerReconnection(
       playerName: playerName,
     });
 
-    context.io.to(roomCode).emit("roomUpdated", room);
+    emitRoomUpdated(context, roomCode, room);
   } else {
     // Game was already paused - handle normal reconnection flow
 
@@ -694,7 +695,7 @@ function handlePlayerReconnection(
       playerName: playerName,
     });
 
-    context.io.to(roomCode).emit("roomUpdated", room);
+    emitRoomUpdated(context, roomCode, room);
   }
 
   // Check if room no longer only has bots and clear destruction timer if needed
@@ -781,7 +782,7 @@ function removePlayerFromRoom(
         .to(roomCode)
         .emit("judgeSelected", room.currentJudge as string);
     }
-    context.io.to(roomCode).emit("roomUpdated", room);
+    emitRoomUpdated(context, roomCode, room);
     context.io.to(roomCode).emit("playerLeft", socketId);
     broadcastRoomListUpdate(context);
   }

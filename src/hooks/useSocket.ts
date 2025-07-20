@@ -244,9 +244,15 @@ export function useSocket({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socketInstance.on("gameStateChanged", (newState: GameState, data?: any) => {
       console.log("useSocket: Game state changed:", newState, data);
+      
+      if (newState === GameState.SOUND_SELECTION) {
+        console.log("🎵 useSocket: SOUND_SELECTION transition - raw data:", JSON.stringify(data, null, 2));
+        console.log("🎵 useSocket: SOUND_SELECTION transition - data.mainScreenCount:", data?.mainScreenCount);
+      }
 
       setCurrentRoom((prevRoom) => {
         if (prevRoom) {
+          console.log("🎵 useSocket: Previous room mainScreenCount:", prevRoom.mainScreenCount);
           const updatedData: Partial<Room> = { gameState: newState };
 
           // Merge relevant fields from data if they exist and are provided
@@ -270,9 +276,20 @@ export function useSocket({
               updatedData.players = data.players as Player[];
             if (data.currentRound !== undefined)
               updatedData.currentRound = data.currentRound;
+            if (data.mainScreenCount !== undefined)
+              updatedData.mainScreenCount = data.mainScreenCount;
+          }
+
+          // Preserve mainScreenCount from previous room state if not provided in update
+          if (updatedData.mainScreenCount === undefined && prevRoom.mainScreenCount !== undefined) {
+            updatedData.mainScreenCount = prevRoom.mainScreenCount;
           }
 
           const newRoom = { ...prevRoom, ...updatedData };
+          
+          if (newState === GameState.SOUND_SELECTION) {
+            console.log("🎵 useSocket: Final newRoom mainScreenCount:", newRoom.mainScreenCount);
+          }
 
           // Play prompt audio when transitioning to sound selection with coordinated reveal
           if (
@@ -321,6 +338,9 @@ export function useSocket({
                 if (audioPreloaded) {
                   try {
                     await audioSystem.playPromptAudio(audioFile); // Play already loaded audio
+                    console.log('🎵 useSocket: Prompt audio playback completed, notifying clients');
+                    console.log('🎵 useSocket: Emitting promptAudioComplete event to room:', socketInstance.id);
+                    socketInstance.emit('promptAudioComplete');
                   } catch (error) {
                     console.error(
                       "useSocket: Failed to play preloaded prompt audio:",
@@ -328,10 +348,16 @@ export function useSocket({
                     );
                     // Fallback to load and play if direct play fails
                     await audioSystem.loadAndPlayPromptAudio(audioFile);
+                    console.log('🎵 useSocket: Fallback prompt audio playback completed, notifying clients');
+                    console.log('🎵 useSocket: Emitting promptAudioComplete event to room (fallback):', socketInstance.id);
+                    socketInstance.emit('promptAudioComplete');
                   }
                 } else {
                   // Fallback to original method if preload failed
                   await audioSystem.loadAndPlayPromptAudio(audioFile);
+                  console.log('🎵 useSocket: Fallback prompt audio playback completed, notifying clients');
+                  console.log('🎵 useSocket: Emitting promptAudioComplete event to room (no preload):', socketInstance.id);
+                  socketInstance.emit('promptAudioComplete');
                 }
               } catch (error) {
                 console.error(
@@ -347,6 +373,8 @@ export function useSocket({
                   if (audioPreloaded) {
                     try {
                       await audioSystem.playPromptAudio(audioFile);
+                      console.log('🎵 useSocket: Error fallback prompt audio playback completed, notifying clients');
+                      socketInstance.emit('promptAudioComplete');
                     } catch (promptError) {
                       console.error(
                         "useSocket: Failed to play preloaded prompt audio after reveal failure:",
@@ -354,16 +382,23 @@ export function useSocket({
                       );
                       // Final fallback
                       await audioSystem.loadAndPlayPromptAudio(audioFile);
+                      console.log('🎵 useSocket: Final fallback prompt audio playback completed, notifying clients');
+                      socketInstance.emit('promptAudioComplete');
                     }
                   } else {
                     try {
                       await audioSystem.initialize();
                       await audioSystem.loadAndPlayPromptAudio(audioFile);
+                      console.log('🎵 useSocket: Error recovery prompt audio playback completed, notifying clients');
+                      socketInstance.emit('promptAudioComplete');
                     } catch (promptError) {
                       console.error(
                         "useSocket: Failed to play prompt audio after reveal sound failure:",
                         promptError
                       );
+                      // Even if audio fails, notify clients so they're not stuck waiting
+                      console.log('🎵 useSocket: Prompt audio failed, notifying clients to proceed anyway');
+                      socketInstance.emit('promptAudioComplete');
                     }
                   }
                 }, 500);

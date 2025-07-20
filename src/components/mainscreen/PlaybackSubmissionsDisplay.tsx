@@ -59,12 +59,22 @@ export function PlaybackSubmissionsDisplay({
           // Use the correct method that loads from the prompt audio path
           await audioSystem.loadAndPlayPromptAudio(room.currentPrompt.audioFile);
           console.log('Prompt audio finished playing');
+          
+          // Notify clients that prompt audio is complete
+          socket.emit('promptAudioComplete');
+          console.log('🎵 Main screen: Notified clients that prompt audio is complete');
         } catch (error) {
           console.error('Error playing prompt audio:', error);
+          // Still notify clients even if audio failed, so they don't wait forever
+          socket.emit('promptAudioComplete');
         }
         promptAudioPlayingRef.current = false;
         // Add a small delay after prompt for pacing
         await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        // No prompt audio, immediately notify clients they can proceed
+        socket.emit('promptAudioComplete');
+        console.log('🎵 Main screen: No prompt audio, immediately notified clients to proceed');
       }
 
       // 2. Request the first submission from the server to begin the loop

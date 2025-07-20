@@ -8,6 +8,7 @@ import {
   selectNextJudge,
   processAndAssignPrompt,
   emitRoomUpdated,
+  enrichRoomWithMainScreenCount,
 } from "../utils/roomManager";
 import { startTimer, clearTimer } from "../utils/timerManager";
 import { generatePlayerSoundSets } from "../utils/gameLogic";
@@ -322,15 +323,21 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
       await generatePlayerSoundSets(room);
 
       console.log(`🎯 SERVER: Emitting room updates for ${roomCode}`);
-      context.io.to(roomCode).emit("roomUpdated", room);
+      const enrichedRoom = enrichRoomWithMainScreenCount(room, context);
+      console.log(`🎵 SERVER: Debug mainScreens for room ${roomCode}:`, context.mainScreens.get(roomCode));
+      console.log(`🎵 SERVER: mainScreenCount for room ${roomCode}: ${enrichedRoom.mainScreenCount}`);
+      context.io.to(roomCode).emit("roomUpdated", enrichedRoom);
       context.io.to(roomCode).emit("promptSelected", prompt);
+      const gameStateData = {
+        prompt: prompt,
+        timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
+        currentRound: room.currentRound,
+        mainScreenCount: enrichedRoom.mainScreenCount,
+      };
+      console.log(`🎵 SERVER: Emitting gameStateChanged with data:`, gameStateData);
       context.io
         .to(roomCode)
-        .emit("gameStateChanged", GameState.SOUND_SELECTION, {
-          prompt: prompt,
-          timeLimit: GAME_CONFIG.SOUND_SELECTION_TIME,
-          currentRound: room.currentRound,
-        });
+        .emit("gameStateChanged", GameState.SOUND_SELECTION, gameStateData);
 
       // Make bot submissions for sound selection
       await makeBotSoundSubmissions(context, room);
@@ -438,6 +445,48 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
       }, 2000); // 2 second pause after audio completes
     } catch (error) {
       console.error("Error processing winner audio completion:", error);
+    }
+  });
+
+  // Handle prompt audio completion from main screen
+  socket.on("promptAudioComplete", () => {
+    try {
+      const roomCode = context.playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      // Only accept prompt audio completion from primary main screen or if no main screens exist
+      if (
+        // Socket augmentation for custom properties - proper interface extension would require module declaration
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (socket as any).isViewer &&
+        context.primaryMainScreens.get(roomCode) !== socket.id
+      ) {
+        console.log(
+          `[SECURITY] Secondary main screen ${
+            socket.id
+          } attempted to signal prompt audio complete for room ${roomCode}. Only primary main screen ${context.primaryMainScreens.get(
+            roomCode
+          )} can do this. Ignoring.`
+        );
+        return;
+      }
+
+      const room = context.rooms.get(roomCode);
+      if (!room || room.gameState !== GameState.SOUND_SELECTION) return;
+
+      console.log(
+        `🎵 Prompt audio complete from ${
+          // Socket augmentation for custom properties - proper interface extension would require module declaration
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (socket as any).isViewer ? "primary main screen" : "player"
+        } ${socket.id}, notifying all clients in room ${roomCode}`
+      );
+
+      // Relay the prompt audio completion to all clients in the room
+      context.io.to(roomCode).emit('promptAudioComplete');
+      
+    } catch (error) {
+      console.error("Error processing prompt audio completion:", error);
     }
   });
 }

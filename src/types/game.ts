@@ -211,6 +211,7 @@ export interface ServerToClientEvents {
     hasUsedNuclearOption: boolean;
     likeScore: number;
   }) => void; // Sync powerup and like state on reconnection
+  promptAudioComplete: () => void; // Notify clients when main screen finishes playing prompt audio
 }
 
 // Player data for socket events
@@ -263,4 +264,5 @@ export interface ClientToServerEvents {
     judgeId: string;
     judgeName: string;
   }) => void;
+  promptAudioComplete: () => void; // Signal from main screen that prompt audio has finished playing
 }

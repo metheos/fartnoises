@@ -5,6 +5,7 @@ import { getRandomSounds } from "@/utils/soundLoader";
 import { SocketContext } from "../types/socketTypes";
 import { startTimer, clearTimer } from "./timerManager";
 import { makeBotJudgingDecision } from "./botManager";
+import { emitRoomUpdated } from "./roomManager";
 
 // Helper function for starting the delayed sound selection timer
 // This should only be called after the first player submits their sounds
@@ -99,7 +100,7 @@ export function startDelayedSoundSelectionTimer(
         }
 
         // Update room state after auto-submissions
-        context.io.to(roomCode).emit("roomUpdated", room);
+        emitRoomUpdated(context, roomCode, room);
 
         // Proceed with normal end-of-submissions logic
         handleAllSubmissionsComplete(context, roomCode, room);
@@ -331,7 +332,7 @@ export function handleAllSubmissionsComplete(
       randomizedSubmissions: room.randomizedSubmissions, // Send randomized submissions separately
       judgeId: room.currentJudge,
     });
-    context.io.to(roomCode).emit("roomUpdated", room);
+    emitRoomUpdated(context, roomCode, room);
 
     // If judge is a bot, make the judging decision
     makeBotJudgingDecision(context, room);
@@ -349,7 +350,7 @@ export function handleAllSubmissionsComplete(
     context.io.to(roomCode).emit("gameStateChanged", GameState.PLAYBACK, {
       submissions: room.randomizedSubmissions, // Use randomized submissions
     });
-    context.io.to(roomCode).emit("roomUpdated", room);
+    emitRoomUpdated(context, roomCode, room);
 
     // The primary main screen will now drive the playback by emitting 'requestNextSubmission'
   }

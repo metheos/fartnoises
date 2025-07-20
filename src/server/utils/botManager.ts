@@ -7,6 +7,7 @@ import {
   processAndAssignPrompt,
   selectNextJudge,
   broadcastRoomListUpdate,
+  emitRoomUpdated,
 } from "./roomManager";
 import { getRandomSounds } from "@/utils/soundLoader";
 import { GAME_CONFIG } from "@/data/gameData";
@@ -102,7 +103,7 @@ export async function addBotsIfNeeded(
 
     // Emit player joined event for the bot
     context.io.to(room.code).emit("playerJoined", { room });
-    context.io.to(room.code).emit("roomUpdated", room);
+    emitRoomUpdated(context, room.code, room);
   }
 
   console.log(
@@ -118,7 +119,7 @@ export function removeAllBots(context: SocketContext, room: Room): void {
 
   if (removedBots > 0) {
     console.log(`[BOT] Removed ${removedBots} bots from room ${room.code}`);
-    context.io.to(room.code).emit("roomUpdated", room);
+    emitRoomUpdated(context, room.code, room);
   }
 }
 
@@ -237,7 +238,7 @@ async function makeBotSoundSubmission(
       }
 
       // Send updated room state to all clients (including main screen viewers)
-      context.io.to(room.code).emit("roomUpdated", room);
+      emitRoomUpdated(context, room.code, room);
 
       // Check if all non-judge players have submitted
       const nonJudgePlayers = room.players.filter(
@@ -326,7 +327,7 @@ export function makeBotJudgingDecision(
             await startNextRound(context, room.code);
           }
 
-          context.io.to(room.code).emit("roomUpdated", room);
+          emitRoomUpdated(context, room.code, room);
         }
       }, 5000); // 5 seconds for explosion animation
 
@@ -359,7 +360,7 @@ export function makeBotJudgingDecision(
       winningSubmission: winningSubmission,
       submissionIndex: randomIndex,
     });
-    context.io.to(room.code).emit("roomUpdated", room);
+    emitRoomUpdated(context, room.code, room);
 
     console.log(
       `[BOT] Judge bot ${judge.name} selected ${winner.name} as winner`
@@ -387,7 +388,7 @@ export function makeBotJudgingDecision(
           room.winner = winner.id;
 
           context.io.to(room.code).emit("gameComplete", winner.id, winner.name);
-          context.io.to(room.code).emit("roomUpdated", room);
+          emitRoomUpdated(context, room.code, room);
         } else {
           // Start next round - similar to the startNextRound logic
           room.currentRound += 1;
@@ -405,7 +406,7 @@ export function makeBotJudgingDecision(
             player.hasActivatedTripleSound = false;
           });
 
-          context.io.to(room.code).emit("roomUpdated", room);
+          emitRoomUpdated(context, room.code, room);
           if (room.currentJudge) {
             context.io.to(room.code).emit("judgeSelected", room.currentJudge);
             context.io
@@ -554,7 +555,7 @@ export async function makeBotPromptSelection(
     await generatePlayerSoundSets(room);
 
     console.log(`🎯 BOT: Emitting room updates for ${room.code}`);
-    context.io.to(room.code).emit("roomUpdated", room);
+    emitRoomUpdated(context, room.code, room);
     context.io.to(room.code).emit("promptSelected", selectedPrompt);
     context.io
       .to(room.code)

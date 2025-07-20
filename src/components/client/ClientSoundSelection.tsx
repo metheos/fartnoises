@@ -36,6 +36,7 @@ export default function ClientSoundSelection({
 }: ClientSoundSelectionProps) {
   const isJudge = player.id === room.currentJudge;
   const [showThirdSoundSlap, setShowThirdSoundSlap] = useState(false);
+  const [isPromptAudioComplete, setIsPromptAudioComplete] = useState(false);
   
   // Use our custom hooks
   const {
@@ -60,6 +61,52 @@ export default function ClientSoundSelection({
     stopSound
   } = useAudioPlaybackEnhanced();
 
+  // Listen for prompt audio completion from main screen
+  useEffect(() => {
+    if (!socket) return;
+
+    const handlePromptAudioComplete = () => {
+      console.log('🎵 Client: Received prompt audio complete signal from main screen');
+      setIsPromptAudioComplete(true);
+    };
+
+    socket.on('promptAudioComplete', handlePromptAudioComplete);
+
+    return () => {
+      socket.off('promptAudioComplete', handlePromptAudioComplete);
+    };
+  }, [socket]);
+
+  // Reset prompt audio state when transitioning to new sound selection phase
+  useEffect(() => {
+    setIsPromptAudioComplete(false);
+    
+    // Only proceed immediately if there's definitely no main screen OR no prompt audio
+    const hasMainScreen = (room.mainScreenCount || 0) > 0;
+    const hasPromptAudio = !!room.currentPrompt?.audioFile;
+    
+    // If there's no prompt audio at all, always proceed immediately
+    if (!hasPromptAudio) {
+      console.log('🎵 Client: No prompt audio, proceeding immediately');
+      setIsPromptAudioComplete(true);
+      return;
+    }
+    
+    // If there's prompt audio but definitely no main screen, proceed immediately
+    if (hasPromptAudio && room.mainScreenCount === 0) {
+      console.log('🎵 Client: Has prompt audio but no main screen (count=0), proceeding immediately');
+      setIsPromptAudioComplete(true);
+      return;
+    }
+    
+    // For all other cases (including when mainScreenCount is undefined), wait for promptAudioComplete event
+    console.log('🎵 Client: Has prompt audio, waiting for main screen to complete playback', {
+      mainScreenCount: room.mainScreenCount,
+      hasMainScreen,
+      promptId: room.currentPrompt?.id
+    });
+  }, [room.currentPrompt?.id, room.currentRound, room.mainScreenCount, room.currentPrompt?.audioFile]);
+
   // Trigger slap animation when third sound is selected
   useEffect(() => {
     if (selectedSoundsLocal.length === 3 && player.hasActivatedTripleSound) {
@@ -82,6 +129,29 @@ export default function ClientSoundSelection({
           size="small"
         />
         <p className="text-xl font-bold text-purple-600 mb-4">Players are choosing sounds...</p>
+      </Card>
+    );
+  }
+
+  // Show waiting state if prompt audio is still playing on main screen
+  if (!isPromptAudioComplete && room.currentPrompt?.audioFile) {
+    return (
+      <Card className="text-center">
+        <JudgePromptDisplay 
+          judge={undefined}
+          showJudge={false}
+          prompt={room.currentPrompt || undefined}
+          showPrompt={true}
+          size="small"
+        />
+        <div className="mt-6">
+          <div className="animate-pulse text-blue-600 text-xl font-bold mb-4">
+            🎧 Listening to prompt...
+          </div>
+          <div className="text-gray-600 text-sm">
+            Please wait while the main screen plays the prompt audio
+          </div>
+        </div>
       </Card>
     );
   }

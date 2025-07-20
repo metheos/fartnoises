@@ -8,6 +8,7 @@ import {
 } from "../utils/gameLogic";
 import { startNextRound } from "./gameHandlers";
 import { makeBotJudgingDecision } from "../utils/botManager";
+import { emitRoomUpdated } from "../utils/roomManager";
 
 export function setupSubmissionHandlers(
   socket: Socket,
@@ -91,7 +92,7 @@ export function setupSubmissionHandlers(
       }
 
       // Send updated room state to all clients (including main screen viewers)
-      context.io.to(roomCode).emit("roomUpdated", room);
+      emitRoomUpdated(context, roomCode, room);
 
       // Check if all non-judge players have submitted
       const nonJudgePlayers = room.players.filter(
@@ -166,7 +167,7 @@ export function setupSubmissionHandlers(
       });
 
       // Send updated room state
-      context.io.to(roomCode).emit("roomUpdated", room);
+      emitRoomUpdated(context, roomCode, room);
     } catch (error) {
       console.error("Error refreshing sounds:", error);
     }
@@ -231,7 +232,7 @@ export function setupSubmissionHandlers(
       });
 
       // Send updated room state
-      context.io.to(roomCode).emit("roomUpdated", room);
+      emitRoomUpdated(context, roomCode, room);
     } catch (error) {
       console.error("Error activating triple sound:", error);
     }
@@ -301,7 +302,7 @@ export function setupSubmissionHandlers(
           randomizedSubmissions: room.randomizedSubmissions || room.submissions, // Send randomized submissions separately
           judgeId: room.currentJudge,
         });
-        context.io.to(roomCode).emit("roomUpdated", room);
+        emitRoomUpdated(context, roomCode, room);
 
         // If judge is a bot, make the judging decision
         makeBotJudgingDecision(context, room);
@@ -347,7 +348,7 @@ export function setupSubmissionHandlers(
         winningSubmission: winningSubmission,
         submissionIndex: parseInt(submissionIndex),
       });
-      context.io.to(roomCode).emit("roomUpdated", room);
+      emitRoomUpdated(context, roomCode, room);
 
       // Check if there are main screens to handle audio playback
       const roomMainScreens = context.mainScreens.get(roomCode);
@@ -567,7 +568,7 @@ export function setupSubmissionHandlers(
       });
 
       // Update room state
-      context.io.to(roomCode).emit("roomUpdated", room);
+      emitRoomUpdated(context, roomCode, room);
     } catch (error) {
       console.error("[LIKE] Error handling like submission:", error);
     }
@@ -654,7 +655,7 @@ export function setupSubmissionHandlers(
             await startNextRound(context, roomCode);
           }
 
-          context.io.to(roomCode).emit("roomUpdated", room);
+          emitRoomUpdated(context, roomCode, room);
         }
       }, 5000); // 5 seconds for explosion animation
     } catch (error) {
@@ -690,7 +691,7 @@ async function handleNoMainScreenWinnerFlow(
 
     room.gameState = GameState.GAME_OVER;
     room.winner = gameWinners[0].id;
-    context.io.to(roomCode).emit("roomUpdated", room);
+    emitRoomUpdated(context, roomCode, room);
     context.io.to(roomCode).emit("gameStateChanged", GameState.GAME_OVER, {
       winner: gameWinners[0],
       finalScores: room.players.map((p) => ({
