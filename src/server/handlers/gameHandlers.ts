@@ -324,8 +324,13 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
 
       console.log(`🎯 SERVER: Emitting room updates for ${roomCode}`);
       const enrichedRoom = enrichRoomWithMainScreenCount(room, context);
-      console.log(`🎵 SERVER: Debug mainScreens for room ${roomCode}:`, context.mainScreens.get(roomCode));
-      console.log(`🎵 SERVER: mainScreenCount for room ${roomCode}: ${enrichedRoom.mainScreenCount}`);
+      console.log(
+        `🎵 SERVER: Debug mainScreens for room ${roomCode}:`,
+        context.mainScreens.get(roomCode)
+      );
+      console.log(
+        `🎵 SERVER: mainScreenCount for room ${roomCode}: ${enrichedRoom.mainScreenCount}`
+      );
       context.io.to(roomCode).emit("roomUpdated", enrichedRoom);
       context.io.to(roomCode).emit("promptSelected", prompt);
       const gameStateData = {
@@ -334,7 +339,10 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
         currentRound: room.currentRound,
         mainScreenCount: enrichedRoom.mainScreenCount,
       };
-      console.log(`🎵 SERVER: Emitting gameStateChanged with data:`, gameStateData);
+      console.log(
+        `🎵 SERVER: Emitting gameStateChanged with data:`,
+        gameStateData
+      );
       context.io
         .to(roomCode)
         .emit("gameStateChanged", GameState.SOUND_SELECTION, gameStateData);
@@ -483,8 +491,7 @@ export function setupGameHandlers(socket: Socket, context: SocketContext) {
       );
 
       // Relay the prompt audio completion to all clients in the room
-      context.io.to(roomCode).emit('promptAudioComplete');
-      
+      context.io.to(roomCode).emit("promptAudioComplete");
     } catch (error) {
       console.error("Error processing prompt audio completion:", error);
     }

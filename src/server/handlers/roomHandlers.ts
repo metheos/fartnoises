@@ -369,9 +369,14 @@ export function setupRoomHandlers(socket: Socket, context: SocketContext) {
         context.playerRooms.set(socket.id, normalizedRoomCode);
 
         // Track this main screen and potentially elect as primary
-        console.log(`🎵 SERVER: Adding main screen ${socket.id} to room ${normalizedRoomCode}`);
+        console.log(
+          `🎵 SERVER: Adding main screen ${socket.id} to room ${normalizedRoomCode}`
+        );
         addMainScreen(context, normalizedRoomCode, socket.id);
-        console.log(`🎵 SERVER: After adding, mainScreens for room ${normalizedRoomCode}:`, context.mainScreens.get(normalizedRoomCode));
+        console.log(
+          `🎵 SERVER: After adding, mainScreens for room ${normalizedRoomCode}:`,
+          context.mainScreens.get(normalizedRoomCode)
+        );
 
         // Verify the join worked
         const roomMembers =
