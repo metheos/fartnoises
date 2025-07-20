@@ -22,7 +22,7 @@ export default function ClientLobby({
   return (
     <Card className="text-center">
       {/* Main Screen Status */}
-      <div className={`mb-4 p-3 rounded-xl ${
+      <div className={`mb-4 p-3 rounded-xl max-w-sm mx-auto ${
         mainScreenCount > 0 
           ? 'bg-green-100 border-2 border-green-300' 
           : 'bg-orange-100 border-2 border-orange-300'

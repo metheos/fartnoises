@@ -384,8 +384,8 @@ export default function Home() {
                 </>
               )}
 
-              {/* Main Screen Button - Always Show */}              
-              <div className="mt-4">
+              {/* Main Screen Button - Always Show */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
                 <Button
                   onClick={goToMainScreen}
                   variant="purple"
