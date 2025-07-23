@@ -141,7 +141,7 @@ export default function ClientSoundSelection({
       hasMainScreen,
       promptId: room.currentPrompt?.id
     });
-  }, [room.currentPrompt?.id, room.currentRound, room.mainScreenCount, room.currentPrompt?.audioFile, room.usedPromptIds?.length, socketConnectedAt]);
+  }, [room.currentPrompt?.id, room.currentRound, room.mainScreenCount, room.currentPrompt?.audioFile, room.usedPromptIds?.length, socketConnectedAt, socket?.connected]);
 
   // Trigger slap animation when third sound is selected
   useEffect(() => {

@@ -177,6 +177,7 @@ export function useSocketManager(
     playerClaimState.disconnectedPlayers,
     showPlayerClaimDialog,
     addDebugLog,
+    room,
   ]);
 
   // Initialize audio system
@@ -890,6 +891,7 @@ export function useSocketManager(
       playerColor,
       playerEmoji,
       router,
+      checkDisconnectedPlayers,
     ]
   );
 

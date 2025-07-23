@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { DisconnectedPlayerInfo } from '@/types/game';
-import { getPlayerColorClass } from '@/utils/gameUtils';
 import { Card, Button, PlayerAvatar } from '@/components/ui';
 
 interface PlayerClaimDialogProps {
@@ -130,7 +129,7 @@ export default function PlayerClaimDialog({
         </div>
 
         <div className="text-xs text-gray-500 pt-2 border-t">
-          If you're a new player, close this dialog and create a new player instead.
+          If you&apos;re a new player, close this dialog and create a new player instead.
         </div>
       </Card>
     </div>

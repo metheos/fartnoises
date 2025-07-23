@@ -607,6 +607,7 @@ function handlePlayerReconnection(
   const room = context.rooms.get(roomCode);
   if (!room) return false;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let disconnectedPlayer: any = null;
   let disconnectedPlayerIndex = -1;
   let wasInDisconnectedList = false;
