@@ -8,7 +8,9 @@ export function useDebugLog() {
 
   const addDebugLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString();
-    setDebugLog((prev) => [...prev.slice(-10), `[${timestamp}] ${message}`]);
+    const logMessage = `[${timestamp}] ${message}`;
+    console.log(logMessage); // Also log to browser console
+    setDebugLog((prev) => [...prev.slice(-10), logMessage]);
   }, []);
 
   return {

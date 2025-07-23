@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useCallback,
+  useState,
   Dispatch,
   SetStateAction,
 } from "react";
@@ -13,8 +14,10 @@ import {
   GameState,
   GamePrompt,
   SoundSubmission,
+  DisconnectedPlayerInfo,
 } from "@/types/game";
 import { audioSystem } from "@/utils/audioSystem";
+import { usePlayerClaim } from "./usePlayerClaim";
 
 interface UseSocketManagerParams {
   mode: string | null;
@@ -31,6 +34,14 @@ interface UseSocketManagerParams {
 interface SocketManagerState {
   isConnected: boolean;
   socket: Socket | null;
+  // Player claiming state
+  showPlayerClaimDialog: boolean;
+  disconnectedPlayers: DisconnectedPlayerInfo[];
+  playerClaimError: string | null;
+  isClaimingPlayer: boolean;
+  // Player claiming handlers
+  handleClaimPlayer: (playerName: string) => Promise<void>;
+  handleCancelClaim: () => void;
 }
 
 interface SocketManagerActions {
@@ -102,6 +113,72 @@ export function useSocketManager(
   const socketRef = useRef<Socket | null>(null);
   const hasAttemptedConnectionLogic = useRef(false);
 
+  const roomRef = useRef(room);
+  useEffect(() => {
+    roomRef.current = room;
+  }, [room]);
+
+  const lastRoundNumberRef = useRef(lastRoundNumber);
+  useEffect(() => {
+    lastRoundNumberRef.current = lastRoundNumber;
+  }, [lastRoundNumber]);
+
+  const selectedSoundsRef = useRef(selectedSounds);
+  useEffect(() => {
+    selectedSoundsRef.current = selectedSounds;
+  }, [selectedSounds]);
+
+  // Local state for player claiming dialog
+  const [showPlayerClaimDialog, setLocalShowPlayerClaimDialog] =
+    useState(false);
+
+  // Debug logging for showPlayerClaimDialog state changes
+  useEffect(() => {
+    addDebugLog(
+      `[DEBUG] showPlayerClaimDialog changed to: ${showPlayerClaimDialog}`
+    );
+  }, [showPlayerClaimDialog, addDebugLog]);
+
+  // Initialize player claiming functionality
+  const { playerClaimState, checkDisconnectedPlayers, claimPlayer } =
+    usePlayerClaim({
+      socket: socketRef.current,
+      addDebugLog,
+    });
+
+  // Sync dialog state with playerClaimState changes
+  useEffect(() => {
+    // Only auto-show dialog if we don't already have a room/player (i.e., we're still trying to join)
+    if (
+      playerClaimState.canClaimPlayer &&
+      playerClaimState.disconnectedPlayers.length > 0 &&
+      !showPlayerClaimDialog &&
+      !roomRef.current // Don't show if we're already in a room
+    ) {
+      console.log(
+        "[DEBUG] Auto-showing dialog based on playerClaimState update"
+      );
+      addDebugLog(
+        `[DEBUG] Auto-showing dialog based on playerClaimState update - players: ${playerClaimState.disconnectedPlayers
+          .map((p) => p.name)
+          .join(", ")}`
+      );
+      setLocalShowPlayerClaimDialog(true);
+    } else if (roomRef.current && showPlayerClaimDialog) {
+      // Hide dialog if we successfully joined a room
+      console.log("[DEBUG] Hiding dialog because we're now in a room");
+      addDebugLog(
+        `[DEBUG] Hiding dialog because we're now in a room: ${roomRef.current.code}`
+      );
+      setLocalShowPlayerClaimDialog(false);
+    }
+  }, [
+    playerClaimState.canClaimPlayer,
+    playerClaimState.disconnectedPlayers,
+    showPlayerClaimDialog,
+    addDebugLog,
+  ]);
+
   // Initialize audio system
   const initAudio = useCallback(async () => {
     try {
@@ -120,10 +197,12 @@ export function useSocketManager(
         addDebugLog(
           `Socket connected: ${currentSocket.id}. Attempted Logic: ${
             hasAttemptedConnectionLogic.current
-          }, Current room state: ${room ? room.code : "null"}`
+          }, Current room state: ${
+            roomRef.current ? roomRef.current.code : "null"
+          }`
         );
 
-        if (!hasAttemptedConnectionLogic.current && !room) {
+        if (!hasAttemptedConnectionLogic.current && !roomRef.current) {
           addDebugLog("Attempting connection logic (create/join).");
           hasAttemptedConnectionLogic.current = true;
 
@@ -154,7 +233,7 @@ export function useSocketManager(
                   return;
                 } else {
                   addDebugLog(
-                    `Reconnection failed, proceeding with original mode: ${mode}`
+                    `Reconnection failed, this might be a device switch scenario. Proceeding with join logic to check for claimable players.`
                   );
                   proceedWithOriginalMode();
                 }
@@ -203,12 +282,74 @@ export function useSocketManager(
                 "joinRoom",
                 roomCode,
                 playerData,
-                (success: boolean) => {
+                async (success: boolean) => {
+                  console.log(
+                    `[DEBUG] joinRoom callback: success=${success}, roomCode=${roomCode}`
+                  );
+                  addDebugLog(
+                    `[DEBUG] joinRoom callback: success=${success}, roomCode=${roomCode}`
+                  );
+
                   if (!success) {
-                    addDebugLog(`joinRoom failed for room: ${roomCode}.`);
-                    setError(
-                      "Failed to join room. Room may be full, not exist, or game in progress."
+                    console.log(
+                      `joinRoom failed for room: ${roomCode}. Checking for disconnected players...`
                     );
+                    addDebugLog(
+                      `joinRoom failed for room: ${roomCode}. Checking for disconnected players...`
+                    );
+
+                    // Check if there are disconnected players that could be claimed
+                    try {
+                      console.log(
+                        `[DEBUG] About to call checkDisconnectedPlayers for room: ${roomCode}`
+                      );
+                      addDebugLog(
+                        `[DEBUG] About to call checkDisconnectedPlayers for room: ${roomCode}`
+                      );
+                      const { success: checkSuccess, canClaim } =
+                        await checkDisconnectedPlayers(roomCode);
+
+                      console.log(
+                        `[DEBUG] checkDisconnectedPlayers result: success=${checkSuccess}, canClaim=${canClaim}`
+                      );
+                      addDebugLog(
+                        `[DEBUG] checkDisconnectedPlayers result: success=${checkSuccess}, canClaim=${canClaim}`
+                      );
+
+                      if (checkSuccess && canClaim) {
+                        console.log(
+                          `Found disconnected players in room: ${roomCode}. Showing claim dialog.`
+                        );
+                        addDebugLog(
+                          `Found disconnected players in room: ${roomCode}. Showing claim dialog.`
+                        );
+                        console.log(
+                          `[DEBUG] Setting showPlayerClaimDialog to true`
+                        );
+                        addDebugLog(
+                          `[DEBUG] Setting showPlayerClaimDialog to true`
+                        );
+                        setLocalShowPlayerClaimDialog(true);
+                      } else {
+                        console.log(
+                          `No disconnected players available for claiming in room: ${roomCode}.`
+                        );
+                        addDebugLog(
+                          `No disconnected players available for claiming in room: ${roomCode}.`
+                        );
+                        setError(
+                          "Failed to join room. Room may be full, not exist, or game in progress."
+                        );
+                      }
+                    } catch (error) {
+                      addDebugLog(
+                        `Error checking disconnected players: ${error}`
+                      );
+                      setError(
+                        "Failed to join room. Room may be full, not exist, or game in progress."
+                      );
+                    }
+
                     hasAttemptedConnectionLogic.current = false;
                   } else {
                     addDebugLog(
@@ -221,7 +362,7 @@ export function useSocketManager(
           }
         } else {
           addDebugLog(
-            `Socket connected, but connection logic already attempted or in room. Attempted: ${hasAttemptedConnectionLogic.current}, Room: ${room?.code}`
+            `Socket connected, but connection logic already attempted or in room. Attempted: ${hasAttemptedConnectionLogic.current}, Room: ${roomRef.current?.code}`
           );
         }
       };
@@ -279,7 +420,9 @@ export function useSocketManager(
         );
         addDebugLog(
           `🏠 Current selectedSounds: ${
-            selectedSounds ? selectedSounds.join(", ") : "null"
+            selectedSoundsRef.current
+              ? selectedSoundsRef.current.join(", ")
+              : "null"
           }`
         );
         if (updatedRoom && updatedRoom.code) {
@@ -302,8 +445,9 @@ export function useSocketManager(
           const selfPlayer = updatedRoom.players.find(
             (p) =>
               p.id ===
-                room?.players?.find((player) => player.id === currentSocket.id)
-                  ?.id || p.id === currentSocket.id
+                roomRef.current?.players?.find(
+                  (player) => player.id === currentSocket.id
+                )?.id || p.id === currentSocket.id
           );
           if (selfPlayer) setPlayer(selfPlayer);
         } else {
@@ -340,7 +484,9 @@ export function useSocketManager(
         );
         addDebugLog(
           `🎯 Current selectedSounds before processing: ${
-            selectedSounds ? selectedSounds.join(", ") : "null"
+            selectedSoundsRef.current
+              ? selectedSoundsRef.current.join(", ")
+              : "null"
           }`
         );
 
@@ -376,11 +522,11 @@ export function useSocketManager(
               state === GameState.SOUND_SELECTION &&
               currentRoomVal.gameState !== GameState.SOUND_SELECTION &&
               (data?.currentRound !== undefined
-                ? data.currentRound !== lastRoundNumber
+                ? data.currentRound !== lastRoundNumberRef.current
                 : true);
 
             addDebugLog(
-              `🎯 Round check: state=${state}, currentGameState=${currentRoomVal.gameState}, dataRound=${data?.currentRound}, lastRound=${lastRoundNumber}, isNewRound=${isActualNewRound}`
+              `🎯 Round check: state=${state}, currentGameState=${currentRoomVal.gameState}, dataRound=${data?.currentRound}, lastRound=${lastRoundNumberRef.current}, isNewRound=${isActualNewRound}`
             );
 
             if (isActualNewRound) {
@@ -393,7 +539,7 @@ export function useSocketManager(
               );
             } else {
               addDebugLog(
-                `🎯 NOT resetting selectedSounds - state: ${currentRoomVal.gameState} -> ${state}, round: ${currentRoomVal.currentRound}, lastRound: ${lastRoundNumber}`
+                `🎯 NOT resetting selectedSounds - state: ${currentRoomVal.gameState} -> ${state}, round: ${currentRoomVal.currentRound}, lastRound: ${lastRoundNumberRef.current}`
               );
             }
 
@@ -620,6 +766,36 @@ export function useSocketManager(
         setReconnectionVote(null);
       };
 
+      // Handler for when server proactively sends disconnected players list
+      const handleDisconnectedPlayersList = (data: {
+        disconnectedPlayers: Array<{
+          name: string;
+          color: string;
+          emoji: string;
+          disconnectedAt: number;
+          socketId: string;
+        }>;
+        canClaimPlayer: boolean;
+        roomCode: string;
+      }) => {
+        console.log("[DEBUG] Received disconnected players list:", data);
+        addDebugLog(
+          `[DEVICE-SWITCH] Received disconnected players list for room ${
+            data.roomCode
+          }: ${data.disconnectedPlayers.map((p) => p.name).join(", ")}`
+        );
+
+        if (data.canClaimPlayer && data.disconnectedPlayers.length > 0) {
+          console.log(
+            "[DEBUG] Setting showPlayerClaimDialog to true (from proactive server message)"
+          );
+          addDebugLog(
+            "[DEBUG] Setting showPlayerClaimDialog to true (from proactive server message)"
+          );
+          setLocalShowPlayerClaimDialog(true);
+        }
+      };
+
       const handleGameSettingsUpdated = ({
         maxRounds,
         maxScore,
@@ -693,6 +869,7 @@ export function useSocketManager(
         handleReconnectionTimeUpdate,
         handleGameResumed,
         handleGameSettingsUpdated,
+        handleDisconnectedPlayersList,
       };
     },
     [
@@ -707,9 +884,6 @@ export function useSocketManager(
       setIsReconnecting,
       setReconnectionVote,
       setGamePaused,
-      room,
-      selectedSounds,
-      lastRoundNumber,
       mode,
       playerName,
       roomCode,
@@ -787,6 +961,10 @@ export function useSocketManager(
     );
     currentSocket.on("gameResumed", handlers.handleGameResumed);
     currentSocket.on("gameSettingsUpdated", handlers.handleGameSettingsUpdated);
+    currentSocket.on(
+      "disconnectedPlayersList",
+      handlers.handleDisconnectedPlayersList
+    );
     currentSocket.on("gameStateChanged", handlers.handleGameStateChanged);
     currentSocket.on("promptSelected", handlers.handlePromptSelected);
     currentSocket.on("judgeSelected", handlers.handleJudgeSelected);
@@ -824,17 +1002,13 @@ export function useSocketManager(
       );
       currentSocket.off("roundComplete", handlers.handleRoundComplete);
       currentSocket.off("error", handlers.handleErrorEvent);
+      currentSocket.off(
+        "disconnectedPlayersList",
+        handlers.handleDisconnectedPlayersList
+      );
       currentSocket.off("playerDisconnected");
     };
-  }, [
-    mode,
-    playerName,
-    roomCode,
-    createEventHandlers,
-    initAudio,
-    addDebugLog,
-    room,
-  ]);
+  }, [mode, playerName, roomCode, createEventHandlers, initAudio, addDebugLog]);
 
   // Socket disconnection on component unmount
   useEffect(() => {
@@ -850,8 +1024,70 @@ export function useSocketManager(
     };
   }, [addDebugLog]);
 
+  // Handle player claiming
+  const handleClaimPlayer = useCallback(
+    async (playerName: string) => {
+      if (!roomCode) return;
+
+      addDebugLog(`[DEVICE-SWITCH] Attempting to claim player: ${playerName}`);
+
+      try {
+        const {
+          success,
+          room: claimedRoom,
+          player: claimedPlayer,
+        } = await claimPlayer(roomCode, playerName);
+
+        if (success && claimedRoom && claimedPlayer) {
+          addDebugLog(
+            `[DEVICE-SWITCH] Successfully claimed player: ${playerName}`
+          );
+          setRoom(claimedRoom);
+          setPlayer(claimedPlayer);
+          setLocalShowPlayerClaimDialog(false);
+          hasAttemptedConnectionLogic.current = true;
+
+          // Update stored originalPlayerId so future reconnection attempts use the new socket ID
+          if (socketRef.current?.id) {
+            localStorage.setItem("originalPlayerId", socketRef.current.id);
+            addDebugLog(
+              `[DEVICE-SWITCH] Updated originalPlayerId to: ${socketRef.current.id}`
+            );
+          }
+        } else {
+          addDebugLog(`[DEVICE-SWITCH] Failed to claim player: ${playerName}`);
+        }
+      } catch (error) {
+        addDebugLog(`[DEVICE-SWITCH] Error claiming player: ${error}`);
+      }
+    },
+    [roomCode, claimPlayer, setRoom, setPlayer, addDebugLog]
+  );
+
+  const handleCancelClaim = useCallback(() => {
+    addDebugLog(`[DEVICE-SWITCH] User cancelled player claiming dialog`);
+    setLocalShowPlayerClaimDialog(false);
+    setError("Failed to join room. Please try again or create a new room.");
+  }, [setError, addDebugLog]);
+
+  // Sync player claim state to parent component - removed since we manage locally
+
+  console.log("[DEBUG] useSocketManager returning:", {
+    showPlayerClaimDialog,
+    disconnectedPlayers: playerClaimState.disconnectedPlayers,
+    disconnectedPlayersLength: playerClaimState.disconnectedPlayers?.length,
+    playerClaimError: playerClaimState.claimError,
+    isClaimingPlayer: playerClaimState.isClaiming,
+  });
+
   return {
     isConnected: socketRef.current?.connected || false,
     socket: socketRef.current,
+    showPlayerClaimDialog,
+    disconnectedPlayers: playerClaimState.disconnectedPlayers,
+    playerClaimError: playerClaimState.claimError,
+    isClaimingPlayer: playerClaimState.isClaiming,
+    handleClaimPlayer,
+    handleCancelClaim,
   };
 }

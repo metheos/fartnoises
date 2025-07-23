@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import {
@@ -95,6 +95,12 @@ export function useSocket({
   const [isPromptRevealing, setIsPromptRevealing] = useState(false);
   const [hasPromptBeenRevealed, setHasPromptBeenRevealed] = useState(false);
 
+  // Use ref to track currentRoom for dependency arrays
+  const currentRoomRef = useRef(currentRoom);
+  useEffect(() => {
+    currentRoomRef.current = currentRoom;
+  }, [currentRoom]);
+
   // Helper function to update URL with room code
   const updateURLWithRoom = (roomCode: string | null) => {
     const url = new URL(window.location.href);
@@ -128,9 +134,12 @@ export function useSocket({
       }
 
       // If we were watching a specific room before disconnection, rejoin it
-      if (currentRoom) {
-        console.log("useSocket: Reconnecting to room", currentRoom.code);
-        socketInstance.emit("joinRoomAsViewer", currentRoom.code);
+      if (currentRoomRef.current) {
+        console.log(
+          "useSocket: Reconnecting to room",
+          currentRoomRef.current.code
+        );
+        socketInstance.emit("joinRoomAsViewer", currentRoomRef.current.code);
       }
     });
 
@@ -782,19 +791,20 @@ export function useSocket({
       if (
         socket &&
         socket.connected &&
-        (!currentRoom || currentRoom.code !== upperRoomCode)
+        (!currentRoomRef.current ||
+          currentRoomRef.current.code !== upperRoomCode)
       ) {
         console.log("useSocket: Auto-joining from URL change:", upperRoomCode);
         socket.emit("joinRoomAsViewer", upperRoomCode);
       }
-    } else if (!urlRoomCode && currentRoom) {
+    } else if (!urlRoomCode && currentRoomRef.current) {
       // URL was cleared but we still have a room - user navigated away
       console.log("useSocket: URL cleared, leaving current room");
       setCurrentRoom(null);
       setRoundWinner(null);
       setJoinError("");
     }
-  }, [searchParams, socket, currentRoom]);
+  }, [searchParams, socket]);
 
   const joinRoom = (roomCode: string) => {
     if (roomCode.length === 4) {

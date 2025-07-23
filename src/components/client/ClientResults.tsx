@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Room, Player, SoundEffect } from '@/types/game';
 import { WaveformAnimation } from '@/components/shared/WaveformAnimation';
-import { getPlayerColorClass } from '@/utils/gameUtils';
+import { getPlayerColorClass, stripGenderSuffix } from '@/utils/gameUtils';
 import { Card, Button, PlayerAvatar } from '@/components/ui';
 import { audioSystem } from '@/utils/audioSystem';
 
@@ -174,7 +174,7 @@ export default function ClientResults({
                     >
                       <div className="flex items-center justify-center space-x-2">
                         <span className="text-lg">🔊</span>
-                        <span className="font-bold">{sound?.name || soundId}</span>
+                        <span className="font-bold">{stripGenderSuffix(sound?.name || soundId)}</span>
                       </div>
                     </div>
                   );

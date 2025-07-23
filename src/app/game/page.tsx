@@ -20,6 +20,7 @@ import {
   ClientJudging,
   ClientResults,
   ClientGameOver,
+  PlayerClaimDialog,
   // ClientPausedForDisconnection // Now handled in ClientGameLayout
 } from '@/components/client';
 
@@ -76,7 +77,16 @@ function GamePageContent() {
   });
 
   // Socket management using the custom hook
-  const { isConnected, socket } = useSocketManager(
+  const { 
+    isConnected, 
+    socket, 
+    showPlayerClaimDialog,
+    disconnectedPlayers,
+    playerClaimError,
+    isClaimingPlayer,
+    handleClaimPlayer,
+    handleCancelClaim 
+  } = useSocketManager(
     {
       mode,
       playerName,
@@ -218,7 +228,8 @@ function GamePageContent() {
   };
 
   return (
-    <ClientGameLayout
+    <>
+      <ClientGameLayout
       room={room}
       player={player}
       isConnected={isConnected}
@@ -327,7 +338,20 @@ function GamePageContent() {
           <p className="text-gray-800">Expected states: {Object.values(GameState).join(', ')}</p>
         </div>
       )}
-    </ClientGameLayout>
+
+      </ClientGameLayout>
+
+      {/* Player claim dialog for device switching - outside of ClientGameLayout */}
+      {showPlayerClaimDialog && disconnectedPlayers && disconnectedPlayers.length > 0 && (
+        <PlayerClaimDialog
+          disconnectedPlayers={disconnectedPlayers}
+          isLoading={isClaimingPlayer}
+          error={playerClaimError}
+          onClaimPlayer={handleClaimPlayer}
+          onCancel={handleCancelClaim}
+        />
+      )}
+    </>
   );
 }
 

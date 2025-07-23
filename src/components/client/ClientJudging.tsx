@@ -6,6 +6,7 @@ import { Socket } from 'socket.io-client';
 import { Card, Button } from '@/components/ui';
 import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 import { useSubmissionPlayback, useJudgeCheck, useGameStateLogging } from '@/hooks';
+import { stripGenderSuffix } from '@/utils/gameUtils';
 
 interface ClientJudgingProps {
   room: Room;
@@ -258,7 +259,7 @@ export default function ClientJudging({
                         className="px-2 py-2 rounded-xl transition-all duration-300 bg-white text-gray-800 shadow-sm hover:shadow-md"
                       >
                         <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-sm">{sound?.name || soundId}</span>
+                          <span className="font-semibold text-sm">{stripGenderSuffix(sound?.name || soundId)}</span>
                         </div>
                       </div>
                     );
@@ -276,7 +277,7 @@ export default function ClientJudging({
                       >
                         <div className="flex items-center space-x-1">
                           {/* <span className="text-sm">🎵</span> */}
-                          <span className="font-medium text-xs truncate">{sound?.name || soundId}</span>
+                          <span className="font-medium text-xs truncate">{stripGenderSuffix(sound?.name || soundId)}</span>
                         </div>
                       </div>
                     );

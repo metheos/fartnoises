@@ -7,6 +7,7 @@ import { audioSystem } from '@/utils/audioSystem';
 import { SubmissionCard } from './SubmissionCard';
 import { PlayerScoreList } from './PlayerScoreList';
 import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
+import { stripGenderSuffix } from '@/utils/gameUtils';
 
 interface ResultsDisplayProps {
   room: Room;
@@ -205,7 +206,7 @@ export function ResultsDisplay({
           return;
         }
 
-        console.log(`[WINNER AUDIO] Playing sound ${soundIndex + 1} of ${sounds.length}: ${sound.name}`);
+        console.log(`[WINNER AUDIO] Playing sound ${soundIndex + 1} of ${sounds.length}: ${stripGenderSuffix(sound.name)}`);
         
         // Update the current playing sound index for UI animation
         setCurrentPlayingSoundIndex(soundIndex);
@@ -261,7 +262,7 @@ export function ResultsDisplay({
           }, 300); // 300ms pause between sounds
           
         } catch (audioError) {
-          console.error(`[WINNER AUDIO] AudioSystem failed for ${sound.name}, skipping:`, audioError);
+          console.error(`[WINNER AUDIO] AudioSystem failed for ${stripGenderSuffix(sound.name)}, skipping:`, audioError);
           // Clear the current playing sound index on error
           setCurrentPlayingSoundIndex(-1);
           // Move to next sound if this one fails

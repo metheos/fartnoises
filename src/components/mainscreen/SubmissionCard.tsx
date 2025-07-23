@@ -1,5 +1,6 @@
 import { SoundSubmission, SoundEffect } from '@/types/game';
 import { WaveformAnimation } from '@/components/shared/WaveformAnimation';
+import { stripGenderSuffix } from '@/utils/gameUtils';
 
 interface SubmissionCardProps {
   submission: SoundSubmission;
@@ -338,7 +339,17 @@ export function SubmissionCard({
                         : '🔊'
                     }
                   </span>
-                  <span className={`text-xl font-bold ${
+                  <span className={`font-bold ${
+                    // Determine font size based on sound name length
+                    (() => {
+                      const displayName = playingMode === 'playback' 
+                        ? (isCurrentSound || hasBeenRevealed ? stripGenderSuffix(sound?.name || soundId) : '???')
+                        : showSoundNames 
+                          ? stripGenderSuffix(sound?.name || soundId)
+                          : '???';
+                      return displayName.length > 30 ? 'text-lg' : 'text-xl';
+                    })()
+                  } ${
                     isCurrentSound 
                       ? isThirdSound 
                         ? 'text-yellow-200 drop-shadow-lg' 
@@ -349,9 +360,9 @@ export function SubmissionCard({
                   }`}>
                     {/* Show sound name based on mode and reveal state */}
                     {playingMode === 'playback' 
-                      ? (isCurrentSound || hasBeenRevealed ? (sound?.name || soundId) : '???')
+                      ? (isCurrentSound || hasBeenRevealed ? stripGenderSuffix(sound?.name || soundId) : '???')
                       : showSoundNames 
-                        ? (sound?.name || soundId)
+                        ? stripGenderSuffix(sound?.name || soundId)
                         : '???'
                     }
                   </span>

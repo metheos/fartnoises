@@ -50,6 +50,96 @@ export function setupReconnectionHandlers(
     }
   });
 
+  // Get disconnected players list for device switching scenarios
+  socket.on("getDisconnectedPlayers", (roomCode, callback) => {
+    try {
+      const room = context.rooms.get(roomCode);
+      if (!room) {
+        callback({ success: false, error: "Room not found" });
+        return;
+      }
+
+      const disconnectedPlayers =
+        room.disconnectedPlayers?.map((player) => ({
+          name: player.name,
+          color: player.color,
+          emoji: player.emoji,
+          disconnectedAt: player.disconnectedAt,
+          socketId: player.socketId,
+        })) || [];
+
+      console.log(
+        `[DEVICE-SWITCH] Sending disconnected players list for room ${roomCode}:`,
+        disconnectedPlayers.map((p) => p.name)
+      );
+
+      const responseData = {
+        success: true,
+        disconnectedPlayers: disconnectedPlayers,
+        canClaimPlayer: disconnectedPlayers.length > 0,
+      };
+
+      callback(responseData);
+
+      // Also emit the disconnected players list as a separate event
+      // in case the callback response isn't being processed properly
+      socket.emit("disconnectedPlayersList", {
+        ...responseData,
+        roomCode: roomCode,
+      });
+    } catch (error) {
+      console.error("Error getting disconnected players:", error);
+      callback({ success: false, error: "Failed to get disconnected players" });
+    }
+  });
+
+  // Claim disconnected player identity (for device switching)
+  socket.on(
+    "claimDisconnectedPlayer",
+    (roomCode, disconnectedPlayerName, callback) => {
+      try {
+        console.log(
+          `[DEVICE-SWITCH] Claim attempt: ${disconnectedPlayerName} in room ${roomCode} from new socket ${socket.id}`
+        );
+
+        if (!context.rooms.has(roomCode)) {
+          callback({ success: false, error: "Room not found" });
+          return;
+        }
+
+        const success = handlePlayerClaim(
+          context,
+          socket,
+          roomCode,
+          disconnectedPlayerName
+        );
+
+        if (success) {
+          const room = context.rooms.get(roomCode);
+          const player = room?.players.find((p) => p.id === socket.id);
+          if (room && player) {
+            const enrichedRoom = enrichRoomWithMainScreenCount(room, context);
+            socket.emit("roomJoined", { room: enrichedRoom, player });
+            callback({ success: true, room: enrichedRoom, player });
+          } else {
+            callback({
+              success: false,
+              error: "Failed to retrieve player data",
+            });
+          }
+        } else {
+          callback({
+            success: false,
+            error: "Failed to claim player identity",
+          });
+        }
+      } catch (error) {
+        console.error("Error during player claim:", error);
+        callback({ success: false, error: "Failed to claim player identity" });
+      }
+    }
+  );
+
   // Reconnect to room handler
   socket.on(
     "reconnectToRoom",
@@ -515,21 +605,70 @@ function handlePlayerReconnection(
   originalPlayerId: string
 ): boolean {
   const room = context.rooms.get(roomCode);
-  if (!room || !room.disconnectedPlayers) return false;
+  if (!room) return false;
 
-  // Find the disconnected player
-  const disconnectedPlayerIndex = room.disconnectedPlayers.findIndex(
-    (p) => p.name === playerName && p.socketId === originalPlayerId
-  );
+  let disconnectedPlayer: any = null;
+  let disconnectedPlayerIndex = -1;
+  let wasInDisconnectedList = false;
 
-  if (disconnectedPlayerIndex === -1) {
+  // First check if player is in disconnectedPlayers array (normal case)
+  if (room.disconnectedPlayers) {
+    disconnectedPlayerIndex = room.disconnectedPlayers.findIndex(
+      (p) => p.name === playerName && p.socketId === originalPlayerId
+    );
+
+    if (disconnectedPlayerIndex !== -1) {
+      disconnectedPlayer = room.disconnectedPlayers[disconnectedPlayerIndex];
+      wasInDisconnectedList = true;
+    }
+  }
+
+  // If not found in disconnectedPlayers, check if still in regular players array
+  // This handles cases where server hasn't detected disconnection yet
+  if (!disconnectedPlayer) {
+    const activePlayerIndex = room.players.findIndex(
+      (p) =>
+        p.name === playerName &&
+        (p.id === originalPlayerId || p.id === socket.id)
+    );
+
+    if (activePlayerIndex !== -1) {
+      disconnectedPlayer = room.players[activePlayerIndex];
+      // Remove from active players and treat as if they were disconnected
+      room.players.splice(activePlayerIndex, 1);
+
+      // Initialize disconnectedPlayers array if it doesn't exist
+      if (!room.disconnectedPlayers) {
+        room.disconnectedPlayers = [];
+      }
+
+      console.log(
+        `[RECONNECTION] Player ${playerName} found in active players with socket ${disconnectedPlayer.id}. Moving to disconnected list for reconnection processing.`
+      );
+
+      // Convert to disconnected player format
+      disconnectedPlayer = {
+        ...disconnectedPlayer,
+        disconnectedAt: Date.now(),
+        socketId: disconnectedPlayer.id, // Store the old socket ID
+      };
+
+      wasInDisconnectedList = false;
+    }
+  }
+
+  if (!disconnectedPlayer) {
     console.log(
-      `Disconnected player ${playerName} not found in room ${roomCode}`
+      `Reconnection failed: Player ${playerName} with original ID ${originalPlayerId} not found in room ${roomCode} (neither in active players nor disconnected players)`
     );
     return false;
   }
 
-  const disconnectedPlayer = room.disconnectedPlayers[disconnectedPlayerIndex];
+  console.log(
+    `[RECONNECTION] Found player ${playerName} for reconnection. Was in disconnected list: ${wasInDisconnectedList}, Original socket: ${
+      disconnectedPlayer.socketId || disconnectedPlayer.id
+    }`
+  );
 
   // Check if we're still in grace period (game not paused yet)
   const isInGracePeriod =
@@ -544,8 +683,14 @@ function handlePlayerReconnection(
     context.gracePeriodTimers.delete(roomCode);
   }
 
-  // Remove from disconnected list
-  room.disconnectedPlayers.splice(disconnectedPlayerIndex, 1);
+  // Remove from disconnected list only if they were actually in it
+  if (
+    wasInDisconnectedList &&
+    room.disconnectedPlayers &&
+    disconnectedPlayerIndex !== -1
+  ) {
+    room.disconnectedPlayers.splice(disconnectedPlayerIndex, 1);
+  }
 
   // Create new player object with new socket ID but preserving game state
   const reconnectedPlayer = {
@@ -561,9 +706,10 @@ function handlePlayerReconnection(
   room.players.push(reconnectedPlayer);
 
   // Update judge role if this player was the judge
-  if (room.currentJudge === disconnectedPlayer.socketId) {
+  const oldSocketId = disconnectedPlayer.socketId || disconnectedPlayer.id;
+  if (room.currentJudge === oldSocketId) {
     console.log(
-      `Updating judge role from old socket ID ${disconnectedPlayer.socketId} to new socket ID ${socket.id}`
+      `Updating judge role from old socket ID ${oldSocketId} to new socket ID ${socket.id}`
     );
     room.currentJudge = socket.id;
     // Notify all players that the judge has been updated (but it's the same person)
@@ -573,18 +719,18 @@ function handlePlayerReconnection(
   // Update all existing likes from this player to use the new socket ID
   room.submissions.forEach((submission) => {
     // Update the submission's playerId if it belongs to the reconnected player
-    if (submission.playerId === disconnectedPlayer.socketId) {
+    if (submission.playerId === oldSocketId) {
       console.log(
-        `[RECONNECTION] Updating submission playerId from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+        `[RECONNECTION] Updating submission playerId from old ID ${oldSocketId} to new ID ${socket.id} for submission by ${submission.playerName}`
       );
       submission.playerId = socket.id;
     }
 
     if (submission.likes) {
       submission.likes.forEach((like) => {
-        if (like.playerId === disconnectedPlayer.socketId) {
+        if (like.playerId === oldSocketId) {
           console.log(
-            `[RECONNECTION] Updating like from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+            `[RECONNECTION] Updating like from old ID ${oldSocketId} to new ID ${socket.id} for submission by ${submission.playerName}`
           );
           like.playerId = socket.id;
         }
@@ -596,18 +742,18 @@ function handlePlayerReconnection(
   if (room.randomizedSubmissions) {
     room.randomizedSubmissions.forEach((submission) => {
       // Update the submission's playerId if it belongs to the reconnected player
-      if (submission.playerId === disconnectedPlayer.socketId) {
+      if (submission.playerId === oldSocketId) {
         console.log(
-          `[RECONNECTION] Updating randomized submission playerId from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+          `[RECONNECTION] Updating randomized submission playerId from old ID ${oldSocketId} to new ID ${socket.id} for submission by ${submission.playerName}`
         );
         submission.playerId = socket.id;
       }
 
       if (submission.likes) {
         submission.likes.forEach((like) => {
-          if (like.playerId === disconnectedPlayer.socketId) {
+          if (like.playerId === oldSocketId) {
             console.log(
-              `[RECONNECTION] Updating like in randomized submissions from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+              `[RECONNECTION] Updating like in randomized submissions from old ID ${oldSocketId} to new ID ${socket.id} for submission by ${submission.playerName}`
             );
             like.playerId = socket.id;
           }
@@ -617,9 +763,9 @@ function handlePlayerReconnection(
   }
 
   // Update lastWinner if it points to the old socket ID
-  if (room.lastWinner === disconnectedPlayer.socketId) {
+  if (room.lastWinner === oldSocketId) {
     console.log(
-      `[RECONNECTION] Updating lastWinner from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id}`
+      `[RECONNECTION] Updating lastWinner from old ID ${oldSocketId} to new ID ${socket.id}`
     );
     room.lastWinner = socket.id;
   }
@@ -627,10 +773,10 @@ function handlePlayerReconnection(
   // Update lastWinningSubmission playerId if it belongs to the reconnected player
   if (
     room.lastWinningSubmission &&
-    room.lastWinningSubmission.playerId === disconnectedPlayer.socketId
+    room.lastWinningSubmission.playerId === oldSocketId
   ) {
     console.log(
-      `[RECONNECTION] Updating lastWinningSubmission playerId from old ID ${disconnectedPlayer.socketId} to new ID ${socket.id}`
+      `[RECONNECTION] Updating lastWinningSubmission playerId from old ID ${oldSocketId} to new ID ${socket.id}`
     );
     room.lastWinningSubmission.playerId = socket.id;
   }
@@ -674,7 +820,10 @@ function handlePlayerReconnection(
     // Game was already paused - handle normal reconnection flow
 
     // If this was the last disconnected player, resume the game
-    if (room.disconnectedPlayers.length === 0 && room.pausedForDisconnection) {
+    if (
+      (room.disconnectedPlayers?.length || 0) === 0 &&
+      room.pausedForDisconnection
+    ) {
       console.log(
         `All players reconnected. Stopping reconnection timer and resuming game.`
       );
@@ -693,6 +842,212 @@ function handlePlayerReconnection(
     context.io.to(roomCode).emit("playerReconnected", {
       playerId: socket.id,
       playerName: playerName,
+    });
+
+    emitRoomUpdated(context, roomCode, room);
+  }
+
+  // Check if room no longer only has bots and clear destruction timer if needed
+  checkAndHandleBotOnlyRoom(context, room);
+
+  return true;
+}
+
+function handlePlayerClaim(
+  context: SocketContext,
+  socket: Socket,
+  roomCode: string,
+  disconnectedPlayerName: string
+): boolean {
+  const room = context.rooms.get(roomCode);
+  if (!room || !room.disconnectedPlayers) return false;
+
+  // Find the disconnected player by name
+  const disconnectedPlayerIndex = room.disconnectedPlayers.findIndex(
+    (p) => p.name === disconnectedPlayerName
+  );
+
+  if (disconnectedPlayerIndex === -1) {
+    console.log(
+      `[DEVICE-SWITCH] Disconnected player ${disconnectedPlayerName} not found in room ${roomCode}`
+    );
+    return false;
+  }
+
+  const disconnectedPlayer = room.disconnectedPlayers[disconnectedPlayerIndex];
+  const oldSocketId = disconnectedPlayer.socketId;
+
+  console.log(
+    `[DEVICE-SWITCH] Player ${disconnectedPlayerName} being claimed from new device. Old socket: ${oldSocketId}, New socket: ${socket.id}`
+  );
+
+  // Check if we're still in grace period (game not paused yet)
+  const isInGracePeriod =
+    !room.pausedForDisconnection && context.gracePeriodTimers.has(roomCode);
+
+  if (isInGracePeriod) {
+    console.log(
+      `[DEVICE-SWITCH] ${disconnectedPlayerName} claimed during grace period. Canceling grace period timer and restoring seamlessly.`
+    );
+    // Cancel the grace period timer
+    clearTimeout(context.gracePeriodTimers.get(roomCode)!);
+    context.gracePeriodTimers.delete(roomCode);
+  }
+
+  // Remove from disconnected list
+  room.disconnectedPlayers.splice(disconnectedPlayerIndex, 1);
+
+  // Create new player object with new socket ID but preserving all game state
+  const claimedPlayer = {
+    ...disconnectedPlayer,
+    id: socket.id, // New socket ID from the new device
+  };
+
+  // Remove old socket ID references
+  delete (claimedPlayer as { disconnectedAt?: number }).disconnectedAt;
+  delete (claimedPlayer as { socketId?: string }).socketId;
+
+  // Add back to active players
+  room.players.push(claimedPlayer);
+
+  // Update judge role if this player was the judge
+  if (room.currentJudge === oldSocketId) {
+    console.log(
+      `[DEVICE-SWITCH] Updating judge role from old socket ID ${oldSocketId} to new socket ID ${socket.id}`
+    );
+    room.currentJudge = socket.id;
+    // Notify all players that the judge has been updated (but it's the same person)
+    context.io.to(roomCode).emit("judgeSelected", socket.id);
+  }
+
+  // Update all existing game data to use the new socket ID
+  room.submissions.forEach((submission) => {
+    // Update the submission's playerId if it belongs to the claimed player
+    if (submission.playerId === oldSocketId) {
+      console.log(
+        `[DEVICE-SWITCH] Updating submission playerId from old ID ${oldSocketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+      );
+      submission.playerId = socket.id;
+    }
+
+    if (submission.likes) {
+      submission.likes.forEach((like) => {
+        if (like.playerId === oldSocketId) {
+          console.log(
+            `[DEVICE-SWITCH] Updating like from old ID ${oldSocketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+          );
+          like.playerId = socket.id;
+        }
+      });
+    }
+  });
+
+  // Also update randomized submissions if they exist
+  if (room.randomizedSubmissions) {
+    room.randomizedSubmissions.forEach((submission) => {
+      // Update the submission's playerId if it belongs to the claimed player
+      if (submission.playerId === oldSocketId) {
+        console.log(
+          `[DEVICE-SWITCH] Updating randomized submission playerId from old ID ${oldSocketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+        );
+        submission.playerId = socket.id;
+      }
+
+      if (submission.likes) {
+        submission.likes.forEach((like) => {
+          if (like.playerId === oldSocketId) {
+            console.log(
+              `[DEVICE-SWITCH] Updating like in randomized submissions from old ID ${oldSocketId} to new ID ${socket.id} for submission by ${submission.playerName}`
+            );
+            like.playerId = socket.id;
+          }
+        });
+      }
+    });
+  }
+
+  // Update lastWinner if it points to the old socket ID
+  if (room.lastWinner === oldSocketId) {
+    console.log(
+      `[DEVICE-SWITCH] Updating lastWinner from old ID ${oldSocketId} to new ID ${socket.id}`
+    );
+    room.lastWinner = socket.id;
+  }
+
+  // Update lastWinningSubmission playerId if it belongs to the claimed player
+  if (
+    room.lastWinningSubmission &&
+    room.lastWinningSubmission.playerId === oldSocketId
+  ) {
+    console.log(
+      `[DEVICE-SWITCH] Updating lastWinningSubmission playerId from old ID ${oldSocketId} to new ID ${socket.id}`
+    );
+    room.lastWinningSubmission.playerId = socket.id;
+  }
+
+  // Update mappings
+  context.playerRooms.set(socket.id, roomCode);
+  socket.join(roomCode);
+
+  // Send powerup and like state synchronization to the claimed player
+  const powerupState = {
+    hasUsedRefresh: claimedPlayer.hasUsedRefresh || false,
+    hasUsedTripleSound: claimedPlayer.hasUsedTripleSound || false,
+    hasActivatedTripleSound: claimedPlayer.hasActivatedTripleSound || false,
+    hasUsedNuclearOption: claimedPlayer.hasUsedNuclearOption || false,
+    likeScore: claimedPlayer.likeScore || 0,
+  };
+
+  console.log(
+    `[DEVICE-SWITCH] Syncing powerup state for ${disconnectedPlayerName}:`,
+    powerupState
+  );
+
+  socket.emit("powerupStateSync", powerupState);
+
+  console.log(
+    `[DEVICE-SWITCH] Player ${disconnectedPlayerName} successfully claimed by new device in room ${roomCode}`
+  );
+
+  if (isInGracePeriod) {
+    // Grace period claim - seamless restore
+    console.log(
+      `[DEVICE-SWITCH] Seamless device switch during grace period for ${disconnectedPlayerName}`
+    );
+
+    // Notify everyone about the device switch/reconnection
+    context.io.to(roomCode).emit("playerReconnected", {
+      playerId: socket.id,
+      playerName: disconnectedPlayerName,
+    });
+
+    emitRoomUpdated(context, roomCode, room);
+  } else {
+    // Game was already paused - handle normal reconnection flow
+
+    // If this was the last disconnected player, resume the game
+    if (
+      (room.disconnectedPlayers?.length || 0) === 0 &&
+      room.pausedForDisconnection
+    ) {
+      console.log(
+        `[DEVICE-SWITCH] All players reconnected after device switch. Stopping reconnection timer and resuming game.`
+      );
+      clearDisconnectionTimer(context, roomCode);
+      clearTimer(context, roomCode); // Stop the reconnection timer
+      const gameStateToRestore =
+        room.previousGameState || GameState.SOUND_SELECTION;
+      console.log(
+        `[DEVICE-SWITCH] Restoring game state to: ${gameStateToRestore} (was paused at: ${room.previousGameState})`
+      );
+      // Don't reassign judge when all players reconnect successfully
+      resumeGame(context, roomCode, gameStateToRestore, false);
+    }
+
+    // Notify everyone about the device switch/reconnection
+    context.io.to(roomCode).emit("playerReconnected", {
+      playerId: socket.id,
+      playerName: disconnectedPlayerName,
     });
 
     emitRoomUpdated(context, roomCode, room);

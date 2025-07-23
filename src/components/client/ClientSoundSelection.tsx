@@ -8,6 +8,7 @@ import { Card, Button, SoundCard, CircularButton } from '@/components/ui';
 import { JudgePromptDisplay } from '../shared/JudgePromptDisplay';
 import GameTimer from '../mainscreen/GameTimer';
 import { useSoundSelection, useAudioPlaybackEnhanced } from '@/hooks';
+import { stripGenderSuffix } from '@/utils/gameUtils';
 
 interface ClientSoundSelectionProps {
   room: Room;
@@ -37,6 +38,7 @@ export default function ClientSoundSelection({
   const isJudge = player.id === room.currentJudge;
   const [showThirdSoundSlap, setShowThirdSoundSlap] = useState(false);
   const [isPromptAudioComplete, setIsPromptAudioComplete] = useState(false);
+  const [socketConnectedAt, setSocketConnectedAt] = useState<number | null>(null);
   
   // Use our custom hooks
   const {
@@ -77,6 +79,28 @@ export default function ClientSoundSelection({
     };
   }, [socket]);
 
+  // Track socket connection time
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConnect = () => {
+      const now = Date.now();
+      setSocketConnectedAt(now);
+      console.log('🎵 Client: Socket connected at', new Date(now).toISOString());
+    };
+
+    // If socket is already connected when component mounts, record the current time
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    socket.on('connect', handleConnect);
+
+    return () => {
+      socket.off('connect', handleConnect);
+    };
+  }, [socket]);
+
   // Reset prompt audio state when transitioning to new sound selection phase
   useEffect(() => {
     setIsPromptAudioComplete(false);
@@ -98,14 +122,26 @@ export default function ClientSoundSelection({
       setIsPromptAudioComplete(true);
       return;
     }
-    
-    // For all other cases (including when mainScreenCount is undefined), wait for promptAudioComplete event
+
+    // If our socket has been connected for less than 3 seconds, assume we're rejoining and skip wait
+    if (socket?.connected && socketConnectedAt) {
+      const timeSinceConnection = Date.now() - socketConnectedAt;
+      const isRecentConnection = timeSinceConnection < 3000; // 3 seconds
+      
+      if (isRecentConnection) {
+        console.log(`🎵 Client: Recent connection (${timeSinceConnection}ms ago), assuming reconnection - skipping prompt wait`);
+        setIsPromptAudioComplete(true);
+        return;
+      }
+    }
+
+    // For all other cases (new round start), wait for promptAudioComplete event
     console.log('🎵 Client: Has prompt audio, waiting for main screen to complete playback', {
       mainScreenCount: room.mainScreenCount,
       hasMainScreen,
       promptId: room.currentPrompt?.id
     });
-  }, [room.currentPrompt?.id, room.currentRound, room.mainScreenCount, room.currentPrompt?.audioFile]);
+  }, [room.currentPrompt?.id, room.currentRound, room.mainScreenCount, room.currentPrompt?.audioFile, room.usedPromptIds?.length, socketConnectedAt]);
 
   // Trigger slap animation when third sound is selected
   useEffect(() => {
@@ -192,7 +228,7 @@ export default function ClientSoundSelection({
                   <div className={`w-40 h-20 rounded-xl flex items-center justify-center shadow-lg transform scale-105 transition-all duration-300 bg-gradient-to-br from-purple-500 to-purple-600 border-2 border-purple-300`}>
                     <div className="text-center text-white">
                       <div className="text-sm font-bold">
-                        {soundEffects.find(s => s.id === soundId)?.name || `Sound ${index + 1}`}
+                        {stripGenderSuffix(soundEffects.find(s => s.id === soundId)?.name || `Sound ${index + 1}`)}
                       </div>
                     </div>
                   </div>
@@ -229,7 +265,7 @@ export default function ClientSoundSelection({
                   <div className="w-40 h-20 rounded-xl flex items-center justify-center shadow-2xl transform scale-110 transition-all duration-300 bg-gradient-to-br from-pink-500 to-red-500 border-2 border-pink-300 shadow-pink-500/50">
                     <div className="text-center text-white">
                       <div className="text-sm font-bold">
-                        {soundEffects.find(s => s.id === submission.sounds[2])?.name || 'Sound 3'}
+                        {stripGenderSuffix(soundEffects.find(s => s.id === submission.sounds[2])?.name || 'Sound 3')}
                       </div>
                     </div>
                   </div>
@@ -364,7 +400,7 @@ export default function ClientSoundSelection({
                   {selectedSoundsLocal.length > 0 ? (
                     <div className="text-center text-white">
                       <div className="text-xs font-bold">
-                        {playerSoundSet.find(s => s.id === selectedSoundsLocal[0])?.name || 'Unknown'}
+                        {stripGenderSuffix(playerSoundSet.find(s => s.id === selectedSoundsLocal[0])?.name || 'Unknown')}
                       </div>
                     </div>
                   ) : (
@@ -405,7 +441,7 @@ export default function ClientSoundSelection({
                   {selectedSoundsLocal.length > 1 ? (
                     <div className="text-center text-white">
                       <div className="text-xs font-bold">
-                        {playerSoundSet.find(s => s.id === selectedSoundsLocal[1])?.name || 'Unknown'}
+                        {stripGenderSuffix(playerSoundSet.find(s => s.id === selectedSoundsLocal[1])?.name || 'Unknown')}
                       </div>
                     </div>
                   ) : (
@@ -452,7 +488,7 @@ export default function ClientSoundSelection({
                     {selectedSoundsLocal.length > 2 ? (
                       <div className="text-center text-white">
                         <div className="text-xs font-bold">
-                          {playerSoundSet.find(s => s.id === selectedSoundsLocal[2])?.name || 'Unknown'}
+                          {stripGenderSuffix(playerSoundSet.find(s => s.id === selectedSoundsLocal[2])?.name || 'Unknown')}
                         </div>
                       </div>
                     ) : (

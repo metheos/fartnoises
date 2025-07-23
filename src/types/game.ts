@@ -34,6 +34,15 @@ export interface DisconnectedPlayer {
   hasUsedNuclearOption?: boolean; // Track if player has used their one-time nuclear option as judge
 }
 
+// Simplified disconnected player info for device switching UI
+export interface DisconnectedPlayerInfo {
+  name: string;
+  color: string;
+  emoji?: string;
+  disconnectedAt: number;
+  socketId: string;
+}
+
 export interface ReconnectionVote {
   voterId: string;
   voterName: string;
@@ -237,6 +246,25 @@ export interface ClientToServerEvents {
     playerName: string,
     originalPlayerId: string,
     callback: (success: boolean, room?: Room) => void
+  ) => void;
+  getDisconnectedPlayers: (
+    roomCode: string,
+    callback: (result: {
+      success: boolean;
+      disconnectedPlayers?: DisconnectedPlayerInfo[];
+      canClaimPlayer?: boolean;
+      error?: string;
+    }) => void
+  ) => void;
+  claimDisconnectedPlayer: (
+    roomCode: string,
+    disconnectedPlayerName: string,
+    callback: (result: {
+      success: boolean;
+      room?: Room;
+      player?: Player;
+      error?: string;
+    }) => void
   ) => void;
   leaveRoom: () => void;
   startGame: () => void;

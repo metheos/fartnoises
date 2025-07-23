@@ -8,5 +8,6 @@ export { default as ClientSoundSelection } from "./ClientSoundSelection";
 export { default as ClientJudging } from "./ClientJudging";
 export { default as ClientResults } from "./ClientResults";
 export { default as ClientGameOver } from "./ClientGameOver";
+export { default as PlayerClaimDialog } from "./PlayerClaimDialog";
 // Keep the waiting component for PLAYBACK state on player devices
 export { default as ClientWaitingForPlayback } from "./ClientWaitingForPlayback";

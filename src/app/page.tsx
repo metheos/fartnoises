@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PLAYER_COLORS, PLAYER_EMOJIS, getRandomColor, getRandomEmoji, getSoundEffects } from '@/data/gameData';
-import { getPlayerColorClass } from '@/utils/gameUtils';
+import { getPlayerColorClass, stripGenderSuffix } from '@/utils/gameUtils';
 import { useAudioSystem } from '@/utils/audioSystem';
 import { Button } from '@/components/ui';
 import Footer from '@/components/shared/Footer';
@@ -141,7 +141,7 @@ export default function Home() {
       if (fartSounds.length > 0) {
         // Pick a random fart sound
         const randomFartSound = fartSounds[Math.floor(Math.random() * fartSounds.length)];
-        console.log(`🎵💨 Playing random fart sound: ${randomFartSound.name}`);
+        console.log(`🎵💨 Playing random fart sound: ${stripGenderSuffix(randomFartSound.name)}`);
         
         // Play the sound
         await audioSystem.playSound(randomFartSound.id);
@@ -160,6 +160,7 @@ export default function Home() {
       setIsPlayingSound(false);
     }
   };
+
   const handleSubmit = (selectedMode: 'create' | 'join') => {
     if (!playerName.trim()) return;
     

@@ -11,6 +11,7 @@ export { useSoundSelection } from "./useSoundSelection";
 export { useTimer } from "./useTimer";
 export { useAudio } from "./useAudio";
 export { useSocket } from "./useSocket";
+export { usePlayerClaim } from "./usePlayerClaim";
 
 // New custom UI logic hooks
 export { useSubmissionPlayback } from "./useSubmissionPlayback";

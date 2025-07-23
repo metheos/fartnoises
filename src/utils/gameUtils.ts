@@ -61,6 +61,14 @@ export const getPlayerDisplayName = (
   return playerName || `Player ${playerId.slice(-4)}`;
 };
 
+/**
+ * Helper function to strip gender suffixes from sound names for display
+ * Removes "(male)" or "(female)" suffixes (case insensitive) and trims whitespace
+ */
+export const stripGenderSuffix = (soundName: string): string => {
+  return soundName.replace(/\s*\((male|female)\)\s*$/i, "").trim();
+};
+
 // Function to process prompt text for special tags (imported from soundLoader)
 export function processPromptText(
   text: string,

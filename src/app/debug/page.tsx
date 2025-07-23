@@ -10,6 +10,7 @@ import { Room, GameState, Player, SoundSubmission, GamePrompt, SoundEffect } fro
 import { getSoundEffects, getGamePrompts } from '@/data/gameData';
 import { WaveformAnimation } from '@/components/shared/WaveformAnimation';
 import { audioSystem } from '@/utils/audioSystem';
+import { stripGenderSuffix } from '@/utils/gameUtils';
 
 // Import Main Screen Components
 import LobbyDisplay from '@/components/mainscreen/LobbyDisplay';
@@ -274,7 +275,7 @@ export default function DebugPage() {
               console.log(`🔌 Mock Socket: 🎵 Sending submission ${currentSubmissionIndex + 1}/${submissions.length} (${submission.playerName}):`, submission);
               console.log(`🎵 Playing sounds: ${submission.sounds.map(soundId => {
                 const sound = mockSoundEffects.find(s => s.id === soundId);
-                return sound ? sound.name : soundId;
+                return sound ? stripGenderSuffix(sound.name) : soundId;
               }).join(' + ')}`);
               
               // Trigger playSubmission event
@@ -411,7 +412,7 @@ export default function DebugPage() {
               // Mock implementation for debug - just log the sounds being played
               const soundNames = sounds.map(soundId => {
                 const sound = mockSoundEffects.find(s => s.id === soundId);
-                return sound ? sound.name : soundId;
+                return sound ? stripGenderSuffix(sound.name) : soundId;
               }).join(' + ');
               console.log(`🎵 Mock playing: ${soundNames}`);
               return Promise.resolve();
@@ -664,7 +665,7 @@ export default function DebugPage() {
               <span className="ml-2 text-sm text-green-400">{selectedSounds.length}/2</span>
               {selectedSounds.length > 0 && (
                 <span className="ml-2 text-xs text-gray-400">
-                  [{selectedSounds.map(id => mockSoundEffects.find(s => s.id === id)?.name || id).join(', ')}]
+                  [{selectedSounds.map(id => stripGenderSuffix(mockSoundEffects.find(s => s.id === id)?.name || id)).join(', ')}]
                 </span>
               )}
             </div>
