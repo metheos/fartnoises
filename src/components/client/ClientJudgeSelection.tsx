@@ -19,7 +19,7 @@ export default function ClientJudgeSelection({ room, player }: ClientJudgeSelect
             judge={judge} 
             prompt={undefined} 
             showPrompt={false} 
-            size="small"
+            size="large"
           />
         </div>
       ) : (
