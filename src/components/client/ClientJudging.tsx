@@ -160,7 +160,7 @@ export default function ClientJudging({
               prompt={room.currentPrompt || undefined} 
               showPrompt={true} 
               showJudge={false}
-              size="small"
+              size="large"
             />
           </div>
           
@@ -173,7 +173,7 @@ export default function ClientJudging({
               prompt={room.currentPrompt || undefined} 
               showPrompt={true} 
               showJudge={false}
-              size="small"
+              size="large"
             />
           </div>
       )}

@@ -56,7 +56,7 @@ export default function ClientPromptSelection({
             judge={judge || undefined} 
             prompt={undefined} 
             showPrompt={false} 
-            size="small"
+            size="large"
           />
           <p className="mt-4">Waiting for the Judge to select a prompt...</p>
         </div>

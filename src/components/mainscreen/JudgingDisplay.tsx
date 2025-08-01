@@ -49,9 +49,12 @@ export function JudgingDisplay({
         {(room.randomizedSubmissions || room.submissions).map((submission, index) => {
           const isCurrentlyPlaying = currentPlayingSubmission?.playerId === submission.playerId;
           
+          // Debug: Log the state to see if multiple cards are getting isCurrentlyPlaying=true
+          console.log(`[WAVEFORM ISSUE] Card ${index} (${submission.playerName}): isCurrentlyPlaying=${isCurrentlyPlaying}, currentPlayingSubmission=${currentPlayingSubmission?.playerName || 'null'}`);
+          
           return (
             <SubmissionCard
-              key={index}
+              key={`judging-${submission.playerId}-${index}`}
               submission={submission}
               index={index}
               soundEffects={soundEffects}

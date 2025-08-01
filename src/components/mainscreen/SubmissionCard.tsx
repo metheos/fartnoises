@@ -380,6 +380,7 @@ export function SubmissionCard({
         <WaveformAnimation 
           isPlaying={isCurrentlyPlaying}
           color="bg-white"
+          debugId={`${submission.playerName}-${playingMode}`}
         />
       </div>
     </div>

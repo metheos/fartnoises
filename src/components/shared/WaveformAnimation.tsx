@@ -12,16 +12,48 @@ interface WaveformAnimationProps {
   size?: 'sm' | 'md' | 'lg';
   /** Number of frequency bars to display */
   barCount?: number;
+  /** Debug identifier to track which waveform this is */
+  debugId?: string;
 }
 
 export function WaveformAnimation({ 
   isPlaying, 
   className = '', 
   size = 'md',
-  barCount = 24
+  barCount = 24,
+  debugId = 'unknown'
 }: WaveformAnimationProps) {
   const animationRef = useRef<number | undefined>(undefined);
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const isCancelledRef = useRef<boolean>(false);
   const [frequencyData, setFrequencyData] = useState<number[]>(new Array(barCount).fill(0.1)); // Start with stub values
+
+  // Debug: Log when isPlaying changes for this waveform
+  useEffect(() => {
+    console.log(`[WAVEFORM ${debugId}] isPlaying changed to: ${isPlaying}`);
+    
+    // If isPlaying becomes false, immediately stop any ongoing animation loop
+    if (!isPlaying) {
+      console.log(`[WAVEFORM ${debugId}] FORCE STOPPING animation loop due to isPlaying=false`);
+      isCancelledRef.current = true;
+      
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = undefined;
+      }
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = undefined;
+      }
+      
+      // Start the fade-out animation immediately
+      updateFrequencyData();
+    } else {
+      // Reset cancellation flag when starting to play
+      isCancelledRef.current = false;
+    }
+  }, [isPlaying, debugId]);
 
   // Different size configurations
   const sizeConfig = {
@@ -49,20 +81,60 @@ export function WaveformAnimation({
 
   // Real-time frequency analysis with Chrome performance optimization
   const updateFrequencyData = () => {
-    if (!isPlaying || !audioSystem.isAnalysisReady() || !audioSystem.getAnalysisActive()) {
+    // Check if this animation has been cancelled
+    if (isCancelledRef.current && !isPlaying) {
+      console.log(`[WAVEFORM ${debugId}] Animation cancelled, stopping immediately`);
+      return;
+    }
+    
+    // Only animate this specific waveform when it should be playing
+    // Ignore global analysis state to prevent cross-contamination between cards
+    if (!isPlaying) {
+      // Debug: Log when this waveform is fading out
+      if (Math.random() < 0.01) { // Only log 1% of the time to reduce spam
+        console.log(`[WAVEFORM ${debugId}] Fading out (isPlaying=false)`);
+      }
       // Gradually fade out the bars when not playing, but keep minimum stub height
       setFrequencyData(prev => prev.map(val => {
         const fadedValue = Math.max(0, val * 0.55);
         // Ensure we always have at least a small stub visible
         return Math.max(0.1, fadedValue);
       }));
-      animationRef.current = requestAnimationFrame(updateFrequencyData);
+      
+      // Don't continue the animation loop if cancelled
+      if (!isCancelledRef.current) {
+        animationRef.current = requestAnimationFrame(updateFrequencyData);
+      }
       return;
+    }
+
+    // Only proceed if global analysis is ready AND this specific card should be playing
+    if (!audioSystem.isAnalysisReady() || !audioSystem.getAnalysisActive()) {
+      // Debug: Log when analysis isn't ready
+      if (Math.random() < 0.01) {
+        console.log(`[WAVEFORM ${debugId}] Analysis not ready, showing minimal animation`);
+      }
+      // If analysis isn't ready, show minimal animation
+      setFrequencyData(prev => prev.map(val => Math.max(0.1, val * 0.8)));
+      
+      // Don't continue if cancelled
+      if (!isCancelledRef.current) {
+        animationRef.current = requestAnimationFrame(updateFrequencyData);
+      }
+      return;
+    }
+
+    // Debug: Log when actively reading frequency data
+    if (Math.random() < 0.05) { // Log 5% of the time
+      console.log(`[WAVEFORM ${debugId}] ACTIVELY reading global frequency data`);
     }
 
     const rawFrequencyData = audioSystem.getFrequencyData();
     if (!rawFrequencyData) {
-      animationRef.current = requestAnimationFrame(updateFrequencyData);
+      // Don't continue if cancelled
+      if (!isCancelledRef.current) {
+        animationRef.current = requestAnimationFrame(updateFrequencyData);
+      }
       return;
     }
 
@@ -228,19 +300,37 @@ export function WaveformAnimation({
 
     // Chrome performance: Use longer intervals between updates
     const nextUpdateDelay = isChrome ? 32 : 16; // ~30fps for Chrome, ~60fps for others
-    setTimeout(() => {
-      animationRef.current = requestAnimationFrame(updateFrequencyData);
-    }, nextUpdateDelay);
+    
+    // Don't schedule next frame if animation has been cancelled
+    if (!isCancelledRef.current) {
+      timeoutRef.current = setTimeout(() => {
+        // Double-check cancellation before scheduling the next frame
+        if (!isCancelledRef.current) {
+          animationRef.current = requestAnimationFrame(updateFrequencyData);
+        }
+        timeoutRef.current = undefined;
+      }, nextUpdateDelay);
+    }
   };
 
   // Start/stop animation loop
   useEffect(() => {
     if (isPlaying) {
+      isCancelledRef.current = false;
       updateFrequencyData();
     } else {
+      isCancelledRef.current = true;
+      
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = undefined;
       }
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = undefined;
+      }
+      
       // Keep a gentle fade-out animation even when stopped, but maintain stubs
       const fadeInterval = setInterval(() => {
         setFrequencyData(prev => {
@@ -258,8 +348,16 @@ export function WaveformAnimation({
     }
 
     return () => {
+      isCancelledRef.current = true;
+      
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = undefined;
+      }
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = undefined;
       }
     };
   // Animation dependency management - simplified deps to avoid animation restart loops
@@ -269,8 +367,14 @@ export function WaveformAnimation({
   // Cleanup animation on unmount
   useEffect(() => {
     return () => {
+      isCancelledRef.current = true;
+      
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+      }
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
     };
   }, []);
